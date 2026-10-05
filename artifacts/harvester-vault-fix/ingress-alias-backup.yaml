@@ -1,0 +1,85 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-issuer
+    field.cattle.io/publicEndpoints: '[{"addresses":["192.168.50.82"],"port":443,"protocol":"HTTPS","serviceName":"tenant-quantum-forge-platform:codetether-marketing-bridge","ingressName":"tenant-quantum-forge-platform:a2a-quantum-forge-ingress-alias","hostname":"quantum-forge.codetether.run","path":"/api/auth","allNodes":false},{"addresses":["192.168.50.82"],"port":443,"protocol":"HTTPS","serviceName":"tenant-quantum-forge-platform:codetether-marketing-bridge","ingressName":"tenant-quantum-forge-platform:a2a-quantum-forge-ingress-alias","hostname":"quantum-forge.codetether.run","path":"/","allNodes":false},{"addresses":["192.168.50.82"],"port":443,"protocol":"HTTPS","serviceName":"tenant-quantum-forge-platform:a2a-quantum-forge-platform-svc","ingressName":"tenant-quantum-forge-platform:a2a-quantum-forge-ingress-alias","hostname":"quantum-forge.codetether.run","path":"/api","allNodes":false},{"addresses":["192.168.50.82"],"port":443,"protocol":"HTTPS","serviceName":"tenant-quantum-forge-platform:a2a-quantum-forge-platform-svc","ingressName":"tenant-quantum-forge-platform:a2a-quantum-forge-ingress-alias","hostname":"quantum-forge.codetether.run","path":"/v1","allNodes":false},{"addresses":["192.168.50.82"],"port":443,"protocol":"HTTPS","serviceName":"tenant-quantum-forge-platform:a2a-quantum-forge-platform-svc","ingressName":"tenant-quantum-forge-platform:a2a-quantum-forge-ingress-alias","hostname":"quantum-forge.codetether.run","path":"/health","allNodes":false},{"addresses":["192.168.50.82"],"port":443,"protocol":"HTTPS","serviceName":"tenant-quantum-forge-platform:a2a-quantum-forge-platform-svc","ingressName":"tenant-quantum-forge-platform:a2a-quantum-forge-ingress-alias","hostname":"quantum-forge.codetether.run","path":"/openapi.json","allNodes":false},{"addresses":["192.168.50.82"],"port":443,"protocol":"HTTPS","serviceName":"tenant-quantum-forge-platform:a2a-quantum-forge-platform-svc","ingressName":"tenant-quantum-forge-platform:a2a-quantum-forge-ingress-alias","hostname":"quantum-forge.codetether.run","path":"/docs","allNodes":false},{"addresses":["192.168.50.82"],"port":443,"protocol":"HTTPS","serviceName":"tenant-quantum-forge-platform:a2a-quantum-forge-platform-svc","ingressName":"tenant-quantum-forge-platform:a2a-quantum-forge-ingress-alias","hostname":"quantum-forge.codetether.run","path":"/redoc","allNodes":false}]'
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"cert-manager.io/cluster-issuer":"cloudflare-issuer","nginx.ingress.kubernetes.io/ssl-redirect":"true"},"name":"a2a-quantum-forge-ingress-alias","namespace":"tenant-quantum-forge-platform"},"spec":{"ingressClassName":"nginx","rules":[{"host":"quantum-forge.codetether.run","http":{"paths":[{"backend":{"service":{"name":"codetether-marketing-bridge","port":{"number":3000}}},"path":"/dashboard","pathType":"Prefix"},{"backend":{"service":{"name":"a2a-quantum-forge-platform-svc","port":{"number":8000}}},"path":"/","pathType":"Prefix"}]}}],"tls":[{"hosts":["quantum-forge.codetether.run"],"secretName":"a2a-quantum-forge-platform-ingress-tls"}]}}
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  creationTimestamp: "2026-03-21T15:48:12Z"
+  generation: 4
+  name: a2a-quantum-forge-ingress-alias
+  namespace: tenant-quantum-forge-platform
+  resourceVersion: "417546142"
+  uid: 68f7a2cd-b143-4a96-9f61-d2680641c4a6
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: quantum-forge.codetether.run
+    http:
+      paths:
+      - backend:
+          service:
+            name: codetether-marketing-bridge
+            port:
+              number: 3000
+        path: /api/auth
+        pathType: Prefix
+      - backend:
+          service:
+            name: a2a-quantum-forge-platform-svc
+            port:
+              number: 8000
+        path: /api
+        pathType: Prefix
+      - backend:
+          service:
+            name: a2a-quantum-forge-platform-svc
+            port:
+              number: 8000
+        path: /v1
+        pathType: Prefix
+      - backend:
+          service:
+            name: a2a-quantum-forge-platform-svc
+            port:
+              number: 8000
+        path: /health
+        pathType: Exact
+      - backend:
+          service:
+            name: a2a-quantum-forge-platform-svc
+            port:
+              number: 8000
+        path: /openapi.json
+        pathType: Exact
+      - backend:
+          service:
+            name: a2a-quantum-forge-platform-svc
+            port:
+              number: 8000
+        path: /docs
+        pathType: Prefix
+      - backend:
+          service:
+            name: a2a-quantum-forge-platform-svc
+            port:
+              number: 8000
+        path: /redoc
+        pathType: Prefix
+      - backend:
+          service:
+            name: codetether-marketing-bridge
+            port:
+              number: 3000
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - quantum-forge.codetether.run
+    secretName: a2a-quantum-forge-platform-ingress-tls
+status:
+  loadBalancer:
+    ingress:
+    - ip: 192.168.50.82

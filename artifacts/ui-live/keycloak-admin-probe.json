@@ -1,0 +1,7 @@
+{
+  "service": "keycloak/keycloak",
+  "transport": "authenticated Kubernetes port-forward",
+  "status": 200,
+  "authenticated": true,
+  "testUsers": []
+}

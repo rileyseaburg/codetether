@@ -1,0 +1,245 @@
+{
+  "at": "2026-09-14T12:20:27.713319+00:00",
+  "counts": {
+    "running": 9,
+    "Complete": 28,
+    "Failed": 1
+  },
+  "active": [
+    {
+      "job": "ct-task-22c89ec543d94e7e6872b9549c2995f5",
+      "class": "coding",
+      "started": "2026-09-14T12:17:49Z"
+    },
+    {
+      "job": "ct-task-2581fc0f3786bd3689769ea34f4317ac",
+      "class": "coding",
+      "started": "2026-09-14T12:17:52Z"
+    },
+    {
+      "job": "ct-task-650dbd9f177a5cb85f80d265cd342793",
+      "class": "coding",
+      "started": "2026-09-14T12:17:52Z"
+    },
+    {
+      "job": "ct-task-97a6a8776bba4cfdf1ab8ef75168b601",
+      "class": "coding",
+      "started": "2026-09-14T12:17:48Z"
+    },
+    {
+      "job": "ct-task-9f5078efd467261f3fe3764b619f0b26",
+      "class": "coding",
+      "started": "2026-09-14T12:17:47Z"
+    },
+    {
+      "job": "ct-task-cc8e3471f8fb1fd9e55956905d0c96b7",
+      "class": "coding",
+      "started": "2026-09-14T12:17:52Z"
+    },
+    {
+      "job": "ct-task-cfd7ba96333b12c1aaf020de67708ef0",
+      "class": "coding",
+      "started": "2026-09-14T12:17:52Z"
+    },
+    {
+      "job": "ct-task-e0c93d871a9b8cb8142f87dec42952f6",
+      "class": "readonly",
+      "started": "2026-09-14T12:17:44Z"
+    },
+    {
+      "job": "ct-task-e2483966e09c3d8b1892636420d7e32f",
+      "class": "coding",
+      "started": "2026-09-14T12:17:49Z"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "826206ac-b97c-4ecc-9f8c-8e19c6d18981",
+      "status": "completed",
+      "title": "PR #6044 review chunk 1",
+      "updated_at": "2026-09-14 12:20:23.716028+00:00",
+      "error": null,
+      "stage": "review_chunk",
+      "job": "ct-task-e0c93d871a9b8cb8142f87dec42952f6",
+      "waiting": null,
+      "pr": "6044",
+      "publication": null
+    },
+    {
+      "id": "d0ee324a-d0c1-4f0c-997b-99be7d6b8c6e",
+      "status": "running",
+      "title": "Prepare Forgejo task #6050",
+      "updated_at": "2026-09-14 12:20:11.305259+00:00",
+      "error": null,
+      "stage": "prepare",
+      "job": "ct-task-650dbd9f177a5cb85f80d265cd342793",
+      "waiting": null,
+      "pr": null,
+      "publication": null
+    },
+    {
+      "id": "aa5cfc2c-331d-4375-b153-572028c46e85",
+      "status": "running",
+      "title": "Prepare Forgejo task #6047",
+      "updated_at": "2026-09-14 12:20:10.681237+00:00",
+      "error": null,
+      "stage": "prepare",
+      "job": "ct-task-2581fc0f3786bd3689769ea34f4317ac",
+      "waiting": null,
+      "pr": null,
+      "publication": null
+    },
+    {
+      "id": "f09d9977-0653-44b5-86c4-a96cb6373b51",
+      "status": "completed",
+      "title": "PR #6042 review chunk 1",
+      "updated_at": "2026-09-14 12:20:08.874802+00:00",
+      "error": null,
+      "stage": "review_chunk",
+      "job": "ct-task-f35bc1de99f919fd194e68dddf612f32",
+      "waiting": null,
+      "pr": "6042",
+      "publication": null
+    },
+    {
+      "id": "c9c171b6-0222-4bd0-a493-67ca4198c9e4",
+      "status": "running",
+      "title": "Prepare Forgejo task #6049",
+      "updated_at": "2026-09-14 12:19:56.639513+00:00",
+      "error": null,
+      "stage": "prepare",
+      "job": "ct-task-cc8e3471f8fb1fd9e55956905d0c96b7",
+      "waiting": null,
+      "pr": null,
+      "publication": null
+    },
+    {
+      "id": "ff41521c-5ba9-4d72-88ad-33cfad611e38",
+      "status": "running",
+      "title": "Prepare Forgejo task #6048",
+      "updated_at": "2026-09-14 12:19:56.052866+00:00",
+      "error": null,
+      "stage": "prepare",
+      "job": "ct-task-cfd7ba96333b12c1aaf020de67708ef0",
+      "waiting": null,
+      "pr": null,
+      "publication": null
+    },
+    {
+      "id": "76e5292b-8976-47d1-8a50-0cf0ac53c1ad",
+      "status": "completed",
+      "title": "PR #6045 review chunk 1",
+      "updated_at": "2026-09-14 12:19:48.995618+00:00",
+      "error": null,
+      "stage": "review_chunk",
+      "job": "ct-task-c686eee9ab7bf7032d8ff0b4ed73a9fc",
+      "waiting": null,
+      "pr": "6045",
+      "publication": null
+    },
+    {
+      "id": "a75a9b99-49a9-40d5-9783-895523c88b29",
+      "status": "completed",
+      "title": "PR #6046 review chunk 1",
+      "updated_at": "2026-09-14 12:19:44.997030+00:00",
+      "error": null,
+      "stage": "review_chunk",
+      "job": "ct-task-13eca925e0b6210a0e717c6aaa347f4f",
+      "waiting": null,
+      "pr": "6046",
+      "publication": null
+    },
+    {
+      "id": "e6a8b1fe-3777-4b13-adfb-886f3ad2d966",
+      "status": "pending",
+      "title": "Work Forgejo task #6032",
+      "updated_at": "2026-09-12 21:28:38.363292+00:00",
+      "error": null,
+      "stage": "code",
+      "job": "ct-task-22c89ec543d94e7e6872b9549c2995f5",
+      "waiting": null,
+      "pr": null,
+      "publication": null
+    },
+    {
+      "id": "420aa345-9af2-4fdb-8027-f95a79a3d0c3",
+      "status": "pending",
+      "title": "Work Forgejo task #6030",
+      "updated_at": "2026-09-12 21:28:27.923954+00:00",
+      "error": null,
+      "stage": "code",
+      "job": "ct-task-e2483966e09c3d8b1892636420d7e32f",
+      "waiting": null,
+      "pr": null,
+      "publication": null
+    },
+    {
+      "id": "9b0f1a26-617f-4383-b302-296d55f811a3",
+      "status": "pending",
+      "title": "Work Forgejo task #6031",
+      "updated_at": "2026-09-12 21:28:22.203160+00:00",
+      "error": null,
+      "stage": "code",
+      "job": "ct-task-97a6a8776bba4cfdf1ab8ef75168b601",
+      "waiting": null,
+      "pr": null,
+      "publication": null
+    },
+    {
+      "id": "31bc7f21-9b31-4444-96cf-0eb972755a76",
+      "status": "pending",
+      "title": "Work Forgejo task #6029",
+      "updated_at": "2026-09-12 21:24:58.641837+00:00",
+      "error": null,
+      "stage": "code",
+      "job": "ct-task-9f5078efd467261f3fe3764b619f0b26",
+      "waiting": null,
+      "pr": null,
+      "publication": null
+    }
+  ],
+  "prs": [
+    {
+      "pr": 6003,
+      "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6003",
+      "head": "e6cdc4ae26b9143ede32e6792370fd2e04ab5e97",
+      "state": "open",
+      "merged": false,
+      "checks": [
+        {
+          "context": "CodeTether / Harvester Review",
+          "status": "failure",
+          "description": "Harvester review: blocked"
+        }
+      ]
+    },
+    {
+      "pr": 6045,
+      "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6045",
+      "head": "470afd618df7d9e7c809e711de85b1da4199627d",
+      "state": "open",
+      "merged": false,
+      "checks": [
+        {
+          "context": "CodeTether / Harvester Review",
+          "status": "pending",
+          "description": "Complete diff review in progress"
+        }
+      ]
+    },
+    {
+      "pr": 6046,
+      "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6046",
+      "head": "e989f36958b52f22184f319a807b62945ffb0865",
+      "state": "open",
+      "merged": false,
+      "checks": [
+        {
+          "context": "CodeTether / Harvester Review",
+          "status": "pending",
+          "description": "Complete diff review in progress"
+        }
+      ]
+    }
+  ]
+}

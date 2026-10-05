@@ -1,0 +1,4048 @@
++set.push("\"next_run_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.enabled.as_ref() {
++set.push("\"enabled\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.max_runtime_seconds.as_ref() {
++set.push("\"max_runtime_seconds\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.max_attempts.as_ref() {
++set.push("\"max_attempts\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.retry_delay_seconds.as_ref() {
++set.push("\"retry_delay_seconds\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.version.as_ref() {
++set.push("\"version\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.approved_version.as_ref() {
++set.push("\"approved_version\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.approved_by.as_ref() {
++set.push("\"approved_by\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.approved_at.as_ref() {
++set.push("\"approved_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_by.as_ref() {
++set.push("\"created_by\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_by.as_ref() {
++set.push("\"updated_by\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_run_at.as_ref() {
++set.push("\"last_run_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<CodetetherAutomationSchedules>().fetch_optional(pool).await
++}
++/// Deletes one `codetether_automation_schedules` row by primary key.
++pub async fn delete_codetether_automation_schedules(pool: &PgPool, id: sqlx::types::Uuid) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"codetether_automation_schedules\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `codetether_insights`.
+ pub async fn list_codetether_insights(pool: &PgPool) -> Result<Vec<CodetetherInsights>, sqlx::Error> {
+ sqlx::query_as::<_, CodetetherInsights>("SELECT * FROM \"codetether_insights\"").fetch_all(pool).await
+@@ -19277,6 +26236,168 @@ let result = sqlx::query("DELETE FROM \"collection_territories\" WHERE \"id\" =
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `commercial_outreach_leads`.
++pub async fn list_commercial_outreach_leads(pool: &PgPool) -> Result<Vec<CommercialOutreachLeads>, sqlx::Error> {
++sqlx::query_as::<_, CommercialOutreachLeads>("SELECT * FROM \"commercial_outreach_leads\"").fetch_all(pool).await
++}
++
++/// Returns one `commercial_outreach_leads` row by primary key.
++pub async fn find_commercial_outreach_leads(pool: &PgPool, id: i32) -> Result<Option<CommercialOutreachLeads>, sqlx::Error> {
++sqlx::query_as::<_, CommercialOutreachLeads>("SELECT * FROM \"commercial_outreach_leads\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `commercial_outreach_leads` row and returns it.
++pub async fn create_commercial_outreach_leads(pool: &PgPool, input: NewCommercialOutreachLeads) -> Result<CommercialOutreachLeads, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, CommercialOutreachLeads>("INSERT INTO \"commercial_outreach_leads\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"commercial_outreach_leads\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"business_name\"");
++        if input.contact_name.is_some() {
++            columns.push("\"contact_name\"");
++        }
++        if input.email.is_some() {
++            columns.push("\"email\"");
++        }
++        if input.phone.is_some() {
++            columns.push("\"phone\"");
++        }
++        if input.category.is_some() {
++            columns.push("\"category\"");
++        }
++        if input.address.is_some() {
++            columns.push("\"address\"");
++        }
++        if input.quote_amount.is_some() {
++            columns.push("\"quote_amount\"");
++        }
++        if input.pain_points.is_some() {
++            columns.push("\"pain_points\"");
++        }
++        if input.tier.is_some() {
++            columns.push("\"tier\"");
++        }
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        if input.last_contacted_at.is_some() {
++            columns.push("\"last_contacted_at\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.business_name);
++        if let Some(value) = input.contact_name.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.email.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.phone.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.category.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.address.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.quote_amount.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.pain_points.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tier.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_contacted_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<CommercialOutreachLeads>().fetch_one(pool).await
++}
++/// Applies a partial update to one `commercial_outreach_leads` row.
++pub async fn update_commercial_outreach_leads(pool: &PgPool, id: i32, input: PatchCommercialOutreachLeads) -> Result<Option<CommercialOutreachLeads>, sqlx::Error> {
++if !(input.business_name.is_some() || input.contact_name.is_some() || input.email.is_some() || input.phone.is_some() || input.category.is_some() || input.address.is_some() || input.quote_amount.is_some() || input.pain_points.is_some() || input.tier.is_some() || input.status.is_some() || input.last_contacted_at.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
++return find_commercial_outreach_leads(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"commercial_outreach_leads\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.business_name.as_ref() {
++set.push("\"business_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.contact_name.as_ref() {
++set.push("\"contact_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.email.as_ref() {
++set.push("\"email\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.phone.as_ref() {
++set.push("\"phone\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.category.as_ref() {
++set.push("\"category\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.address.as_ref() {
++set.push("\"address\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.quote_amount.as_ref() {
++set.push("\"quote_amount\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.pain_points.as_ref() {
++set.push("\"pain_points\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tier.as_ref() {
++set.push("\"tier\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_contacted_at.as_ref() {
++set.push("\"last_contacted_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<CommercialOutreachLeads>().fetch_optional(pool).await
++}
++/// Deletes one `commercial_outreach_leads` row by primary key.
++pub async fn delete_commercial_outreach_leads(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"commercial_outreach_leads\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `competitor_ad_spend`.
+ pub async fn list_competitor_ad_spend(pool: &PgPool) -> Result<Vec<CompetitorAdSpend>, sqlx::Error> {
+ sqlx::query_as::<_, CompetitorAdSpend>("SELECT * FROM \"competitor_ad_spend\"").fetch_all(pool).await
+@@ -21370,184 +28491,6 @@ let result = sqlx::query("DELETE FROM \"component_cross_field_rules\" WHERE \"id
+ Ok(result.rows_affected() > 0)
+ }
+ 
+-/// Returns every row from `component_definitions`.
+-pub async fn list_component_definitions(pool: &PgPool) -> Result<Vec<ComponentDefinitions>, sqlx::Error> {
+-sqlx::query_as::<_, ComponentDefinitions>("SELECT * FROM \"component_definitions\"").fetch_all(pool).await
+-}
+-
+-/// Returns one `component_definitions` row by primary key.
+-pub async fn find_component_definitions(pool: &PgPool, id: String) -> Result<Option<ComponentDefinitions>, sqlx::Error> {
+-sqlx::query_as::<_, ComponentDefinitions>("SELECT * FROM \"component_definitions\" WHERE \"type_key\" = $1 LIMIT 1")
+-.bind(id)
+-.fetch_optional(pool)
+-.await
+-}
+-
+-/// Creates one `component_definitions` row and returns it.
+-pub async fn create_component_definitions(pool: &PgPool, input: NewComponentDefinitions) -> Result<ComponentDefinitions, sqlx::Error> {
+-if !(true) {
+-return sqlx::query_as::<_, ComponentDefinitions>("INSERT INTO \"component_definitions\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
+-}
+-
+-let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"component_definitions\" (");
+-{
+-let mut columns = query.separated(", " );
+-        columns.push("\"type_key\"");
+-        columns.push("\"label\"");
+-        if input.category.is_some() {
+-            columns.push("\"category\"");
+-        }
+-        if input.icon.is_some() {
+-            columns.push("\"icon\"");
+-        }
+-        columns.push("\"template\"");
+-        if input.default_config.is_some() {
+-            columns.push("\"default_config\"");
+-        }
+-        if input.required_fields.is_some() {
+-            columns.push("\"required_fields\"");
+-        }
+-        if input.config_schema.is_some() {
+-            columns.push("\"config_schema\"");
+-        }
+-        if input.editor_block.is_some() {
+-            columns.push("\"editor_block\"");
+-        }
+-        if input.macro_namespace.is_some() {
+-            columns.push("\"macro_namespace\"");
+-        }
+-        if input.macro_name.is_some() {
+-            columns.push("\"macro_name\"");
+-        }
+-        if input.requires_db.is_some() {
+-            columns.push("\"requires_db\"");
+-        }
+-        if input.is_active.is_some() {
+-            columns.push("\"is_active\"");
+-        }
+-        if input.version.is_some() {
+-            columns.push("\"version\"");
+-        }
+-        if input.created_at.is_some() {
+-            columns.push("\"created_at\"");
+-        }
+-        if input.updated_at.is_some() {
+-            columns.push("\"updated_at\"");
+-        }
+-}
+-query.push(") VALUES (");
+-{
+-let mut values = query.separated(", " );
+-        values.push_bind(&input.type_key);
+-        values.push_bind(&input.label);
+-        if let Some(value) = input.category.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.icon.as_ref() {
+-            values.push_bind(value);
+-        }
+-        values.push_bind(&input.template);
+-        if let Some(value) = input.default_config.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.required_fields.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.config_schema.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.editor_block.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.macro_namespace.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.macro_name.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.requires_db.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.is_active.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.version.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.created_at.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.updated_at.as_ref() {
+-            values.push_bind(value);
+-        }
+-}
+-query.push(") RETURNING *");
+-query.build_query_as::<ComponentDefinitions>().fetch_one(pool).await
+-}
+-/// Applies a partial update to one `component_definitions` row.
+-pub async fn update_component_definitions(pool: &PgPool, id: String, input: PatchComponentDefinitions) -> Result<Option<ComponentDefinitions>, sqlx::Error> {
+-if !(input.label.is_some() || input.category.is_some() || input.icon.is_some() || input.template.is_some() || input.default_config.is_some() || input.required_fields.is_some() || input.config_schema.is_some() || input.editor_block.is_some() || input.macro_namespace.is_some() || input.macro_name.is_some() || input.requires_db.is_some() || input.is_active.is_some() || input.version.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
+-return find_component_definitions(pool, id).await;
+-}
+-
+-let mut query = QueryBuilder::<Postgres>::new("UPDATE \"component_definitions\" SET ");
+-{
+-let mut set = query.separated(", " );
+-        if let Some(value) = input.label.as_ref() {
+-set.push("\"label\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.category.as_ref() {
+-set.push("\"category\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.icon.as_ref() {
+-set.push("\"icon\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.template.as_ref() {
+-set.push("\"template\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.default_config.as_ref() {
+-set.push("\"default_config\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.required_fields.as_ref() {
+-set.push("\"required_fields\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.config_schema.as_ref() {
+-set.push("\"config_schema\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.editor_block.as_ref() {
+-set.push("\"editor_block\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.macro_namespace.as_ref() {
+-set.push("\"macro_namespace\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.macro_name.as_ref() {
+-set.push("\"macro_name\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.requires_db.as_ref() {
+-set.push("\"requires_db\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.is_active.as_ref() {
+-set.push("\"is_active\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.version.as_ref() {
+-set.push("\"version\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.created_at.as_ref() {
+-set.push("\"created_at\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.updated_at.as_ref() {
+-set.push("\"updated_at\" = ").push_bind_unseparated(value);
+-}
+-}
+-query.push(" WHERE \"type_key\" = ").push_bind(id).push(" RETURNING *");
+-query.build_query_as::<ComponentDefinitions>().fetch_optional(pool).await
+-}
+-/// Deletes one `component_definitions` row by primary key.
+-pub async fn delete_component_definitions(pool: &PgPool, id: String) -> Result<bool, sqlx::Error> {
+-let result = sqlx::query("DELETE FROM \"component_definitions\" WHERE \"type_key\" = $1").bind(id).execute(pool).await?;
+-Ok(result.rows_affected() > 0)
+-}
+-
+ /// Returns every row from `component_examples`.
+ pub async fn list_component_examples(pool: &PgPool) -> Result<Vec<ComponentExamples>, sqlx::Error> {
+ sqlx::query_as::<_, ComponentExamples>("SELECT * FROM \"component_examples\"").fetch_all(pool).await
+@@ -21644,6 +28587,101 @@ let result = sqlx::query("DELETE FROM \"component_examples\" WHERE \"id\" = $1")
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `component_field_data_dependencies`.
++pub async fn list_component_field_data_dependencies(pool: &PgPool) -> Result<Vec<ComponentFieldDataDependencies>, sqlx::Error> {
++sqlx::query_as::<_, ComponentFieldDataDependencies>("SELECT * FROM \"component_field_data_dependencies\"").fetch_all(pool).await
++}
++
++/// Returns one `component_field_data_dependencies` row by primary key.
++pub async fn find_component_field_data_dependencies(pool: &PgPool, id: i64) -> Result<Option<ComponentFieldDataDependencies>, sqlx::Error> {
++sqlx::query_as::<_, ComponentFieldDataDependencies>("SELECT * FROM \"component_field_data_dependencies\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `component_field_data_dependencies` row and returns it.
++pub async fn create_component_field_data_dependencies(pool: &PgPool, input: NewComponentFieldDataDependencies) -> Result<ComponentFieldDataDependencies, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, ComponentFieldDataDependencies>("INSERT INTO \"component_field_data_dependencies\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"component_field_data_dependencies\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"component_field_metadata_id\"");
++        columns.push("\"data_source\"");
++        if input.lookup_procedure.is_some() {
++            columns.push("\"lookup_procedure\"");
++        }
++        if input.required.is_some() {
++            columns.push("\"required\"");
++        }
++        if input.selection_label.is_some() {
++            columns.push("\"selection_label\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.component_field_metadata_id);
++        values.push_bind(&input.data_source);
++        if let Some(value) = input.lookup_procedure.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.required.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.selection_label.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<ComponentFieldDataDependencies>().fetch_one(pool).await
++}
++/// Applies a partial update to one `component_field_data_dependencies` row.
++pub async fn update_component_field_data_dependencies(pool: &PgPool, id: i64, input: PatchComponentFieldDataDependencies) -> Result<Option<ComponentFieldDataDependencies>, sqlx::Error> {
++if !(input.component_field_metadata_id.is_some() || input.data_source.is_some() || input.lookup_procedure.is_some() || input.required.is_some() || input.selection_label.is_some() || input.created_at.is_some()) {
++return find_component_field_data_dependencies(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"component_field_data_dependencies\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.component_field_metadata_id.as_ref() {
++set.push("\"component_field_metadata_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.data_source.as_ref() {
++set.push("\"data_source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.lookup_procedure.as_ref() {
++set.push("\"lookup_procedure\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.required.as_ref() {
++set.push("\"required\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.selection_label.as_ref() {
++set.push("\"selection_label\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<ComponentFieldDataDependencies>().fetch_optional(pool).await
++}
++/// Deletes one `component_field_data_dependencies` row by primary key.
++pub async fn delete_component_field_data_dependencies(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"component_field_data_dependencies\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `component_json_schema_keywords`.
+ pub async fn list_component_json_schema_keywords(pool: &PgPool) -> Result<Vec<ComponentJsonSchemaKeywords>, sqlx::Error> {
+ sqlx::query_as::<_, ComponentJsonSchemaKeywords>("SELECT * FROM \"component_json_schema_keywords\"").fetch_all(pool).await
+@@ -21669,10 +28707,6 @@ let mut columns = query.separated(", " );
+         columns.push("\"keyword\"");
+         columns.push("\"applies_to\"");
+         columns.push("\"value_kind\"");
+-        columns.push("\"purpose\"");
+-        if input.created_at.is_some() {
+-            columns.push("\"created_at\"");
+-        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -21680,17 +28714,13 @@ let mut values = query.separated(", " );
+         values.push_bind(&input.keyword);
+         values.push_bind(&input.applies_to);
+         values.push_bind(&input.value_kind);
+-        values.push_bind(&input.purpose);
+-        if let Some(value) = input.created_at.as_ref() {
+-            values.push_bind(value);
+-        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<ComponentJsonSchemaKeywords>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `component_json_schema_keywords` row.
+ pub async fn update_component_json_schema_keywords(pool: &PgPool, id: String, input: PatchComponentJsonSchemaKeywords) -> Result<Option<ComponentJsonSchemaKeywords>, sqlx::Error> {
+-if !(input.applies_to.is_some() || input.value_kind.is_some() || input.purpose.is_some() || input.created_at.is_some()) {
++if !(input.applies_to.is_some() || input.value_kind.is_some()) {
+ return find_component_json_schema_keywords(pool, id).await;
+ }
+ 
+@@ -21702,12 +28732,6 @@ set.push("\"applies_to\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.value_kind.as_ref() {
+ set.push("\"value_kind\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.purpose.as_ref() {
+-set.push("\"purpose\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.created_at.as_ref() {
+-set.push("\"created_at\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"keyword\" = ").push_bind(id).push(" RETURNING *");
+@@ -22259,80 +29283,6 @@ let result = sqlx::query("DELETE FROM \"component_theme_presets\" WHERE \"id\" =
+ Ok(result.rows_affected() > 0)
+ }
+ 
+-/// Returns every row from `component_theme_radius_values`.
+-pub async fn list_component_theme_radius_values(pool: &PgPool) -> Result<Vec<ComponentThemeRadiusValues>, sqlx::Error> {
+-sqlx::query_as::<_, ComponentThemeRadiusValues>("SELECT * FROM \"component_theme_radius_values\"").fetch_all(pool).await
+-}
+-
+-/// Returns one `component_theme_radius_values` row by primary key.
+-pub async fn find_component_theme_radius_values(pool: &PgPool, id: ComponentThemeRadius) -> Result<Option<ComponentThemeRadiusValues>, sqlx::Error> {
+-sqlx::query_as::<_, ComponentThemeRadiusValues>("SELECT * FROM \"component_theme_radius_values\" WHERE \"radius\" = $1 LIMIT 1")
+-.bind(id)
+-.fetch_optional(pool)
+-.await
+-}
+-
+-/// Creates one `component_theme_radius_values` row and returns it.
+-pub async fn create_component_theme_radius_values(pool: &PgPool, input: NewComponentThemeRadiusValues) -> Result<ComponentThemeRadiusValues, sqlx::Error> {
+-if !(true) {
+-return sqlx::query_as::<_, ComponentThemeRadiusValues>("INSERT INTO \"component_theme_radius_values\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
+-}
+-
+-let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"component_theme_radius_values\" (");
+-{
+-let mut columns = query.separated(", " );
+-        columns.push("\"radius\"");
+-        columns.push("\"css_length\"");
+-        if input.is_default.is_some() {
+-            columns.push("\"is_default\"");
+-        }
+-        if input.created_at.is_some() {
+-            columns.push("\"created_at\"");
+-        }
+-}
+-query.push(") VALUES (");
+-{
+-let mut values = query.separated(", " );
+-        values.push_bind(&input.radius);
+-        values.push_bind(&input.css_length);
+-        if let Some(value) = input.is_default.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.created_at.as_ref() {
+-            values.push_bind(value);
+-        }
+-}
+-query.push(") RETURNING *");
+-query.build_query_as::<ComponentThemeRadiusValues>().fetch_one(pool).await
+-}
+-/// Applies a partial update to one `component_theme_radius_values` row.
+-pub async fn update_component_theme_radius_values(pool: &PgPool, id: ComponentThemeRadius, input: PatchComponentThemeRadiusValues) -> Result<Option<ComponentThemeRadiusValues>, sqlx::Error> {
+-if !(input.css_length.is_some() || input.is_default.is_some() || input.created_at.is_some()) {
+-return find_component_theme_radius_values(pool, id).await;
+-}
+-
+-let mut query = QueryBuilder::<Postgres>::new("UPDATE \"component_theme_radius_values\" SET ");
+-{
+-let mut set = query.separated(", " );
+-        if let Some(value) = input.css_length.as_ref() {
+-set.push("\"css_length\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.is_default.as_ref() {
+-set.push("\"is_default\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.created_at.as_ref() {
+-set.push("\"created_at\" = ").push_bind_unseparated(value);
+-}
+-}
+-query.push(" WHERE \"radius\" = ").push_bind(id).push(" RETURNING *");
+-query.build_query_as::<ComponentThemeRadiusValues>().fetch_optional(pool).await
+-}
+-/// Deletes one `component_theme_radius_values` row by primary key.
+-pub async fn delete_component_theme_radius_values(pool: &PgPool, id: ComponentThemeRadius) -> Result<bool, sqlx::Error> {
+-let result = sqlx::query("DELETE FROM \"component_theme_radius_values\" WHERE \"radius\" = $1").bind(id).execute(pool).await?;
+-Ok(result.rows_affected() > 0)
+-}
+-
+ /// Returns every row from `component_theme_token_variables`.
+ pub async fn list_component_theme_token_variables(pool: &PgPool) -> Result<Vec<ComponentThemeTokenVariables>, sqlx::Error> {
+ sqlx::query_as::<_, ComponentThemeTokenVariables>("SELECT * FROM \"component_theme_token_variables\"").fetch_all(pool).await
+@@ -22984,7 +29934,11 @@ return sqlx::query_as::<_, ComponentVersionFieldDependencies>("INSERT INTO \"com
+ let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"component_version_field_dependencies\" (");
+ {
+ let mut columns = query.separated(", " );
++        columns.push("\"component_version_field_id\"");
+         columns.push("\"data_source\"");
++        if input.source_path.is_some() {
++            columns.push("\"source_path\"");
++        }
+         if input.lookup_procedure.is_some() {
+             columns.push("\"lookup_procedure\"");
+         }
+@@ -22997,15 +29951,15 @@ let mut columns = query.separated(", " );
+         if input.created_at.is_some() {
+             columns.push("\"created_at\"");
+         }
+-        columns.push("\"component_version_field_id\"");
+-        if input.source_path.is_some() {
+-            columns.push("\"source_path\"");
+-        }
+ }
+ query.push(") VALUES (");
+ {
+ let mut values = query.separated(", " );
++        values.push_bind(&input.component_version_field_id);
+         values.push_bind(&input.data_source);
++        if let Some(value) = input.source_path.as_ref() {
++            values.push_bind(value);
++        }
+         if let Some(value) = input.lookup_procedure.as_ref() {
+             values.push_bind(value);
+         }
+@@ -23018,25 +29972,27 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.created_at.as_ref() {
+             values.push_bind(value);
+         }
+-        values.push_bind(&input.component_version_field_id);
+-        if let Some(value) = input.source_path.as_ref() {
+-            values.push_bind(value);
+-        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<ComponentVersionFieldDependencies>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `component_version_field_dependencies` row.
+ pub async fn update_component_version_field_dependencies(pool: &PgPool, id: i64, input: PatchComponentVersionFieldDependencies) -> Result<Option<ComponentVersionFieldDependencies>, sqlx::Error> {
+-if !(input.data_source.is_some() || input.lookup_procedure.is_some() || input.required.is_some() || input.selection_label.is_some() || input.created_at.is_some() || input.component_version_field_id.is_some() || input.source_path.is_some()) {
++if !(input.component_version_field_id.is_some() || input.data_source.is_some() || input.source_path.is_some() || input.lookup_procedure.is_some() || input.required.is_some() || input.selection_label.is_some() || input.created_at.is_some()) {
+ return find_component_version_field_dependencies(pool, id).await;
+ }
+ 
+ let mut query = QueryBuilder::<Postgres>::new("UPDATE \"component_version_field_dependencies\" SET ");
+ {
+ let mut set = query.separated(", " );
++        if let Some(value) = input.component_version_field_id.as_ref() {
++set.push("\"component_version_field_id\" = ").push_bind_unseparated(value);
++}
+         if let Some(value) = input.data_source.as_ref() {
+ set.push("\"data_source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.source_path.as_ref() {
++set.push("\"source_path\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.lookup_procedure.as_ref() {
+ set.push("\"lookup_procedure\" = ").push_bind_unseparated(value);
+@@ -23049,12 +30005,6 @@ set.push("\"selection_label\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.created_at.as_ref() {
+ set.push("\"created_at\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.component_version_field_id.as_ref() {
+-set.push("\"component_version_field_id\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.source_path.as_ref() {
+-set.push("\"source_path\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -23066,6 +30016,166 @@ let result = sqlx::query("DELETE FROM \"component_version_field_dependencies\" W
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `component_version_field_metadata`.
++pub async fn list_component_version_field_metadata(pool: &PgPool) -> Result<Vec<ComponentVersionFieldMetadata>, sqlx::Error> {
++sqlx::query_as::<_, ComponentVersionFieldMetadata>("SELECT * FROM \"component_version_field_metadata\"").fetch_all(pool).await
++}
++
++/// Returns one `component_version_field_metadata` row by primary key.
++pub async fn find_component_version_field_metadata(pool: &PgPool, id: i64) -> Result<Option<ComponentVersionFieldMetadata>, sqlx::Error> {
++sqlx::query_as::<_, ComponentVersionFieldMetadata>("SELECT * FROM \"component_version_field_metadata\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `component_version_field_metadata` row and returns it.
++pub async fn create_component_version_field_metadata(pool: &PgPool, input: NewComponentVersionFieldMetadata) -> Result<ComponentVersionFieldMetadata, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, ComponentVersionFieldMetadata>("INSERT INTO \"component_version_field_metadata\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"component_version_field_metadata\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"component_id\"");
++        columns.push("\"field_path\"");
++        columns.push("\"label\"");
++        columns.push("\"purpose\"");
++        columns.push("\"edit_intent\"");
++        if input.risk_level.is_some() {
++            columns.push("\"risk_level\"");
++        }
++        if input.user_editable.is_some() {
++            columns.push("\"user_editable\"");
++        }
++        if input.agent_editable.is_some() {
++            columns.push("\"agent_editable\"");
++        }
++        if input.required_for_render.is_some() {
++            columns.push("\"required_for_render\"");
++        }
++        if input.requires_real_data.is_some() {
++            columns.push("\"requires_real_data\"");
++        }
++        if input.example_values.is_some() {
++            columns.push("\"example_values\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++        columns.push("\"component_version_id\"");
++        if input.metadata_origin.is_some() {
++            columns.push("\"metadata_origin\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.component_id);
++        values.push_bind(&input.field_path);
++        values.push_bind(&input.label);
++        values.push_bind(&input.purpose);
++        values.push_bind(&input.edit_intent);
++        if let Some(value) = input.risk_level.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.user_editable.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.agent_editable.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.required_for_render.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.requires_real_data.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.example_values.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.component_version_id);
++        if let Some(value) = input.metadata_origin.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<ComponentVersionFieldMetadata>().fetch_one(pool).await
++}
++/// Applies a partial update to one `component_version_field_metadata` row.
++pub async fn update_component_version_field_metadata(pool: &PgPool, id: i64, input: PatchComponentVersionFieldMetadata) -> Result<Option<ComponentVersionFieldMetadata>, sqlx::Error> {
++if !(input.component_id.is_some() || input.field_path.is_some() || input.label.is_some() || input.purpose.is_some() || input.edit_intent.is_some() || input.risk_level.is_some() || input.user_editable.is_some() || input.agent_editable.is_some() || input.required_for_render.is_some() || input.requires_real_data.is_some() || input.example_values.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.component_version_id.is_some() || input.metadata_origin.is_some()) {
++return find_component_version_field_metadata(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"component_version_field_metadata\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.component_id.as_ref() {
++set.push("\"component_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.field_path.as_ref() {
++set.push("\"field_path\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.label.as_ref() {
++set.push("\"label\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.purpose.as_ref() {
++set.push("\"purpose\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.edit_intent.as_ref() {
++set.push("\"edit_intent\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.risk_level.as_ref() {
++set.push("\"risk_level\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.user_editable.as_ref() {
++set.push("\"user_editable\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.agent_editable.as_ref() {
++set.push("\"agent_editable\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.required_for_render.as_ref() {
++set.push("\"required_for_render\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.requires_real_data.as_ref() {
++set.push("\"requires_real_data\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.example_values.as_ref() {
++set.push("\"example_values\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.component_version_id.as_ref() {
++set.push("\"component_version_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metadata_origin.as_ref() {
++set.push("\"metadata_origin\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<ComponentVersionFieldMetadata>().fetch_optional(pool).await
++}
++/// Deletes one `component_version_field_metadata` row by primary key.
++pub async fn delete_component_version_field_metadata(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"component_version_field_metadata\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `component_version_field_relations`.
+ pub async fn list_component_version_field_relations(pool: &PgPool) -> Result<Vec<ComponentVersionFieldRelations>, sqlx::Error> {
+ sqlx::query_as::<_, ComponentVersionFieldRelations>("SELECT * FROM \"component_version_field_relations\"").fetch_all(pool).await
+@@ -23216,7 +30326,12 @@ let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"component_version_f
+ {
+ let mut columns = query.separated(", " );
+         columns.push("\"component_id\"");
++        columns.push("\"component_version_id\"");
+         columns.push("\"field_path\"");
++        columns.push("\"field_name\"");
++        columns.push("\"field_type\"");
++        columns.push("\"schema_fragment\"");
++        columns.push("\"display_order\"");
+         columns.push("\"label\"");
+         columns.push("\"purpose\"");
+         columns.push("\"edit_intent\"");
+@@ -23238,26 +30353,26 @@ let mut columns = query.separated(", " );
+         if input.example_values.is_some() {
+             columns.push("\"example_values\"");
+         }
++        if input.metadata_origin.is_some() {
++            columns.push("\"metadata_origin\"");
++        }
+         if input.created_at.is_some() {
+             columns.push("\"created_at\"");
+         }
+         if input.updated_at.is_some() {
+             columns.push("\"updated_at\"");
+         }
+-        columns.push("\"component_version_id\"");
+-        if input.metadata_origin.is_some() {
+-            columns.push("\"metadata_origin\"");
+-        }
+-        columns.push("\"field_name\"");
+-        columns.push("\"field_type\"");
+-        columns.push("\"schema_fragment\"");
+-        columns.push("\"display_order\"");
+ }
+ query.push(") VALUES (");
+ {
+ let mut values = query.separated(", " );
+         values.push_bind(&input.component_id);
++        values.push_bind(&input.component_version_id);
+         values.push_bind(&input.field_path);
++        values.push_bind(&input.field_name);
++        values.push_bind(&input.field_type);
++        values.push_bind(&input.schema_fragment);
++        values.push_bind(&input.display_order);
+         values.push_bind(&input.label);
+         values.push_bind(&input.purpose);
+         values.push_bind(&input.edit_intent);
+@@ -23279,27 +30394,22 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.example_values.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.metadata_origin.as_ref() {
++            values.push_bind(value);
++        }
+         if let Some(value) = input.created_at.as_ref() {
+             values.push_bind(value);
+         }
+         if let Some(value) = input.updated_at.as_ref() {
+             values.push_bind(value);
+         }
+-        values.push_bind(&input.component_version_id);
+-        if let Some(value) = input.metadata_origin.as_ref() {
+-            values.push_bind(value);
+-        }
+-        values.push_bind(&input.field_name);
+-        values.push_bind(&input.field_type);
+-        values.push_bind(&input.schema_fragment);
+-        values.push_bind(&input.display_order);
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<ComponentVersionFields>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `component_version_fields` row.
+ pub async fn update_component_version_fields(pool: &PgPool, id: i64, input: PatchComponentVersionFields) -> Result<Option<ComponentVersionFields>, sqlx::Error> {
+-if !(input.component_id.is_some() || input.field_path.is_some() || input.label.is_some() || input.purpose.is_some() || input.edit_intent.is_some() || input.risk_level.is_some() || input.user_editable.is_some() || input.agent_editable.is_some() || input.required_for_render.is_some() || input.requires_real_data.is_some() || input.example_values.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.component_version_id.is_some() || input.metadata_origin.is_some() || input.field_name.is_some() || input.field_type.is_some() || input.schema_fragment.is_some() || input.display_order.is_some()) {
++if !(input.component_id.is_some() || input.component_version_id.is_some() || input.field_path.is_some() || input.field_name.is_some() || input.field_type.is_some() || input.schema_fragment.is_some() || input.display_order.is_some() || input.label.is_some() || input.purpose.is_some() || input.edit_intent.is_some() || input.risk_level.is_some() || input.user_editable.is_some() || input.agent_editable.is_some() || input.required_for_render.is_some() || input.requires_real_data.is_some() || input.example_values.is_some() || input.metadata_origin.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
+ return find_component_version_fields(pool, id).await;
+ }
+ 
+@@ -23308,9 +30418,24 @@ let mut query = QueryBuilder::<Postgres>::new("UPDATE \"component_version_fields
+ let mut set = query.separated(", " );
+         if let Some(value) = input.component_id.as_ref() {
+ set.push("\"component_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.component_version_id.as_ref() {
++set.push("\"component_version_id\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.field_path.as_ref() {
+ set.push("\"field_path\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.field_name.as_ref() {
++set.push("\"field_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.field_type.as_ref() {
++set.push("\"field_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.schema_fragment.as_ref() {
++set.push("\"schema_fragment\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.display_order.as_ref() {
++set.push("\"display_order\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.label.as_ref() {
+ set.push("\"label\" = ").push_bind_unseparated(value);
+@@ -23338,30 +30463,15 @@ set.push("\"requires_real_data\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.example_values.as_ref() {
+ set.push("\"example_values\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metadata_origin.as_ref() {
++set.push("\"metadata_origin\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.created_at.as_ref() {
+ set.push("\"created_at\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.updated_at.as_ref() {
+ set.push("\"updated_at\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.component_version_id.as_ref() {
+-set.push("\"component_version_id\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.metadata_origin.as_ref() {
+-set.push("\"metadata_origin\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.field_name.as_ref() {
+-set.push("\"field_name\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.field_type.as_ref() {
+-set.push("\"field_type\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.schema_fragment.as_ref() {
+-set.push("\"schema_fragment\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.display_order.as_ref() {
+-set.push("\"display_order\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -24400,15 +31510,15 @@ let mut columns = query.separated(", " );
+         if input.created_at.is_some() {
+             columns.push("\"created_at\"");
+         }
++        if input.crm_lead_id.is_some() {
++            columns.push("\"crm_lead_id\"");
++        }
+         if input.journey_person_key.is_some() {
+             columns.push("\"journey_person_key\"");
+         }
+         if input.journey_session_key.is_some() {
+             columns.push("\"journey_session_key\"");
+         }
+-        if input.crm_lead_id.is_some() {
+-            columns.push("\"crm_lead_id\"");
+-        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -24456,22 +31566,22 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.created_at.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.crm_lead_id.as_ref() {
++            values.push_bind(value);
++        }
+         if let Some(value) = input.journey_person_key.as_ref() {
+             values.push_bind(value);
+         }
+         if let Some(value) = input.journey_session_key.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.crm_lead_id.as_ref() {
+-            values.push_bind(value);
+-        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<ConversionAttribution>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `conversion_attribution` row.
+ pub async fn update_conversion_attribution(pool: &PgPool, id: i64, input: PatchConversionAttribution) -> Result<Option<ConversionAttribution>, sqlx::Error> {
+-if !(input.conversion_id.is_some() || input.conversion_type.is_some() || input.conversion_value.is_some() || input.currency.is_some() || input.customer_id.is_some() || input.lead_id.is_some() || input.spotless_vid.is_some() || input.email.is_some() || input.first_touch_id.is_some() || input.last_touch_id.is_some() || input.fb_event_sent.is_some() || input.fb_event_id.is_some() || input.fb_fbtrace_id.is_some() || input.tiktok_event_sent.is_some() || input.google_event_sent.is_some() || input.converted_at.is_some() || input.created_at.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some() || input.crm_lead_id.is_some()) {
++if !(input.conversion_id.is_some() || input.conversion_type.is_some() || input.conversion_value.is_some() || input.currency.is_some() || input.customer_id.is_some() || input.lead_id.is_some() || input.spotless_vid.is_some() || input.email.is_some() || input.first_touch_id.is_some() || input.last_touch_id.is_some() || input.fb_event_sent.is_some() || input.fb_event_id.is_some() || input.fb_fbtrace_id.is_some() || input.tiktok_event_sent.is_some() || input.google_event_sent.is_some() || input.converted_at.is_some() || input.created_at.is_some() || input.crm_lead_id.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some()) {
+ return find_conversion_attribution(pool, id).await;
+ }
+ 
+@@ -24528,15 +31638,15 @@ set.push("\"converted_at\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.created_at.as_ref() {
+ set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.crm_lead_id.as_ref() {
++set.push("\"crm_lead_id\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.journey_person_key.as_ref() {
+ set.push("\"journey_person_key\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.journey_session_key.as_ref() {
+ set.push("\"journey_session_key\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.crm_lead_id.as_ref() {
+-set.push("\"crm_lead_id\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -24583,12 +31693,6 @@ let mut columns = query.separated(", " );
+         if input.created_at.is_some() {
+             columns.push("\"created_at\"");
+         }
+-        if input.journey_person_key.is_some() {
+-            columns.push("\"journey_person_key\"");
+-        }
+-        if input.journey_session_key.is_some() {
+-            columns.push("\"journey_session_key\"");
+-        }
+         if input.crm_lead_id.is_some() {
+             columns.push("\"crm_lead_id\"");
+         }
+@@ -24610,6 +31714,12 @@ let mut columns = query.separated(", " );
+         if input.funnel_session_token.is_some() {
+             columns.push("\"funnel_session_token\"");
+         }
++        if input.journey_person_key.is_some() {
++            columns.push("\"journey_person_key\"");
++        }
++        if input.journey_session_key.is_some() {
++            columns.push("\"journey_session_key\"");
++        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -24627,12 +31737,6 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.created_at.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.journey_person_key.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.journey_session_key.as_ref() {
+-            values.push_bind(value);
+-        }
+         if let Some(value) = input.crm_lead_id.as_ref() {
+             values.push_bind(value);
+         }
+@@ -24654,13 +31758,19 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.funnel_session_token.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.journey_person_key.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.journey_session_key.as_ref() {
++            values.push_bind(value);
++        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<ConversionEvents>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `conversion_events` row.
+ pub async fn update_conversion_events(pool: &PgPool, id: i32, input: PatchConversionEvents) -> Result<Option<ConversionEvents>, sqlx::Error> {
+-if !(input.customer_id.is_some() || input.session_id.is_some() || input.event_type.is_some() || input.event_data.is_some() || input.created_at.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some() || input.crm_lead_id.is_some() || input.crm_contact_id.is_some() || input.customer_email_hash.is_some() || input.customer_phone_hash.is_some() || input.checkout_session_id.is_some() || input.stripe_payment_intent_id.is_some() || input.funnel_session_token.is_some()) {
++if !(input.customer_id.is_some() || input.session_id.is_some() || input.event_type.is_some() || input.event_data.is_some() || input.created_at.is_some() || input.crm_lead_id.is_some() || input.crm_contact_id.is_some() || input.customer_email_hash.is_some() || input.customer_phone_hash.is_some() || input.checkout_session_id.is_some() || input.stripe_payment_intent_id.is_some() || input.funnel_session_token.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some()) {
+ return find_conversion_events(pool, id).await;
+ }
+ 
+@@ -24681,12 +31791,6 @@ set.push("\"event_data\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.created_at.as_ref() {
+ set.push("\"created_at\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.journey_person_key.as_ref() {
+-set.push("\"journey_person_key\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.journey_session_key.as_ref() {
+-set.push("\"journey_session_key\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.crm_lead_id.as_ref() {
+ set.push("\"crm_lead_id\" = ").push_bind_unseparated(value);
+@@ -24708,6 +31812,12 @@ set.push("\"stripe_payment_intent_id\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.funnel_session_token.as_ref() {
+ set.push("\"funnel_session_token\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_person_key.as_ref() {
++set.push("\"journey_person_key\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_session_key.as_ref() {
++set.push("\"journey_session_key\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -25312,186 +32422,6 @@ let result = sqlx::query("DELETE FROM \"create_job_logs\" WHERE \"id\" = $1").bi
+ Ok(result.rows_affected() > 0)
+ }
+ 
+-/// Returns every row from `create_media_library`.
+-pub async fn list_create_media_library(pool: &PgPool) -> Result<Vec<CreateMediaLibrary>, sqlx::Error> {
+-sqlx::query_as::<_, CreateMediaLibrary>("SELECT * FROM \"create_media_library\"").fetch_all(pool).await
+-}
+-
+-/// Returns one `create_media_library` row by primary key.
+-pub async fn find_create_media_library(pool: &PgPool, id: i32) -> Result<Option<CreateMediaLibrary>, sqlx::Error> {
+-sqlx::query_as::<_, CreateMediaLibrary>("SELECT * FROM \"create_media_library\" WHERE \"id\" = $1 LIMIT 1")
+-.bind(id)
+-.fetch_optional(pool)
+-.await
+-}
+-
+-/// Creates one `create_media_library` row and returns it.
+-pub async fn create_create_media_library(pool: &PgPool, input: NewCreateMediaLibrary) -> Result<CreateMediaLibrary, sqlx::Error> {
+-if !(true) {
+-return sqlx::query_as::<_, CreateMediaLibrary>("INSERT INTO \"create_media_library\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
+-}
+-
+-let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"create_media_library\" (");
+-{
+-let mut columns = query.separated(", " );
+-        columns.push("\"url\"");
+-        if input.title.is_some() {
+-            columns.push("\"title\"");
+-        }
+-        if input.description.is_some() {
+-            columns.push("\"description\"");
+-        }
+-        if input.tags.is_some() {
+-            columns.push("\"tags\"");
+-        }
+-        if input.uploaded_by.is_some() {
+-            columns.push("\"uploaded_by\"");
+-        }
+-        if input.uploaded_at.is_some() {
+-            columns.push("\"uploaded_at\"");
+-        }
+-        if input.tiktok_asset_id.is_some() {
+-            columns.push("\"tiktok_asset_id\"");
+-        }
+-        if input.facebook_asset_id.is_some() {
+-            columns.push("\"facebook_asset_id\"");
+-        }
+-        if input.google_asset_id.is_some() {
+-            columns.push("\"google_asset_id\"");
+-        }
+-        if input.duration_seconds.is_some() {
+-            columns.push("\"duration_seconds\"");
+-        }
+-        if input.file_size_bytes.is_some() {
+-            columns.push("\"file_size_bytes\"");
+-        }
+-        if input.mime_type.is_some() {
+-            columns.push("\"mime_type\"");
+-        }
+-        if input.thumbnail_url.is_some() {
+-            columns.push("\"thumbnail_url\"");
+-        }
+-        if input.latitude.is_some() {
+-            columns.push("\"latitude\"");
+-        }
+-        if input.longitude.is_some() {
+-            columns.push("\"longitude\"");
+-        }
+-}
+-query.push(") VALUES (");
+-{
+-let mut values = query.separated(", " );
+-        values.push_bind(&input.url);
+-        if let Some(value) = input.title.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.description.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.tags.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.uploaded_by.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.uploaded_at.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.tiktok_asset_id.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.facebook_asset_id.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.google_asset_id.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.duration_seconds.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.file_size_bytes.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.mime_type.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.thumbnail_url.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.latitude.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.longitude.as_ref() {
+-            values.push_bind(value);
+-        }
+-}
+-query.push(") RETURNING *");
+-query.build_query_as::<CreateMediaLibrary>().fetch_one(pool).await
+-}
+-/// Applies a partial update to one `create_media_library` row.
+-pub async fn update_create_media_library(pool: &PgPool, id: i32, input: PatchCreateMediaLibrary) -> Result<Option<CreateMediaLibrary>, sqlx::Error> {
+-if !(input.url.is_some() || input.title.is_some() || input.description.is_some() || input.tags.is_some() || input.uploaded_by.is_some() || input.uploaded_at.is_some() || input.tiktok_asset_id.is_some() || input.facebook_asset_id.is_some() || input.google_asset_id.is_some() || input.duration_seconds.is_some() || input.file_size_bytes.is_some() || input.mime_type.is_some() || input.thumbnail_url.is_some() || input.latitude.is_some() || input.longitude.is_some()) {
+-return find_create_media_library(pool, id).await;
+-}
+-
+-let mut query = QueryBuilder::<Postgres>::new("UPDATE \"create_media_library\" SET ");
+-{
+-let mut set = query.separated(", " );
+-        if let Some(value) = input.url.as_ref() {
+-set.push("\"url\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.title.as_ref() {
+-set.push("\"title\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.description.as_ref() {
+-set.push("\"description\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.tags.as_ref() {
+-set.push("\"tags\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.uploaded_by.as_ref() {
+-set.push("\"uploaded_by\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.uploaded_at.as_ref() {
+-set.push("\"uploaded_at\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.tiktok_asset_id.as_ref() {
+-set.push("\"tiktok_asset_id\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.facebook_asset_id.as_ref() {
+-set.push("\"facebook_asset_id\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.google_asset_id.as_ref() {
+-set.push("\"google_asset_id\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.duration_seconds.as_ref() {
+-set.push("\"duration_seconds\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.file_size_bytes.as_ref() {
+-set.push("\"file_size_bytes\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.mime_type.as_ref() {
+-set.push("\"mime_type\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.thumbnail_url.as_ref() {
+-set.push("\"thumbnail_url\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.latitude.as_ref() {
+-set.push("\"latitude\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.longitude.as_ref() {
+-set.push("\"longitude\" = ").push_bind_unseparated(value);
+-}
+-}
+-query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+-query.build_query_as::<CreateMediaLibrary>().fetch_optional(pool).await
+-}
+-/// Deletes one `create_media_library` row by primary key.
+-pub async fn delete_create_media_library(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
+-let result = sqlx::query("DELETE FROM \"create_media_library\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
+-Ok(result.rows_affected() > 0)
+-}
+-
+ /// Returns every row from `create_personalization_contexts_table`.
+ pub async fn list_create_personalization_contexts_table(pool: &PgPool) -> Result<Vec<CreatePersonalizationContextsTable>, sqlx::Error> {
+ sqlx::query_as::<_, CreatePersonalizationContextsTable>("SELECT * FROM \"create_personalization_contexts_table\"").fetch_all(pool).await
+@@ -28702,6 +35632,124 @@ let result = sqlx::query("DELETE FROM \"crm_tasks\" WHERE \"id\" = $1").bind(id)
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `cross_sell_offers`.
++pub async fn list_cross_sell_offers(pool: &PgPool) -> Result<Vec<CrossSellOffers>, sqlx::Error> {
++sqlx::query_as::<_, CrossSellOffers>("SELECT * FROM \"cross_sell_offers\"").fetch_all(pool).await
++}
++
++/// Returns one `cross_sell_offers` row by primary key.
++pub async fn find_cross_sell_offers(pool: &PgPool, id: i32) -> Result<Option<CrossSellOffers>, sqlx::Error> {
++sqlx::query_as::<_, CrossSellOffers>("SELECT * FROM \"cross_sell_offers\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `cross_sell_offers` row and returns it.
++pub async fn create_cross_sell_offers(pool: &PgPool, input: NewCrossSellOffers) -> Result<CrossSellOffers, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, CrossSellOffers>("INSERT INTO \"cross_sell_offers\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"cross_sell_offers\" (");
++{
++let mut columns = query.separated(", " );
++        if input.customer_id.is_some() {
++            columns.push("\"customer_id\"");
++        }
++        columns.push("\"offer_type\"");
++        columns.push("\"offer_value\"");
++        if input.offer_description.is_some() {
++            columns.push("\"offer_description\"");
++        }
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        columns.push("\"expires_at\"");
++        if input.accepted_at.is_some() {
++            columns.push("\"accepted_at\"");
++        }
++        if input.decline_reason.is_some() {
++            columns.push("\"decline_reason\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.offer_type);
++        values.push_bind(&input.offer_value);
++        if let Some(value) = input.offer_description.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.expires_at);
++        if let Some(value) = input.accepted_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.decline_reason.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<CrossSellOffers>().fetch_one(pool).await
++}
++/// Applies a partial update to one `cross_sell_offers` row.
++pub async fn update_cross_sell_offers(pool: &PgPool, id: i32, input: PatchCrossSellOffers) -> Result<Option<CrossSellOffers>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.offer_type.is_some() || input.offer_value.is_some() || input.offer_description.is_some() || input.status.is_some() || input.expires_at.is_some() || input.accepted_at.is_some() || input.decline_reason.is_some() || input.created_at.is_some()) {
++return find_cross_sell_offers(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"cross_sell_offers\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.offer_type.as_ref() {
++set.push("\"offer_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.offer_value.as_ref() {
++set.push("\"offer_value\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.offer_description.as_ref() {
++set.push("\"offer_description\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.expires_at.as_ref() {
++set.push("\"expires_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.accepted_at.as_ref() {
++set.push("\"accepted_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.decline_reason.as_ref() {
++set.push("\"decline_reason\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<CrossSellOffers>().fetch_optional(pool).await
++}
++/// Deletes one `cross_sell_offers` row by primary key.
++pub async fn delete_cross_sell_offers(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"cross_sell_offers\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `customer`.
+ pub async fn list_customer(pool: &PgPool) -> Result<Vec<Customer>, sqlx::Error> {
+ sqlx::query_as::<_, Customer>("SELECT * FROM \"customer\"").fetch_all(pool).await
+@@ -28775,8 +35823,35 @@ let mut columns = query.separated(", " );
+         if input.trash_zone_id.is_some() {
+             columns.push("\"trash_zone_id\"");
+         }
+-        if input.email_verified.is_some() {
+-            columns.push("\"email_verified\"");
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        if input.onboarding_status.is_some() {
++            columns.push("\"onboarding_status\"");
++        }
++        if input.onboarding_started_at.is_some() {
++            columns.push("\"onboarding_started_at\"");
++        }
++        if input.onboarding_completed_at.is_some() {
++            columns.push("\"onboarding_completed_at\"");
++        }
++        if input.customer_tier.is_some() {
++            columns.push("\"customer_tier\"");
++        }
++        if input.referral_dashboard_viewed_at.is_some() {
++            columns.push("\"referral_dashboard_viewed_at\"");
++        }
++        if input.referral_program_notified_at.is_some() {
++            columns.push("\"referral_program_notified_at\"");
++        }
++        if input.customer_segment.is_some() {
++            columns.push("\"customer_segment\"");
++        }
++        if input.lifetime_value_cents.is_some() {
++            columns.push("\"lifetime_value_cents\"");
++        }
++        if input.first_purchase_at.is_some() {
++            columns.push("\"first_purchase_at\"");
+         }
+         if input.acquisition_source.is_some() {
+             columns.push("\"acquisition_source\"");
+@@ -28793,11 +35868,29 @@ let mut columns = query.separated(", " );
+         if input.acquired_at.is_some() {
+             columns.push("\"acquired_at\"");
+         }
++        if input.routing_override_service_date.is_some() {
++            columns.push("\"routing_override_service_date\"");
++        }
+         if input.service_notes.is_some() {
+             columns.push("\"service_notes\"");
+         }
+-        if input.routing_override_service_date.is_some() {
+-            columns.push("\"routing_override_service_date\"");
++        if input.purchase_type.is_some() {
++            columns.push("\"purchase_type\"");
++        }
++        if input.features.is_some() {
++            columns.push("\"features\"");
++        }
++        if input.last_payment_date.is_some() {
++            columns.push("\"last_payment_date\"");
++        }
++        if input.payment_failed.is_some() {
++            columns.push("\"payment_failed\"");
++        }
++        if input.stripe_subscription_id.is_some() {
++            columns.push("\"stripe_subscription_id\"");
++        }
++        if input.subscription_status.is_some() {
++            columns.push("\"subscription_status\"");
+         }
+ }
+ query.push(") VALUES (");
+@@ -28854,7 +35947,34 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.trash_zone_id.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.email_verified.as_ref() {
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.onboarding_status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.onboarding_started_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.onboarding_completed_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.customer_tier.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.referral_dashboard_viewed_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.referral_program_notified_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.customer_segment.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.lifetime_value_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.first_purchase_at.as_ref() {
+             values.push_bind(value);
+         }
+         if let Some(value) = input.acquisition_source.as_ref() {
+@@ -28872,10 +35992,28 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.acquired_at.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.routing_override_service_date.as_ref() {
++            values.push_bind(value);
++        }
+         if let Some(value) = input.service_notes.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.routing_override_service_date.as_ref() {
++        if let Some(value) = input.purchase_type.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.features.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_payment_date.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.payment_failed.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.stripe_subscription_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.subscription_status.as_ref() {
+             values.push_bind(value);
+         }
+ }
+@@ -28884,7 +36022,7 @@ query.build_query_as::<Customer>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `customer` row.
+ pub async fn update_customer(pool: &PgPool, id: i32, input: PatchCustomer) -> Result<Option<Customer>, sqlx::Error> {
+-if !(input.email.is_some() || input.username.is_some() || input.phone_number.is_some() || input.date_signed_up.is_some() || input.stripe_customer_id.is_some() || input.first_name.is_some() || input.last_name.is_some() || input.facebook_id.is_some() || input.google_id.is_some() || input.tiktok_id.is_some() || input.twitter_id.is_some() || input.linkedin_id.is_some() || input.pickup_day.is_some() || input.location.is_some() || input.address_id.is_some() || input.available_for_routing.is_some() || input.quickbooks_customer_id.is_some() || input.active_local_offer_id.is_some() || input.trash_zone_id.is_some() || input.email_verified.is_some() || input.acquisition_source.is_some() || input.acquisition_source_detail.is_some() || input.acquisition_qr_unique_id.is_some() || input.acquisition_campaign_id.is_some() || input.acquired_at.is_some() || input.service_notes.is_some() || input.routing_override_service_date.is_some()) {
++if !(input.email.is_some() || input.username.is_some() || input.phone_number.is_some() || input.date_signed_up.is_some() || input.stripe_customer_id.is_some() || input.first_name.is_some() || input.last_name.is_some() || input.facebook_id.is_some() || input.google_id.is_some() || input.tiktok_id.is_some() || input.twitter_id.is_some() || input.linkedin_id.is_some() || input.pickup_day.is_some() || input.location.is_some() || input.address_id.is_some() || input.available_for_routing.is_some() || input.quickbooks_customer_id.is_some() || input.active_local_offer_id.is_some() || input.trash_zone_id.is_some() || input.status.is_some() || input.onboarding_status.is_some() || input.onboarding_started_at.is_some() || input.onboarding_completed_at.is_some() || input.customer_tier.is_some() || input.referral_dashboard_viewed_at.is_some() || input.referral_program_notified_at.is_some() || input.customer_segment.is_some() || input.lifetime_value_cents.is_some() || input.first_purchase_at.is_some() || input.acquisition_source.is_some() || input.acquisition_source_detail.is_some() || input.acquisition_qr_unique_id.is_some() || input.acquisition_campaign_id.is_some() || input.acquired_at.is_some() || input.routing_override_service_date.is_some() || input.service_notes.is_some() || input.purchase_type.is_some() || input.features.is_some() || input.last_payment_date.is_some() || input.payment_failed.is_some() || input.stripe_subscription_id.is_some() || input.subscription_status.is_some()) {
+ return find_customer(pool, id).await;
+ }
+ 
+@@ -28948,8 +36086,35 @@ set.push("\"active_local_offer_id\" = ").push_bind_unseparated(value);
+         if let Some(value) = input.trash_zone_id.as_ref() {
+ set.push("\"trash_zone_id\" = ").push_bind_unseparated(value);
+ }
+-        if let Some(value) = input.email_verified.as_ref() {
+-set.push("\"email_verified\" = ").push_bind_unseparated(value);
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.onboarding_status.as_ref() {
++set.push("\"onboarding_status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.onboarding_started_at.as_ref() {
++set.push("\"onboarding_started_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.onboarding_completed_at.as_ref() {
++set.push("\"onboarding_completed_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.customer_tier.as_ref() {
++set.push("\"customer_tier\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.referral_dashboard_viewed_at.as_ref() {
++set.push("\"referral_dashboard_viewed_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.referral_program_notified_at.as_ref() {
++set.push("\"referral_program_notified_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.customer_segment.as_ref() {
++set.push("\"customer_segment\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.lifetime_value_cents.as_ref() {
++set.push("\"lifetime_value_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.first_purchase_at.as_ref() {
++set.push("\"first_purchase_at\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.acquisition_source.as_ref() {
+ set.push("\"acquisition_source\" = ").push_bind_unseparated(value);
+@@ -28965,12 +36130,30 @@ set.push("\"acquisition_campaign_id\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.acquired_at.as_ref() {
+ set.push("\"acquired_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.routing_override_service_date.as_ref() {
++set.push("\"routing_override_service_date\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.service_notes.as_ref() {
+ set.push("\"service_notes\" = ").push_bind_unseparated(value);
+ }
+-        if let Some(value) = input.routing_override_service_date.as_ref() {
+-set.push("\"routing_override_service_date\" = ").push_bind_unseparated(value);
++        if let Some(value) = input.purchase_type.as_ref() {
++set.push("\"purchase_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.features.as_ref() {
++set.push("\"features\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_payment_date.as_ref() {
++set.push("\"last_payment_date\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.payment_failed.as_ref() {
++set.push("\"payment_failed\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.stripe_subscription_id.as_ref() {
++set.push("\"stripe_subscription_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.subscription_status.as_ref() {
++set.push("\"subscription_status\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -29331,6 +36514,119 @@ let result = sqlx::query("DELETE FROM \"customer_contact_lists\" WHERE \"id\" =
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `customer_features`.
++pub async fn list_customer_features(pool: &PgPool) -> Result<Vec<CustomerFeatures>, sqlx::Error> {
++sqlx::query_as::<_, CustomerFeatures>("SELECT * FROM \"customer_features\"").fetch_all(pool).await
++}
++
++/// Returns one `customer_features` row by primary key.
++pub async fn find_customer_features(pool: &PgPool, id: i32) -> Result<Option<CustomerFeatures>, sqlx::Error> {
++sqlx::query_as::<_, CustomerFeatures>("SELECT * FROM \"customer_features\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `customer_features` row and returns it.
++pub async fn create_customer_features(pool: &PgPool, input: NewCustomerFeatures) -> Result<CustomerFeatures, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, CustomerFeatures>("INSERT INTO \"customer_features\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"customer_features\" (");
++{
++let mut columns = query.separated(", " );
++        if input.customer_id.is_some() {
++            columns.push("\"customer_id\"");
++        }
++        columns.push("\"feature_key\"");
++        columns.push("\"feature_name\"");
++        if input.activated_at.is_some() {
++            columns.push("\"activated_at\"");
++        }
++        if input.expires_at.is_some() {
++            columns.push("\"expires_at\"");
++        }
++        if input.metadata.is_some() {
++            columns.push("\"metadata\"");
++        }
++        if input.deactivated_at.is_some() {
++            columns.push("\"deactivated_at\"");
++        }
++        if input.active.is_some() {
++            columns.push("\"active\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.feature_key);
++        values.push_bind(&input.feature_name);
++        if let Some(value) = input.activated_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.expires_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.metadata.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.deactivated_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.active.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<CustomerFeatures>().fetch_one(pool).await
++}
++/// Applies a partial update to one `customer_features` row.
++pub async fn update_customer_features(pool: &PgPool, id: i32, input: PatchCustomerFeatures) -> Result<Option<CustomerFeatures>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.feature_key.is_some() || input.feature_name.is_some() || input.activated_at.is_some() || input.expires_at.is_some() || input.metadata.is_some() || input.deactivated_at.is_some() || input.active.is_some()) {
++return find_customer_features(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"customer_features\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.feature_key.as_ref() {
++set.push("\"feature_key\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.feature_name.as_ref() {
++set.push("\"feature_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.activated_at.as_ref() {
++set.push("\"activated_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.expires_at.as_ref() {
++set.push("\"expires_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metadata.as_ref() {
++set.push("\"metadata\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.deactivated_at.as_ref() {
++set.push("\"deactivated_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.active.as_ref() {
++set.push("\"active\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<CustomerFeatures>().fetch_optional(pool).await
++}
++/// Deletes one `customer_features` row by primary key.
++pub async fn delete_customer_features(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"customer_features\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `customer_funnel_states`.
+ pub async fn list_customer_funnel_states(pool: &PgPool) -> Result<Vec<CustomerFunnelStates>, sqlx::Error> {
+ sqlx::query_as::<_, CustomerFunnelStates>("SELECT * FROM \"customer_funnel_states\"").fetch_all(pool).await
+@@ -29375,6 +36671,39 @@ let mut columns = query.separated(", " );
+         if input.metadata.is_some() {
+             columns.push("\"metadata\"");
+         }
++        if input.ad_source.is_some() {
++            columns.push("\"ad_source\"");
++        }
++        if input.utm_source.is_some() {
++            columns.push("\"utm_source\"");
++        }
++        if input.utm_medium.is_some() {
++            columns.push("\"utm_medium\"");
++        }
++        if input.utm_campaign.is_some() {
++            columns.push("\"utm_campaign\"");
++        }
++        if input.fbp.is_some() {
++            columns.push("\"fbp\"");
++        }
++        if input.fbc.is_some() {
++            columns.push("\"fbc\"");
++        }
++        if input.tripwire_order_id.is_some() {
++            columns.push("\"tripwire_order_id\"");
++        }
++        if input.subscription_id.is_some() {
++            columns.push("\"subscription_id\"");
++        }
++        if input.conversion_value.is_some() {
++            columns.push("\"conversion_value\"");
++        }
++        if input.previous_stage.is_some() {
++            columns.push("\"previous_stage\"");
++        }
++        if input.stage_changed_at.is_some() {
++            columns.push("\"stage_changed_at\"");
++        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -29401,13 +36730,46 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.metadata.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.ad_source.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_source.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_medium.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_campaign.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.fbp.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.fbc.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tripwire_order_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.subscription_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.conversion_value.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.previous_stage.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.stage_changed_at.as_ref() {
++            values.push_bind(value);
++        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<CustomerFunnelStates>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `customer_funnel_states` row.
+ pub async fn update_customer_funnel_states(pool: &PgPool, id: i32, input: PatchCustomerFunnelStates) -> Result<Option<CustomerFunnelStates>, sqlx::Error> {
+-if !(input.customer_id.is_some() || input.session_id.is_some() || input.current_step.is_some() || input.variant.is_some() || input.funnel_name.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.metadata.is_some()) {
++if !(input.customer_id.is_some() || input.session_id.is_some() || input.current_step.is_some() || input.variant.is_some() || input.funnel_name.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.metadata.is_some() || input.ad_source.is_some() || input.utm_source.is_some() || input.utm_medium.is_some() || input.utm_campaign.is_some() || input.fbp.is_some() || input.fbc.is_some() || input.tripwire_order_id.is_some() || input.subscription_id.is_some() || input.conversion_value.is_some() || input.previous_stage.is_some() || input.stage_changed_at.is_some()) {
+ return find_customer_funnel_states(pool, id).await;
+ }
+ 
+@@ -29437,6 +36799,39 @@ set.push("\"updated_at\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.metadata.as_ref() {
+ set.push("\"metadata\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.ad_source.as_ref() {
++set.push("\"ad_source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_source.as_ref() {
++set.push("\"utm_source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_medium.as_ref() {
++set.push("\"utm_medium\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_campaign.as_ref() {
++set.push("\"utm_campaign\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.fbp.as_ref() {
++set.push("\"fbp\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.fbc.as_ref() {
++set.push("\"fbc\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tripwire_order_id.as_ref() {
++set.push("\"tripwire_order_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.subscription_id.as_ref() {
++set.push("\"subscription_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.conversion_value.as_ref() {
++set.push("\"conversion_value\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.previous_stage.as_ref() {
++set.push("\"previous_stage\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.stage_changed_at.as_ref() {
++set.push("\"stage_changed_at\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -29579,6 +36974,209 @@ let result = sqlx::query("DELETE FROM \"customer_neighborhoods\" WHERE \"id\" =
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `customer_onboarding`.
++pub async fn list_customer_onboarding(pool: &PgPool) -> Result<Vec<CustomerOnboarding>, sqlx::Error> {
++sqlx::query_as::<_, CustomerOnboarding>("SELECT * FROM \"customer_onboarding\"").fetch_all(pool).await
++}
++
++/// Returns one `customer_onboarding` row by primary key.
++pub async fn find_customer_onboarding(pool: &PgPool, id: i32) -> Result<Option<CustomerOnboarding>, sqlx::Error> {
++sqlx::query_as::<_, CustomerOnboarding>("SELECT * FROM \"customer_onboarding\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `customer_onboarding` row and returns it.
++pub async fn create_customer_onboarding(pool: &PgPool, input: NewCustomerOnboarding) -> Result<CustomerOnboarding, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, CustomerOnboarding>("INSERT INTO \"customer_onboarding\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"customer_onboarding\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"customer_id\"");
++        if input.sequence_id.is_some() {
++            columns.push("\"sequence_id\"");
++        }
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        if input.current_step.is_some() {
++            columns.push("\"current_step\"");
++        }
++        if input.started_at.is_some() {
++            columns.push("\"started_at\"");
++        }
++        if input.completed_at.is_some() {
++            columns.push("\"completed_at\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.customer_id);
++        if let Some(value) = input.sequence_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.current_step.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.started_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.completed_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<CustomerOnboarding>().fetch_one(pool).await
++}
++/// Applies a partial update to one `customer_onboarding` row.
++pub async fn update_customer_onboarding(pool: &PgPool, id: i32, input: PatchCustomerOnboarding) -> Result<Option<CustomerOnboarding>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.sequence_id.is_some() || input.status.is_some() || input.current_step.is_some() || input.started_at.is_some() || input.completed_at.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
++return find_customer_onboarding(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"customer_onboarding\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.sequence_id.as_ref() {
++set.push("\"sequence_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.current_step.as_ref() {
++set.push("\"current_step\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.started_at.as_ref() {
++set.push("\"started_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.completed_at.as_ref() {
++set.push("\"completed_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<CustomerOnboarding>().fetch_optional(pool).await
++}
++/// Deletes one `customer_onboarding` row by primary key.
++pub async fn delete_customer_onboarding(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"customer_onboarding\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
++/// Returns every row from `customer_onboarding_progress`.
++pub async fn list_customer_onboarding_progress(pool: &PgPool) -> Result<Vec<CustomerOnboardingProgress>, sqlx::Error> {
++sqlx::query_as::<_, CustomerOnboardingProgress>("SELECT * FROM \"customer_onboarding_progress\"").fetch_all(pool).await
++}
++
++/// Returns one `customer_onboarding_progress` row by primary key.
++pub async fn find_customer_onboarding_progress(pool: &PgPool, id: i32) -> Result<Option<CustomerOnboardingProgress>, sqlx::Error> {
++sqlx::query_as::<_, CustomerOnboardingProgress>("SELECT * FROM \"customer_onboarding_progress\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `customer_onboarding_progress` row and returns it.
++pub async fn create_customer_onboarding_progress(pool: &PgPool, input: NewCustomerOnboardingProgress) -> Result<CustomerOnboardingProgress, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, CustomerOnboardingProgress>("INSERT INTO \"customer_onboarding_progress\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"customer_onboarding_progress\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"customer_id\"");
++        columns.push("\"checklist_item\"");
++        if input.is_completed.is_some() {
++            columns.push("\"is_completed\"");
++        }
++        if input.completed_at.is_some() {
++            columns.push("\"completed_at\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.customer_id);
++        values.push_bind(&input.checklist_item);
++        if let Some(value) = input.is_completed.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.completed_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<CustomerOnboardingProgress>().fetch_one(pool).await
++}
++/// Applies a partial update to one `customer_onboarding_progress` row.
++pub async fn update_customer_onboarding_progress(pool: &PgPool, id: i32, input: PatchCustomerOnboardingProgress) -> Result<Option<CustomerOnboardingProgress>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.checklist_item.is_some() || input.is_completed.is_some() || input.completed_at.is_some() || input.created_at.is_some()) {
++return find_customer_onboarding_progress(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"customer_onboarding_progress\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.checklist_item.as_ref() {
++set.push("\"checklist_item\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.is_completed.as_ref() {
++set.push("\"is_completed\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.completed_at.as_ref() {
++set.push("\"completed_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<CustomerOnboardingProgress>().fetch_optional(pool).await
++}
++/// Deletes one `customer_onboarding_progress` row by primary key.
++pub async fn delete_customer_onboarding_progress(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"customer_onboarding_progress\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `customer_plan_preferences`.
+ pub async fn list_customer_plan_preferences(pool: &PgPool) -> Result<Vec<CustomerPlanPreferences>, sqlx::Error> {
+ sqlx::query_as::<_, CustomerPlanPreferences>("SELECT * FROM \"customer_plan_preferences\"").fetch_all(pool).await
+@@ -29732,6 +37330,84 @@ let result = sqlx::query("DELETE FROM \"customer_plan_preferences\" WHERE \"id\"
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `customer_preferences`.
++pub async fn list_customer_preferences(pool: &PgPool) -> Result<Vec<CustomerPreferences>, sqlx::Error> {
++sqlx::query_as::<_, CustomerPreferences>("SELECT * FROM \"customer_preferences\"").fetch_all(pool).await
++}
++
++/// Returns one `customer_preferences` row by primary key.
++pub async fn find_customer_preferences(pool: &PgPool, id: i32) -> Result<Option<CustomerPreferences>, sqlx::Error> {
++sqlx::query_as::<_, CustomerPreferences>("SELECT * FROM \"customer_preferences\" WHERE \"customer_id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `customer_preferences` row and returns it.
++pub async fn create_customer_preferences(pool: &PgPool, input: NewCustomerPreferences) -> Result<CustomerPreferences, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, CustomerPreferences>("INSERT INTO \"customer_preferences\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"customer_preferences\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"customer_id\"");
++        if input.unsubscribed_from_upsells.is_some() {
++            columns.push("\"unsubscribed_from_upsells\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.customer_id);
++        if let Some(value) = input.unsubscribed_from_upsells.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<CustomerPreferences>().fetch_one(pool).await
++}
++/// Applies a partial update to one `customer_preferences` row.
++pub async fn update_customer_preferences(pool: &PgPool, id: i32, input: PatchCustomerPreferences) -> Result<Option<CustomerPreferences>, sqlx::Error> {
++if !(input.unsubscribed_from_upsells.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
++return find_customer_preferences(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"customer_preferences\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.unsubscribed_from_upsells.as_ref() {
++set.push("\"unsubscribed_from_upsells\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"customer_id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<CustomerPreferences>().fetch_optional(pool).await
++}
++/// Deletes one `customer_preferences` row by primary key.
++pub async fn delete_customer_preferences(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"customer_preferences\" WHERE \"customer_id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `customer_routes`.
+ pub async fn list_customer_routes(pool: &PgPool) -> Result<Vec<CustomerRoutes>, sqlx::Error> {
+ sqlx::query_as::<_, CustomerRoutes>("SELECT * FROM \"customer_routes\"").fetch_all(pool).await
+@@ -29849,6 +37525,97 @@ let result = sqlx::query("DELETE FROM \"customer_routes\" WHERE \"id\" = $1").bi
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `customer_service_dates`.
++pub async fn list_customer_service_dates(pool: &PgPool) -> Result<Vec<CustomerServiceDates>, sqlx::Error> {
++sqlx::query_as::<_, CustomerServiceDates>("SELECT * FROM \"customer_service_dates\"").fetch_all(pool).await
++}
++
++/// Returns one `customer_service_dates` row by primary key.
++pub async fn find_customer_service_dates(pool: &PgPool, id: i32) -> Result<Option<CustomerServiceDates>, sqlx::Error> {
++sqlx::query_as::<_, CustomerServiceDates>("SELECT * FROM \"customer_service_dates\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `customer_service_dates` row and returns it.
++pub async fn create_customer_service_dates(pool: &PgPool, input: NewCustomerServiceDates) -> Result<CustomerServiceDates, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, CustomerServiceDates>("INSERT INTO \"customer_service_dates\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"customer_service_dates\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"customer_id\"");
++        columns.push("\"subscription_id\"");
++        columns.push("\"service_date\"");
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        if input.notes.is_some() {
++            columns.push("\"notes\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.customer_id);
++        values.push_bind(&input.subscription_id);
++        values.push_bind(&input.service_date);
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.notes.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<CustomerServiceDates>().fetch_one(pool).await
++}
++/// Applies a partial update to one `customer_service_dates` row.
++pub async fn update_customer_service_dates(pool: &PgPool, id: i32, input: PatchCustomerServiceDates) -> Result<Option<CustomerServiceDates>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.subscription_id.is_some() || input.service_date.is_some() || input.status.is_some() || input.notes.is_some() || input.created_at.is_some()) {
++return find_customer_service_dates(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"customer_service_dates\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.subscription_id.as_ref() {
++set.push("\"subscription_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.service_date.as_ref() {
++set.push("\"service_date\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.notes.as_ref() {
++set.push("\"notes\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<CustomerServiceDates>().fetch_optional(pool).await
++}
++/// Deletes one `customer_service_dates` row by primary key.
++pub async fn delete_customer_service_dates(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"customer_service_dates\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `customer_streets`.
+ pub async fn list_customer_streets(pool: &PgPool) -> Result<Vec<CustomerStreets>, sqlx::Error> {
+ sqlx::query_as::<_, CustomerStreets>("SELECT * FROM \"customer_streets\"").fetch_all(pool).await
+@@ -30196,6 +37963,359 @@ let result = sqlx::query("DELETE FROM \"customer_subscriptions\" WHERE \"id\" =
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `customer_support_tickets`.
++pub async fn list_customer_support_tickets(pool: &PgPool) -> Result<Vec<CustomerSupportTickets>, sqlx::Error> {
++sqlx::query_as::<_, CustomerSupportTickets>("SELECT * FROM \"customer_support_tickets\"").fetch_all(pool).await
++}
++
++/// Returns one `customer_support_tickets` row by primary key.
++pub async fn find_customer_support_tickets(pool: &PgPool, id: i32) -> Result<Option<CustomerSupportTickets>, sqlx::Error> {
++sqlx::query_as::<_, CustomerSupportTickets>("SELECT * FROM \"customer_support_tickets\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `customer_support_tickets` row and returns it.
++pub async fn create_customer_support_tickets(pool: &PgPool, input: NewCustomerSupportTickets) -> Result<CustomerSupportTickets, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, CustomerSupportTickets>("INSERT INTO \"customer_support_tickets\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"customer_support_tickets\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"customer_id\"");
++        columns.push("\"ticket_type\"");
++        columns.push("\"subject\"");
++        columns.push("\"description\"");
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        if input.priority.is_some() {
++            columns.push("\"priority\"");
++        }
++        if input.resolution_notes.is_some() {
++            columns.push("\"resolution_notes\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++        if input.resolved_at.is_some() {
++            columns.push("\"resolved_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.customer_id);
++        values.push_bind(&input.ticket_type);
++        values.push_bind(&input.subject);
++        values.push_bind(&input.description);
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.priority.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.resolution_notes.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.resolved_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<CustomerSupportTickets>().fetch_one(pool).await
++}
++/// Applies a partial update to one `customer_support_tickets` row.
++pub async fn update_customer_support_tickets(pool: &PgPool, id: i32, input: PatchCustomerSupportTickets) -> Result<Option<CustomerSupportTickets>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.ticket_type.is_some() || input.subject.is_some() || input.description.is_some() || input.status.is_some() || input.priority.is_some() || input.resolution_notes.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.resolved_at.is_some()) {
++return find_customer_support_tickets(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"customer_support_tickets\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.ticket_type.as_ref() {
++set.push("\"ticket_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.subject.as_ref() {
++set.push("\"subject\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.description.as_ref() {
++set.push("\"description\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.priority.as_ref() {
++set.push("\"priority\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.resolution_notes.as_ref() {
++set.push("\"resolution_notes\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.resolved_at.as_ref() {
++set.push("\"resolved_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<CustomerSupportTickets>().fetch_optional(pool).await
++}
++/// Deletes one `customer_support_tickets` row by primary key.
++pub async fn delete_customer_support_tickets(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"customer_support_tickets\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
++/// Returns every row from `customer_upsell_events`.
++pub async fn list_customer_upsell_events(pool: &PgPool) -> Result<Vec<CustomerUpsellEvents>, sqlx::Error> {
++sqlx::query_as::<_, CustomerUpsellEvents>("SELECT * FROM \"customer_upsell_events\"").fetch_all(pool).await
++}
++
++/// Returns one `customer_upsell_events` row by primary key.
++pub async fn find_customer_upsell_events(pool: &PgPool, id: i32) -> Result<Option<CustomerUpsellEvents>, sqlx::Error> {
++sqlx::query_as::<_, CustomerUpsellEvents>("SELECT * FROM \"customer_upsell_events\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `customer_upsell_events` row and returns it.
++pub async fn create_customer_upsell_events(pool: &PgPool, input: NewCustomerUpsellEvents) -> Result<CustomerUpsellEvents, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, CustomerUpsellEvents>("INSERT INTO \"customer_upsell_events\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"customer_upsell_events\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"customer_id\"");
++        columns.push("\"upsell_type\"");
++        if input.offer_id.is_some() {
++            columns.push("\"offer_id\"");
++        }
++        if input.stripe_payment_intent_id.is_some() {
++            columns.push("\"stripe_payment_intent_id\"");
++        }
++        if input.stripe_subscription_id.is_some() {
++            columns.push("\"stripe_subscription_id\"");
++        }
++        if input.amount_cents.is_some() {
++            columns.push("\"amount_cents\"");
++        }
++        if input.accepted_at.is_some() {
++            columns.push("\"accepted_at\"");
++        }
++        if input.converted_to_subscription.is_some() {
++            columns.push("\"converted_to_subscription\"");
++        }
++        if input.subscription_id.is_some() {
++            columns.push("\"subscription_id\"");
++        }
++        if input.converted_at.is_some() {
++            columns.push("\"converted_at\"");
++        }
++        if input.metadata.is_some() {
++            columns.push("\"metadata\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        if input.stripe_customer_id.is_some() {
++            columns.push("\"stripe_customer_id\"");
++        }
++        if input.declined_at.is_some() {
++            columns.push("\"declined_at\"");
++        }
++        if input.trial_days_applied.is_some() {
++            columns.push("\"trial_days_applied\"");
++        }
++        if input.original_stripe_price_id.is_some() {
++            columns.push("\"original_stripe_price_id\"");
++        }
++        if input.converted_stripe_price_id.is_some() {
++            columns.push("\"converted_stripe_price_id\"");
++        }
++        if input.journey_person_key.is_some() {
++            columns.push("\"journey_person_key\"");
++        }
++        if input.journey_session_key.is_some() {
++            columns.push("\"journey_session_key\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.customer_id);
++        values.push_bind(&input.upsell_type);
++        if let Some(value) = input.offer_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.stripe_payment_intent_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.stripe_subscription_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.amount_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.accepted_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.converted_to_subscription.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.subscription_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.converted_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.metadata.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.stripe_customer_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.declined_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.trial_days_applied.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.original_stripe_price_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.converted_stripe_price_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.journey_person_key.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.journey_session_key.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<CustomerUpsellEvents>().fetch_one(pool).await
++}
++/// Applies a partial update to one `customer_upsell_events` row.
++pub async fn update_customer_upsell_events(pool: &PgPool, id: i32, input: PatchCustomerUpsellEvents) -> Result<Option<CustomerUpsellEvents>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.upsell_type.is_some() || input.offer_id.is_some() || input.stripe_payment_intent_id.is_some() || input.stripe_subscription_id.is_some() || input.amount_cents.is_some() || input.accepted_at.is_some() || input.converted_to_subscription.is_some() || input.subscription_id.is_some() || input.converted_at.is_some() || input.metadata.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.status.is_some() || input.stripe_customer_id.is_some() || input.declined_at.is_some() || input.trial_days_applied.is_some() || input.original_stripe_price_id.is_some() || input.converted_stripe_price_id.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some()) {
++return find_customer_upsell_events(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"customer_upsell_events\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.upsell_type.as_ref() {
++set.push("\"upsell_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.offer_id.as_ref() {
++set.push("\"offer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.stripe_payment_intent_id.as_ref() {
++set.push("\"stripe_payment_intent_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.stripe_subscription_id.as_ref() {
++set.push("\"stripe_subscription_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.amount_cents.as_ref() {
++set.push("\"amount_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.accepted_at.as_ref() {
++set.push("\"accepted_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.converted_to_subscription.as_ref() {
++set.push("\"converted_to_subscription\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.subscription_id.as_ref() {
++set.push("\"subscription_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.converted_at.as_ref() {
++set.push("\"converted_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metadata.as_ref() {
++set.push("\"metadata\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.stripe_customer_id.as_ref() {
++set.push("\"stripe_customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.declined_at.as_ref() {
++set.push("\"declined_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.trial_days_applied.as_ref() {
++set.push("\"trial_days_applied\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.original_stripe_price_id.as_ref() {
++set.push("\"original_stripe_price_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.converted_stripe_price_id.as_ref() {
++set.push("\"converted_stripe_price_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_person_key.as_ref() {
++set.push("\"journey_person_key\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_session_key.as_ref() {
++set.push("\"journey_session_key\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<CustomerUpsellEvents>().fetch_optional(pool).await
++}
++/// Deletes one `customer_upsell_events` row by primary key.
++pub async fn delete_customer_upsell_events(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"customer_upsell_events\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `customer_upsell_history`.
+ pub async fn list_customer_upsell_history(pool: &PgPool) -> Result<Vec<CustomerUpsellHistory>, sqlx::Error> {
+ sqlx::query_as::<_, CustomerUpsellHistory>("SELECT * FROM \"customer_upsell_history\"").fetch_all(pool).await
+@@ -30211,7 +38331,7 @@ sqlx::query_as::<_, CustomerUpsellHistory>("SELECT * FROM \"customer_upsell_hist
+ 
+ /// Creates one `customer_upsell_history` row and returns it.
+ pub async fn create_customer_upsell_history(pool: &PgPool, input: NewCustomerUpsellHistory) -> Result<CustomerUpsellHistory, sqlx::Error> {
+-if !(input.customer_id.is_some() || input.source_order_id.is_some() || input.upsell_offer_id.is_some() || input.upsell_trigger_id.is_some() || input.offered_at.is_some() || input.response_status.is_some() || input.accepted_at.is_some() || input.declined_at.is_some() || input.expires_at.is_some() || input.original_total_cents.is_some() || input.upsell_total_cents.is_some() || input.final_total_cents.is_some() || input.decline_reason.is_some() || input.offer_id.is_some() || input.offer_name.is_some() || input.offer_description.is_some() || input.sequence_step.is_some() || input.next_offer_at.is_some() || input.presented_at.is_some() || input.responded_at.is_some() || input.acceptance_token.is_some() || input.one_click_url.is_some() || input.discount_percent.is_some() || input.original_price_cents.is_some() || input.final_price_cents.is_some() || input.offer_type.is_some() || input.trigger_source.is_some() || input.metadata.is_some() || input.subscription_id.is_some() || input.converted_at.is_some() || input.stripe_subscription_id.is_some() || input.conversion_value_cents.is_some() || input.payment_intent_id.is_some() || input.payment_error_code.is_some() || input.payment_error_message.is_some()) {
++if !(input.customer_id.is_some() || input.source_order_id.is_some() || input.upsell_offer_id.is_some() || input.upsell_trigger_id.is_some() || input.offered_at.is_some() || input.response_status.is_some() || input.accepted_at.is_some() || input.declined_at.is_some() || input.expires_at.is_some() || input.original_total_cents.is_some() || input.upsell_total_cents.is_some() || input.final_total_cents.is_some() || input.offer_id.is_some() || input.offer_name.is_some() || input.offer_description.is_some() || input.sequence_step.is_some() || input.next_offer_at.is_some() || input.presented_at.is_some() || input.responded_at.is_some() || input.acceptance_token.is_some() || input.one_click_url.is_some() || input.discount_percent.is_some() || input.original_price_cents.is_some() || input.final_price_cents.is_some() || input.offer_type.is_some() || input.trigger_source.is_some() || input.metadata.is_some() || input.subscription_id.is_some() || input.converted_at.is_some() || input.stripe_subscription_id.is_some() || input.conversion_value_cents.is_some() || input.payment_intent_id.is_some() || input.payment_error_code.is_some() || input.payment_error_message.is_some()) {
+ return sqlx::query_as::<_, CustomerUpsellHistory>("INSERT INTO \"customer_upsell_history\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
+ }
+ 
+@@ -30254,9 +38374,6 @@ let mut columns = query.separated(", " );
+         if input.final_total_cents.is_some() {
+             columns.push("\"final_total_cents\"");
+         }
+-        if input.decline_reason.is_some() {
+-            columns.push("\"decline_reason\"");
+-        }
+         if input.offer_id.is_some() {
+             columns.push("\"offer_id\"");
+         }
+@@ -30363,9 +38480,6 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.final_total_cents.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.decline_reason.as_ref() {
+-            values.push_bind(value);
+-        }
+         if let Some(value) = input.offer_id.as_ref() {
+             values.push_bind(value);
+         }
+@@ -30438,7 +38552,7 @@ query.build_query_as::<CustomerUpsellHistory>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `customer_upsell_history` row.
+ pub async fn update_customer_upsell_history(pool: &PgPool, id: i32, input: PatchCustomerUpsellHistory) -> Result<Option<CustomerUpsellHistory>, sqlx::Error> {
+-if !(input.customer_id.is_some() || input.source_order_id.is_some() || input.upsell_offer_id.is_some() || input.upsell_trigger_id.is_some() || input.offered_at.is_some() || input.response_status.is_some() || input.accepted_at.is_some() || input.declined_at.is_some() || input.expires_at.is_some() || input.original_total_cents.is_some() || input.upsell_total_cents.is_some() || input.final_total_cents.is_some() || input.decline_reason.is_some() || input.offer_id.is_some() || input.offer_name.is_some() || input.offer_description.is_some() || input.sequence_step.is_some() || input.next_offer_at.is_some() || input.presented_at.is_some() || input.responded_at.is_some() || input.acceptance_token.is_some() || input.one_click_url.is_some() || input.discount_percent.is_some() || input.original_price_cents.is_some() || input.final_price_cents.is_some() || input.offer_type.is_some() || input.trigger_source.is_some() || input.metadata.is_some() || input.subscription_id.is_some() || input.converted_at.is_some() || input.stripe_subscription_id.is_some() || input.conversion_value_cents.is_some() || input.payment_intent_id.is_some() || input.payment_error_code.is_some() || input.payment_error_message.is_some()) {
++if !(input.customer_id.is_some() || input.source_order_id.is_some() || input.upsell_offer_id.is_some() || input.upsell_trigger_id.is_some() || input.offered_at.is_some() || input.response_status.is_some() || input.accepted_at.is_some() || input.declined_at.is_some() || input.expires_at.is_some() || input.original_total_cents.is_some() || input.upsell_total_cents.is_some() || input.final_total_cents.is_some() || input.offer_id.is_some() || input.offer_name.is_some() || input.offer_description.is_some() || input.sequence_step.is_some() || input.next_offer_at.is_some() || input.presented_at.is_some() || input.responded_at.is_some() || input.acceptance_token.is_some() || input.one_click_url.is_some() || input.discount_percent.is_some() || input.original_price_cents.is_some() || input.final_price_cents.is_some() || input.offer_type.is_some() || input.trigger_source.is_some() || input.metadata.is_some() || input.subscription_id.is_some() || input.converted_at.is_some() || input.stripe_subscription_id.is_some() || input.conversion_value_cents.is_some() || input.payment_intent_id.is_some() || input.payment_error_code.is_some() || input.payment_error_message.is_some()) {
+ return find_customer_upsell_history(pool, id).await;
+ }
+ 
+@@ -30480,9 +38594,6 @@ set.push("\"upsell_total_cents\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.final_total_cents.as_ref() {
+ set.push("\"final_total_cents\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.decline_reason.as_ref() {
+-set.push("\"decline_reason\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.offer_id.as_ref() {
+ set.push("\"offer_id\" = ").push_bind_unseparated(value);
+@@ -30560,6 +38671,285 @@ let result = sqlx::query("DELETE FROM \"customer_upsell_history\" WHERE \"id\" =
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `customer_upsell_status`.
++pub async fn list_customer_upsell_status(pool: &PgPool) -> Result<Vec<CustomerUpsellStatus>, sqlx::Error> {
++sqlx::query_as::<_, CustomerUpsellStatus>("SELECT * FROM \"customer_upsell_status\"").fetch_all(pool).await
++}
++
++/// Returns one `customer_upsell_status` row by primary key.
++pub async fn find_customer_upsell_status(pool: &PgPool, id: i64) -> Result<Option<CustomerUpsellStatus>, sqlx::Error> {
++sqlx::query_as::<_, CustomerUpsellStatus>("SELECT * FROM \"customer_upsell_status\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `customer_upsell_status` row and returns it.
++pub async fn create_customer_upsell_status(pool: &PgPool, input: NewCustomerUpsellStatus) -> Result<CustomerUpsellStatus, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, CustomerUpsellStatus>("INSERT INTO \"customer_upsell_status\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"customer_upsell_status\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"customer_id\"");
++        if input.upsell_window_open.is_some() {
++            columns.push("\"upsell_window_open\"");
++        }
++        if input.window_opened_at.is_some() {
++            columns.push("\"window_opened_at\"");
++        }
++        if input.window_closes_at.is_some() {
++            columns.push("\"window_closes_at\"");
++        }
++        if input.upsell_attempts.is_some() {
++            columns.push("\"upsell_attempts\"");
++        }
++        if input.last_upsell_attempt_at.is_some() {
++            columns.push("\"last_upsell_attempt_at\"");
++        }
++        if input.last_offer_id.is_some() {
++            columns.push("\"last_offer_id\"");
++        }
++        if input.last_offer_response.is_some() {
++            columns.push("\"last_offer_response\"");
++        }
++        if input.cooldown_until.is_some() {
++            columns.push("\"cooldown_until\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++        if input.total_sequences_started.is_some() {
++            columns.push("\"total_sequences_started\"");
++        }
++        if input.total_sequences_completed.is_some() {
++            columns.push("\"total_sequences_completed\"");
++        }
++        if input.total_conversions.is_some() {
++            columns.push("\"total_conversions\"");
++        }
++        if input.total_revenue_cents.is_some() {
++            columns.push("\"total_revenue_cents\"");
++        }
++        if input.last_conversion_at.is_some() {
++            columns.push("\"last_conversion_at\"");
++        }
++        if input.opt_out.is_some() {
++            columns.push("\"opt_out\"");
++        }
++        if input.opt_out_at.is_some() {
++            columns.push("\"opt_out_at\"");
++        }
++        if input.sales_contact_locked.is_some() {
++            columns.push("\"sales_contact_locked\"");
++        }
++        if input.sales_locked_at.is_some() {
++            columns.push("\"sales_locked_at\"");
++        }
++        if input.sales_lock_expires_at.is_some() {
++            columns.push("\"sales_lock_expires_at\"");
++        }
++        if input.sales_lock_override_by.is_some() {
++            columns.push("\"sales_lock_override_by\"");
++        }
++        if input.sales_lock_override_at.is_some() {
++            columns.push("\"sales_lock_override_at\"");
++        }
++        if input.sales_lock_reason.is_some() {
++            columns.push("\"sales_lock_reason\"");
++        }
++        if input.current_state.is_some() {
++            columns.push("\"current_state\"");
++        }
++        if input.metadata.is_some() {
++            columns.push("\"metadata\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.customer_id);
++        if let Some(value) = input.upsell_window_open.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.window_opened_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.window_closes_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.upsell_attempts.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_upsell_attempt_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_offer_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_offer_response.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.cooldown_until.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.total_sequences_started.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.total_sequences_completed.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.total_conversions.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.total_revenue_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_conversion_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.opt_out.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.opt_out_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.sales_contact_locked.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.sales_locked_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.sales_lock_expires_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.sales_lock_override_by.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.sales_lock_override_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.sales_lock_reason.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.current_state.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.metadata.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<CustomerUpsellStatus>().fetch_one(pool).await
++}
++/// Applies a partial update to one `customer_upsell_status` row.
++pub async fn update_customer_upsell_status(pool: &PgPool, id: i64, input: PatchCustomerUpsellStatus) -> Result<Option<CustomerUpsellStatus>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.upsell_window_open.is_some() || input.window_opened_at.is_some() || input.window_closes_at.is_some() || input.upsell_attempts.is_some() || input.last_upsell_attempt_at.is_some() || input.last_offer_id.is_some() || input.last_offer_response.is_some() || input.cooldown_until.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.total_sequences_started.is_some() || input.total_sequences_completed.is_some() || input.total_conversions.is_some() || input.total_revenue_cents.is_some() || input.last_conversion_at.is_some() || input.opt_out.is_some() || input.opt_out_at.is_some() || input.sales_contact_locked.is_some() || input.sales_locked_at.is_some() || input.sales_lock_expires_at.is_some() || input.sales_lock_override_by.is_some() || input.sales_lock_override_at.is_some() || input.sales_lock_reason.is_some() || input.current_state.is_some() || input.metadata.is_some()) {
++return find_customer_upsell_status(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"customer_upsell_status\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.upsell_window_open.as_ref() {
++set.push("\"upsell_window_open\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.window_opened_at.as_ref() {
++set.push("\"window_opened_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.window_closes_at.as_ref() {
++set.push("\"window_closes_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.upsell_attempts.as_ref() {
++set.push("\"upsell_attempts\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_upsell_attempt_at.as_ref() {
++set.push("\"last_upsell_attempt_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_offer_id.as_ref() {
++set.push("\"last_offer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_offer_response.as_ref() {
++set.push("\"last_offer_response\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.cooldown_until.as_ref() {
++set.push("\"cooldown_until\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.total_sequences_started.as_ref() {
++set.push("\"total_sequences_started\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.total_sequences_completed.as_ref() {
++set.push("\"total_sequences_completed\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.total_conversions.as_ref() {
++set.push("\"total_conversions\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.total_revenue_cents.as_ref() {
++set.push("\"total_revenue_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_conversion_at.as_ref() {
++set.push("\"last_conversion_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.opt_out.as_ref() {
++set.push("\"opt_out\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.opt_out_at.as_ref() {
++set.push("\"opt_out_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.sales_contact_locked.as_ref() {
++set.push("\"sales_contact_locked\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.sales_locked_at.as_ref() {
++set.push("\"sales_locked_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.sales_lock_expires_at.as_ref() {
++set.push("\"sales_lock_expires_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.sales_lock_override_by.as_ref() {
++set.push("\"sales_lock_override_by\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.sales_lock_override_at.as_ref() {
++set.push("\"sales_lock_override_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.sales_lock_reason.as_ref() {
++set.push("\"sales_lock_reason\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.current_state.as_ref() {
++set.push("\"current_state\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metadata.as_ref() {
++set.push("\"metadata\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<CustomerUpsellStatus>().fetch_optional(pool).await
++}
++/// Deletes one `customer_upsell_status` row by primary key.
++pub async fn delete_customer_upsell_status(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"customer_upsell_status\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `daily_summaries`.
+ pub async fn list_daily_summaries(pool: &PgPool) -> Result<Vec<DailySummaries>, sqlx::Error> {
+ sqlx::query_as::<_, DailySummaries>("SELECT * FROM \"daily_summaries\"").fetch_all(pool).await
+@@ -32357,6 +40747,12 @@ let mut columns = query.separated(", " );
+         if input.visitor_id.is_some() {
+             columns.push("\"visitor_id\"");
+         }
++        if input.crm_lead_id.is_some() {
++            columns.push("\"crm_lead_id\"");
++        }
++        if input.crm_contact_id.is_some() {
++            columns.push("\"crm_contact_id\"");
++        }
+         if input.customer_id.is_some() {
+             columns.push("\"customer_id\"");
+         }
+@@ -32366,12 +40762,6 @@ let mut columns = query.separated(", " );
+         if input.updated_at.is_some() {
+             columns.push("\"updated_at\"");
+         }
+-        if input.crm_lead_id.is_some() {
+-            columns.push("\"crm_lead_id\"");
+-        }
+-        if input.crm_contact_id.is_some() {
+-            columns.push("\"crm_contact_id\"");
+-        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -32384,6 +40774,12 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.visitor_id.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.crm_lead_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.crm_contact_id.as_ref() {
++            values.push_bind(value);
++        }
+         if let Some(value) = input.customer_id.as_ref() {
+             values.push_bind(value);
+         }
+@@ -32393,19 +40789,13 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.updated_at.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.crm_lead_id.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.crm_contact_id.as_ref() {
+-            values.push_bind(value);
+-        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<DimSession>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `dim_session` row.
+ pub async fn update_dim_session(pool: &PgPool, id: String, input: PatchDimSession) -> Result<Option<DimSession>, sqlx::Error> {
+-if !(input.session_id.is_some() || input.person_key.is_some() || input.visitor_id.is_some() || input.customer_id.is_some() || input.started_at.is_some() || input.ended_at.is_some() || input.source.is_some() || input.updated_at.is_some() || input.crm_lead_id.is_some() || input.crm_contact_id.is_some()) {
++if !(input.session_id.is_some() || input.person_key.is_some() || input.visitor_id.is_some() || input.crm_lead_id.is_some() || input.crm_contact_id.is_some() || input.customer_id.is_some() || input.started_at.is_some() || input.ended_at.is_some() || input.source.is_some() || input.updated_at.is_some()) {
+ return find_dim_session(pool, id).await;
+ }
+ 
+@@ -32420,6 +40810,12 @@ set.push("\"person_key\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.visitor_id.as_ref() {
+ set.push("\"visitor_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.crm_lead_id.as_ref() {
++set.push("\"crm_lead_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.crm_contact_id.as_ref() {
++set.push("\"crm_contact_id\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.customer_id.as_ref() {
+ set.push("\"customer_id\" = ").push_bind_unseparated(value);
+@@ -32435,12 +40831,6 @@ set.push("\"source\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.updated_at.as_ref() {
+ set.push("\"updated_at\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.crm_lead_id.as_ref() {
+-set.push("\"crm_lead_id\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.crm_contact_id.as_ref() {
+-set.push("\"crm_contact_id\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"session_key\" = ").push_bind(id).push(" RETURNING *");
+@@ -33961,6 +42351,134 @@ let result = sqlx::query("DELETE FROM \"driver_capacity_windows\" WHERE \"id\" =
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `driver_devices`.
++pub async fn list_driver_devices(pool: &PgPool) -> Result<Vec<DriverDevices>, sqlx::Error> {
++sqlx::query_as::<_, DriverDevices>("SELECT * FROM \"driver_devices\"").fetch_all(pool).await
++}
++
++/// Returns one `driver_devices` row by primary key.
++pub async fn find_driver_devices(pool: &PgPool, id: sqlx::types::Uuid) -> Result<Option<DriverDevices>, sqlx::Error> {
++sqlx::query_as::<_, DriverDevices>("SELECT * FROM \"driver_devices\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `driver_devices` row and returns it.
++pub async fn create_driver_devices(pool: &PgPool, input: NewDriverDevices) -> Result<DriverDevices, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, DriverDevices>("INSERT INTO \"driver_devices\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"driver_devices\" (");
++{
++let mut columns = query.separated(", " );
++        if input.id.is_some() {
++            columns.push("\"id\"");
++        }
++        columns.push("\"driver_id\"");
++        columns.push("\"device_token\"");
++        if input.device_type.is_some() {
++            columns.push("\"device_type\"");
++        }
++        if input.platform.is_some() {
++            columns.push("\"platform\"");
++        }
++        if input.is_active.is_some() {
++            columns.push("\"is_active\"");
++        }
++        if input.last_seen.is_some() {
++            columns.push("\"last_seen\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++        if input.metadata.is_some() {
++            columns.push("\"metadata\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        if let Some(value) = input.id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.driver_id);
++        values.push_bind(&input.device_token);
++        if let Some(value) = input.device_type.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.platform.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.is_active.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_seen.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.metadata.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<DriverDevices>().fetch_one(pool).await
++}
++/// Applies a partial update to one `driver_devices` row.
++pub async fn update_driver_devices(pool: &PgPool, id: sqlx::types::Uuid, input: PatchDriverDevices) -> Result<Option<DriverDevices>, sqlx::Error> {
++if !(input.driver_id.is_some() || input.device_token.is_some() || input.device_type.is_some() || input.platform.is_some() || input.is_active.is_some() || input.last_seen.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.metadata.is_some()) {
++return find_driver_devices(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"driver_devices\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.driver_id.as_ref() {
++set.push("\"driver_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.device_token.as_ref() {
++set.push("\"device_token\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.device_type.as_ref() {
++set.push("\"device_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.platform.as_ref() {
++set.push("\"platform\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.is_active.as_ref() {
++set.push("\"is_active\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_seen.as_ref() {
++set.push("\"last_seen\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metadata.as_ref() {
++set.push("\"metadata\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<DriverDevices>().fetch_optional(pool).await
++}
++/// Deletes one `driver_devices` row by primary key.
++pub async fn delete_driver_devices(pool: &PgPool, id: sqlx::types::Uuid) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"driver_devices\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `driver_locations`.
+ pub async fn list_driver_locations(pool: &PgPool) -> Result<Vec<DriverLocations>, sqlx::Error> {
+ sqlx::query_as::<_, DriverLocations>("SELECT * FROM \"driver_locations\"").fetch_all(pool).await
+@@ -34063,7 +42581,7 @@ sqlx::query_as::<_, DriverPerformanceMetrics>("SELECT * FROM \"driver_performanc
+ }
+ 
+ /// Returns one `driver_performance_metrics` row by primary key.
+-pub async fn find_driver_performance_metrics(pool: &PgPool, id: i64) -> Result<Option<DriverPerformanceMetrics>, sqlx::Error> {
++pub async fn find_driver_performance_metrics(pool: &PgPool, id: i32) -> Result<Option<DriverPerformanceMetrics>, sqlx::Error> {
+ sqlx::query_as::<_, DriverPerformanceMetrics>("SELECT * FROM \"driver_performance_metrics\" WHERE \"id\" = $1 LIMIT 1")
+ .bind(id)
+ .fetch_optional(pool)
+@@ -34146,7 +42664,7 @@ query.push(") RETURNING *");
+ query.build_query_as::<DriverPerformanceMetrics>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `driver_performance_metrics` row.
+-pub async fn update_driver_performance_metrics(pool: &PgPool, id: i64, input: PatchDriverPerformanceMetrics) -> Result<Option<DriverPerformanceMetrics>, sqlx::Error> {
++pub async fn update_driver_performance_metrics(pool: &PgPool, id: i32, input: PatchDriverPerformanceMetrics) -> Result<Option<DriverPerformanceMetrics>, sqlx::Error> {
+ if !(input.driver_id.is_some() || input.metric_date.is_some() || input.stops_completed.is_some() || input.stops_total.is_some() || input.on_time_stops.is_some() || input.avg_stop_duration_minutes.is_some() || input.total_distance_km.is_some() || input.customer_rating.is_some() || input.notes.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
+ return find_driver_performance_metrics(pool, id).await;
+ }
+@@ -34192,7 +42710,7 @@ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+ query.build_query_as::<DriverPerformanceMetrics>().fetch_optional(pool).await
+ }
+ /// Deletes one `driver_performance_metrics` row by primary key.
+-pub async fn delete_driver_performance_metrics(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++pub async fn delete_driver_performance_metrics(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
+ let result = sqlx::query("DELETE FROM \"driver_performance_metrics\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
+ Ok(result.rows_affected() > 0)
+ }
+@@ -34203,7 +42721,7 @@ sqlx::query_as::<_, DriverPerformanceRatings>("SELECT * FROM \"driver_performanc
+ }
+ 
+ /// Returns one `driver_performance_ratings` row by primary key.
+-pub async fn find_driver_performance_ratings(pool: &PgPool, id: i64) -> Result<Option<DriverPerformanceRatings>, sqlx::Error> {
++pub async fn find_driver_performance_ratings(pool: &PgPool, id: i32) -> Result<Option<DriverPerformanceRatings>, sqlx::Error> {
+ sqlx::query_as::<_, DriverPerformanceRatings>("SELECT * FROM \"driver_performance_ratings\" WHERE \"id\" = $1 LIMIT 1")
+ .bind(id)
+ .fetch_optional(pool)
+@@ -34230,7 +42748,9 @@ let mut columns = query.separated(", " );
+         if input.comment.is_some() {
+             columns.push("\"comment\"");
+         }
+-        columns.push("\"rated_at\"");
++        if input.rated_at.is_some() {
++            columns.push("\"rated_at\"");
++        }
+         if input.created_at.is_some() {
+             columns.push("\"created_at\"");
+         }
+@@ -34249,7 +42769,9 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.comment.as_ref() {
+             values.push_bind(value);
+         }
+-        values.push_bind(&input.rated_at);
++        if let Some(value) = input.rated_at.as_ref() {
++            values.push_bind(value);
++        }
+         if let Some(value) = input.created_at.as_ref() {
+             values.push_bind(value);
+         }
+@@ -34258,7 +42780,7 @@ query.push(") RETURNING *");
+ query.build_query_as::<DriverPerformanceRatings>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `driver_performance_ratings` row.
+-pub async fn update_driver_performance_ratings(pool: &PgPool, id: i64, input: PatchDriverPerformanceRatings) -> Result<Option<DriverPerformanceRatings>, sqlx::Error> {
++pub async fn update_driver_performance_ratings(pool: &PgPool, id: i32, input: PatchDriverPerformanceRatings) -> Result<Option<DriverPerformanceRatings>, sqlx::Error> {
+ if !(input.driver_id.is_some() || input.route_stop_id.is_some() || input.customer_id.is_some() || input.rating.is_some() || input.comment.is_some() || input.rated_at.is_some() || input.created_at.is_some()) {
+ return find_driver_performance_ratings(pool, id).await;
+ }
+@@ -34292,7 +42814,7 @@ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+ query.build_query_as::<DriverPerformanceRatings>().fetch_optional(pool).await
+ }
+ /// Deletes one `driver_performance_ratings` row by primary key.
+-pub async fn delete_driver_performance_ratings(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++pub async fn delete_driver_performance_ratings(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
+ let result = sqlx::query("DELETE FROM \"driver_performance_ratings\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
+ Ok(result.rows_affected() > 0)
+ }
+@@ -34460,6 +42982,12 @@ let mut columns = query.separated(", " );
+         if input.quickbooks_synced_at.is_some() {
+             columns.push("\"quickbooks_synced_at\"");
+         }
++        if input.start_meta.is_some() {
++            columns.push("\"start_meta\"");
++        }
++        if input.end_meta.is_some() {
++            columns.push("\"end_meta\"");
++        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -34528,13 +43056,19 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.quickbooks_synced_at.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.start_meta.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.end_meta.as_ref() {
++            values.push_bind(value);
++        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<DriverShifts>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `driver_shifts` row.
+ pub async fn update_driver_shifts(pool: &PgPool, id: sqlx::types::Uuid, input: PatchDriverShifts) -> Result<Option<DriverShifts>, sqlx::Error> {
+-if !(input.driver_id.is_some() || input.route_id.is_some() || input.status.is_some() || input.start_at.is_some() || input.end_at.is_some() || input.start_lat.is_some() || input.start_lon.is_some() || input.end_lat.is_some() || input.end_lon.is_some() || input.start_odometer.is_some() || input.end_odometer.is_some() || input.start_fuel_pct.is_some() || input.start_water_level_l.is_some() || input.app_version.is_some() || input.device_model.is_some() || input.idempotency_key.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.total_duration_seconds.is_some() || input.quickbooks_time_activity_id.is_some() || input.quickbooks_synced_at.is_some()) {
++if !(input.driver_id.is_some() || input.route_id.is_some() || input.status.is_some() || input.start_at.is_some() || input.end_at.is_some() || input.start_lat.is_some() || input.start_lon.is_some() || input.end_lat.is_some() || input.end_lon.is_some() || input.start_odometer.is_some() || input.end_odometer.is_some() || input.start_fuel_pct.is_some() || input.start_water_level_l.is_some() || input.app_version.is_some() || input.device_model.is_some() || input.idempotency_key.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.total_duration_seconds.is_some() || input.quickbooks_time_activity_id.is_some() || input.quickbooks_synced_at.is_some() || input.start_meta.is_some() || input.end_meta.is_some()) {
+ return find_driver_shifts(pool, id).await;
+ }
+ 
+@@ -34603,6 +43137,12 @@ set.push("\"quickbooks_time_activity_id\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.quickbooks_synced_at.as_ref() {
+ set.push("\"quickbooks_synced_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.start_meta.as_ref() {
++set.push("\"start_meta\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.end_meta.as_ref() {
++set.push("\"end_meta\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -34614,6 +43154,151 @@ let result = sqlx::query("DELETE FROM \"driver_shifts\" WHERE \"id\" = $1").bind
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `driver_tasks`.
++pub async fn list_driver_tasks(pool: &PgPool) -> Result<Vec<DriverTasks>, sqlx::Error> {
++sqlx::query_as::<_, DriverTasks>("SELECT * FROM \"driver_tasks\"").fetch_all(pool).await
++}
++
++/// Returns one `driver_tasks` row by primary key.
++pub async fn find_driver_tasks(pool: &PgPool, id: i32) -> Result<Option<DriverTasks>, sqlx::Error> {
++sqlx::query_as::<_, DriverTasks>("SELECT * FROM \"driver_tasks\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `driver_tasks` row and returns it.
++pub async fn create_driver_tasks(pool: &PgPool, input: NewDriverTasks) -> Result<DriverTasks, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, DriverTasks>("INSERT INTO \"driver_tasks\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"driver_tasks\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"customer_id\"");
++        if input.route_stop_id.is_some() {
++            columns.push("\"route_stop_id\"");
++        }
++        if input.assigned_to.is_some() {
++            columns.push("\"assigned_to\"");
++        }
++        columns.push("\"task_type\"");
++        columns.push("\"due_date\"");
++        if input.notes.is_some() {
++            columns.push("\"notes\"");
++        }
++        if input.priority.is_some() {
++            columns.push("\"priority\"");
++        }
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        if input.completed_at.is_some() {
++            columns.push("\"completed_at\"");
++        }
++        if input.completed_notes.is_some() {
++            columns.push("\"completed_notes\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.customer_id);
++        if let Some(value) = input.route_stop_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.assigned_to.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.task_type);
++        values.push_bind(&input.due_date);
++        if let Some(value) = input.notes.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.priority.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.completed_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.completed_notes.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<DriverTasks>().fetch_one(pool).await
++}
++/// Applies a partial update to one `driver_tasks` row.
++pub async fn update_driver_tasks(pool: &PgPool, id: i32, input: PatchDriverTasks) -> Result<Option<DriverTasks>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.route_stop_id.is_some() || input.assigned_to.is_some() || input.task_type.is_some() || input.due_date.is_some() || input.notes.is_some() || input.priority.is_some() || input.status.is_some() || input.completed_at.is_some() || input.completed_notes.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
++return find_driver_tasks(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"driver_tasks\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.route_stop_id.as_ref() {
++set.push("\"route_stop_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.assigned_to.as_ref() {
++set.push("\"assigned_to\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.task_type.as_ref() {
++set.push("\"task_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.due_date.as_ref() {
++set.push("\"due_date\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.notes.as_ref() {
++set.push("\"notes\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.priority.as_ref() {
++set.push("\"priority\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.completed_at.as_ref() {
++set.push("\"completed_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.completed_notes.as_ref() {
++set.push("\"completed_notes\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<DriverTasks>().fetch_optional(pool).await
++}
++/// Deletes one `driver_tasks` row by primary key.
++pub async fn delete_driver_tasks(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"driver_tasks\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `driver_zone_assignments`.
+ pub async fn list_driver_zone_assignments(pool: &PgPool) -> Result<Vec<DriverZoneAssignments>, sqlx::Error> {
+ sqlx::query_as::<_, DriverZoneAssignments>("SELECT * FROM \"driver_zone_assignments\"").fetch_all(pool).await
+@@ -34845,6 +43530,143 @@ let result = sqlx::query("DELETE FROM \"dunning_email_log\" WHERE \"id\" = $1").
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `dunning_emails`.
++pub async fn list_dunning_emails(pool: &PgPool) -> Result<Vec<DunningEmails>, sqlx::Error> {
++sqlx::query_as::<_, DunningEmails>("SELECT * FROM \"dunning_emails\"").fetch_all(pool).await
++}
++
++/// Returns one `dunning_emails` row by primary key.
++pub async fn find_dunning_emails(pool: &PgPool, id: i32) -> Result<Option<DunningEmails>, sqlx::Error> {
++sqlx::query_as::<_, DunningEmails>("SELECT * FROM \"dunning_emails\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `dunning_emails` row and returns it.
++pub async fn create_dunning_emails(pool: &PgPool, input: NewDunningEmails) -> Result<DunningEmails, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, DunningEmails>("INSERT INTO \"dunning_emails\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"dunning_emails\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"dunning_id\"");
++        columns.push("\"customer_id\"");
++        columns.push("\"email_type\"");
++        columns.push("\"subject\"");
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        columns.push("\"scheduled_for\"");
++        if input.sent_at.is_some() {
++            columns.push("\"sent_at\"");
++        }
++        if input.opened_at.is_some() {
++            columns.push("\"opened_at\"");
++        }
++        if input.clicked_at.is_some() {
++            columns.push("\"clicked_at\"");
++        }
++        if input.error_message.is_some() {
++            columns.push("\"error_message\"");
++        }
++        if input.stripe_subscription_id.is_some() {
++            columns.push("\"stripe_subscription_id\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.dunning_id);
++        values.push_bind(&input.customer_id);
++        values.push_bind(&input.email_type);
++        values.push_bind(&input.subject);
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.scheduled_for);
++        if let Some(value) = input.sent_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.opened_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.clicked_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.error_message.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.stripe_subscription_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<DunningEmails>().fetch_one(pool).await
++}
++/// Applies a partial update to one `dunning_emails` row.
++pub async fn update_dunning_emails(pool: &PgPool, id: i32, input: PatchDunningEmails) -> Result<Option<DunningEmails>, sqlx::Error> {
++if !(input.dunning_id.is_some() || input.customer_id.is_some() || input.email_type.is_some() || input.subject.is_some() || input.status.is_some() || input.scheduled_for.is_some() || input.sent_at.is_some() || input.opened_at.is_some() || input.clicked_at.is_some() || input.error_message.is_some() || input.stripe_subscription_id.is_some() || input.created_at.is_some()) {
++return find_dunning_emails(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"dunning_emails\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.dunning_id.as_ref() {
++set.push("\"dunning_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.email_type.as_ref() {
++set.push("\"email_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.subject.as_ref() {
++set.push("\"subject\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.scheduled_for.as_ref() {
++set.push("\"scheduled_for\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.sent_at.as_ref() {
++set.push("\"sent_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.opened_at.as_ref() {
++set.push("\"opened_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.clicked_at.as_ref() {
++set.push("\"clicked_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.error_message.as_ref() {
++set.push("\"error_message\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.stripe_subscription_id.as_ref() {
++set.push("\"stripe_subscription_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<DunningEmails>().fetch_optional(pool).await
++}
++/// Deletes one `dunning_emails` row by primary key.
++pub async fn delete_dunning_emails(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"dunning_emails\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `dunning_sequences`.
+ pub async fn list_dunning_sequences(pool: &PgPool) -> Result<Vec<DunningSequences>, sqlx::Error> {
+ sqlx::query_as::<_, DunningSequences>("SELECT * FROM \"dunning_sequences\"").fetch_all(pool).await
+@@ -34860,60 +43682,118 @@ sqlx::query_as::<_, DunningSequences>("SELECT * FROM \"dunning_sequences\" WHERE
+ 
+ /// Creates one `dunning_sequences` row and returns it.
+ pub async fn create_dunning_sequences(pool: &PgPool, input: NewDunningSequences) -> Result<DunningSequences, sqlx::Error> {
+-if !(input.customer_id.is_some() || input.subscription_id.is_some() || input.sequence_step.is_some() || input.status.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
++if !(true) {
+ return sqlx::query_as::<_, DunningSequences>("INSERT INTO \"dunning_sequences\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
+ }
+ 
+ let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"dunning_sequences\" (");
+ {
+ let mut columns = query.separated(", " );
+-        if input.customer_id.is_some() {
+-            columns.push("\"customer_id\"");
+-        }
++        columns.push("\"customer_id\"");
+         if input.subscription_id.is_some() {
+             columns.push("\"subscription_id\"");
+         }
+-        if input.sequence_step.is_some() {
+-            columns.push("\"sequence_step\"");
++        if input.stripe_subscription_id.is_some() {
++            columns.push("\"stripe_subscription_id\"");
++        }
++        if input.stripe_invoice_id.is_some() {
++            columns.push("\"stripe_invoice_id\"");
++        }
++        columns.push("\"amount_cents\"");
++        if input.failure_reason.is_some() {
++            columns.push("\"failure_reason\"");
+         }
+         if input.status.is_some() {
+             columns.push("\"status\"");
+         }
++        if input.current_step.is_some() {
++            columns.push("\"current_step\"");
++        }
++        if input.max_attempts.is_some() {
++            columns.push("\"max_attempts\"");
++        }
++        if input.attempts_made.is_some() {
++            columns.push("\"attempts_made\"");
++        }
++        if input.started_at.is_some() {
++            columns.push("\"started_at\"");
++        }
++        if input.completed_at.is_some() {
++            columns.push("\"completed_at\"");
++        }
++        if input.resolved_with.is_some() {
++            columns.push("\"resolved_with\"");
++        }
+         if input.created_at.is_some() {
+             columns.push("\"created_at\"");
+         }
+         if input.updated_at.is_some() {
+             columns.push("\"updated_at\"");
+         }
++        if input.next_attempt_at.is_some() {
++            columns.push("\"next_attempt_at\"");
++        }
++        if input.last_attempt_at.is_some() {
++            columns.push("\"last_attempt_at\"");
++        }
+ }
+ query.push(") VALUES (");
+ {
+ let mut values = query.separated(", " );
+-        if let Some(value) = input.customer_id.as_ref() {
+-            values.push_bind(value);
+-        }
++        values.push_bind(&input.customer_id);
+         if let Some(value) = input.subscription_id.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.sequence_step.as_ref() {
++        if let Some(value) = input.stripe_subscription_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.stripe_invoice_id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.amount_cents);
++        if let Some(value) = input.failure_reason.as_ref() {
+             values.push_bind(value);
+         }
+         if let Some(value) = input.status.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.current_step.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.max_attempts.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.attempts_made.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.started_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.completed_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.resolved_with.as_ref() {
++            values.push_bind(value);
++        }
+         if let Some(value) = input.created_at.as_ref() {
+             values.push_bind(value);
+         }
+         if let Some(value) = input.updated_at.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.next_attempt_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_attempt_at.as_ref() {
++            values.push_bind(value);
++        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<DunningSequences>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `dunning_sequences` row.
+ pub async fn update_dunning_sequences(pool: &PgPool, id: i32, input: PatchDunningSequences) -> Result<Option<DunningSequences>, sqlx::Error> {
+-if !(input.customer_id.is_some() || input.subscription_id.is_some() || input.sequence_step.is_some() || input.status.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
++if !(input.customer_id.is_some() || input.subscription_id.is_some() || input.stripe_subscription_id.is_some() || input.stripe_invoice_id.is_some() || input.amount_cents.is_some() || input.failure_reason.is_some() || input.status.is_some() || input.current_step.is_some() || input.max_attempts.is_some() || input.attempts_made.is_some() || input.started_at.is_some() || input.completed_at.is_some() || input.resolved_with.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.next_attempt_at.is_some() || input.last_attempt_at.is_some()) {
+ return find_dunning_sequences(pool, id).await;
+ }
+ 
+@@ -34926,17 +43806,50 @@ set.push("\"customer_id\" = ").push_bind_unseparated(value);
+         if let Some(value) = input.subscription_id.as_ref() {
+ set.push("\"subscription_id\" = ").push_bind_unseparated(value);
+ }
+-        if let Some(value) = input.sequence_step.as_ref() {
+-set.push("\"sequence_step\" = ").push_bind_unseparated(value);
++        if let Some(value) = input.stripe_subscription_id.as_ref() {
++set.push("\"stripe_subscription_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.stripe_invoice_id.as_ref() {
++set.push("\"stripe_invoice_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.amount_cents.as_ref() {
++set.push("\"amount_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.failure_reason.as_ref() {
++set.push("\"failure_reason\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.status.as_ref() {
+ set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.current_step.as_ref() {
++set.push("\"current_step\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.max_attempts.as_ref() {
++set.push("\"max_attempts\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.attempts_made.as_ref() {
++set.push("\"attempts_made\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.started_at.as_ref() {
++set.push("\"started_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.completed_at.as_ref() {
++set.push("\"completed_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.resolved_with.as_ref() {
++set.push("\"resolved_with\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.created_at.as_ref() {
+ set.push("\"created_at\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.updated_at.as_ref() {
+ set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.next_attempt_at.as_ref() {
++set.push("\"next_attempt_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_attempt_at.as_ref() {
++set.push("\"last_attempt_at\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -35451,6 +44364,9 @@ let mut columns = query.separated(", " );
+         if input.journey_session_key.is_some() {
+             columns.push("\"journey_session_key\"");
+         }
++        if input.template_name.is_some() {
++            columns.push("\"template_name\"");
++        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -35501,13 +44417,16 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.journey_session_key.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.template_name.as_ref() {
++            values.push_bind(value);
++        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<EmailSends>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `email_sends` row.
+ pub async fn update_email_sends(pool: &PgPool, id: i32, input: PatchEmailSends) -> Result<Option<EmailSends>, sqlx::Error> {
+-if !(input.sequence_step_id.is_some() || input.lead_id.is_some() || input.customer_id.is_some() || input.email_address.is_some() || input.status.is_some() || input.sendgrid_message_id.is_some() || input.sent_at.is_some() || input.opened_at.is_some() || input.clicked_at.is_some() || input.bounced_at.is_some() || input.unsubscribed_at.is_some() || input.metadata.is_some() || input.created_at.is_some() || input.crm_lead_id.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some()) {
++if !(input.sequence_step_id.is_some() || input.lead_id.is_some() || input.customer_id.is_some() || input.email_address.is_some() || input.status.is_some() || input.sendgrid_message_id.is_some() || input.sent_at.is_some() || input.opened_at.is_some() || input.clicked_at.is_some() || input.bounced_at.is_some() || input.unsubscribed_at.is_some() || input.metadata.is_some() || input.created_at.is_some() || input.crm_lead_id.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some() || input.template_name.is_some()) {
+ return find_email_sends(pool, id).await;
+ }
+ 
+@@ -35561,6 +44480,9 @@ set.push("\"journey_person_key\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.journey_session_key.as_ref() {
+ set.push("\"journey_session_key\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.template_name.as_ref() {
++set.push("\"template_name\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -35572,6 +44494,137 @@ let result = sqlx::query("DELETE FROM \"email_sends\" WHERE \"id\" = $1").bind(i
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `email_sequence_jobs`.
++pub async fn list_email_sequence_jobs(pool: &PgPool) -> Result<Vec<EmailSequenceJobs>, sqlx::Error> {
++sqlx::query_as::<_, EmailSequenceJobs>("SELECT * FROM \"email_sequence_jobs\"").fetch_all(pool).await
++}
++
++/// Returns one `email_sequence_jobs` row by primary key.
++pub async fn find_email_sequence_jobs(pool: &PgPool, id: i32) -> Result<Option<EmailSequenceJobs>, sqlx::Error> {
++sqlx::query_as::<_, EmailSequenceJobs>("SELECT * FROM \"email_sequence_jobs\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `email_sequence_jobs` row and returns it.
++pub async fn create_email_sequence_jobs(pool: &PgPool, input: NewEmailSequenceJobs) -> Result<EmailSequenceJobs, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, EmailSequenceJobs>("INSERT INTO \"email_sequence_jobs\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"email_sequence_jobs\" (");
++{
++let mut columns = query.separated(", " );
++        if input.customer_id.is_some() {
++            columns.push("\"customer_id\"");
++        }
++        columns.push("\"sequence_name\"");
++        if input.step_number.is_some() {
++            columns.push("\"step_number\"");
++        }
++        columns.push("\"scheduled_for\"");
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        if input.email_subject.is_some() {
++            columns.push("\"email_subject\"");
++        }
++        if input.sent_at.is_some() {
++            columns.push("\"sent_at\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.email.is_some() {
++            columns.push("\"email\"");
++        }
++        if input.lead_name.is_some() {
++            columns.push("\"lead_name\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.sequence_name);
++        if let Some(value) = input.step_number.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.scheduled_for);
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.email_subject.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.sent_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.email.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.lead_name.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<EmailSequenceJobs>().fetch_one(pool).await
++}
++/// Applies a partial update to one `email_sequence_jobs` row.
++pub async fn update_email_sequence_jobs(pool: &PgPool, id: i32, input: PatchEmailSequenceJobs) -> Result<Option<EmailSequenceJobs>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.sequence_name.is_some() || input.step_number.is_some() || input.scheduled_for.is_some() || input.status.is_some() || input.email_subject.is_some() || input.sent_at.is_some() || input.created_at.is_some() || input.email.is_some() || input.lead_name.is_some()) {
++return find_email_sequence_jobs(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"email_sequence_jobs\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.sequence_name.as_ref() {
++set.push("\"sequence_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.step_number.as_ref() {
++set.push("\"step_number\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.scheduled_for.as_ref() {
++set.push("\"scheduled_for\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.email_subject.as_ref() {
++set.push("\"email_subject\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.sent_at.as_ref() {
++set.push("\"sent_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.email.as_ref() {
++set.push("\"email\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.lead_name.as_ref() {
++set.push("\"lead_name\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<EmailSequenceJobs>().fetch_optional(pool).await
++}
++/// Deletes one `email_sequence_jobs` row by primary key.
++pub async fn delete_email_sequence_jobs(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"email_sequence_jobs\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `email_sequences`.
+ pub async fn list_email_sequences(pool: &PgPool) -> Result<Vec<EmailSequences>, sqlx::Error> {
+ sqlx::query_as::<_, EmailSequences>("SELECT * FROM \"email_sequences\"").fetch_all(pool).await
+@@ -36013,6 +45066,139 @@ let result = sqlx::query("DELETE FROM \"email_workflow_edges\" WHERE \"id\" = $1
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `email_workflow_event_waits`.
++pub async fn list_email_workflow_event_waits(pool: &PgPool) -> Result<Vec<EmailWorkflowEventWaits>, sqlx::Error> {
++sqlx::query_as::<_, EmailWorkflowEventWaits>("SELECT * FROM \"email_workflow_event_waits\"").fetch_all(pool).await
++}
++
++/// Returns one `email_workflow_event_waits` row by primary key.
++pub async fn find_email_workflow_event_waits(pool: &PgPool, id: sqlx::types::Uuid) -> Result<Option<EmailWorkflowEventWaits>, sqlx::Error> {
++sqlx::query_as::<_, EmailWorkflowEventWaits>("SELECT * FROM \"email_workflow_event_waits\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++

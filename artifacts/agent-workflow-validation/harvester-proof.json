@@ -1,0 +1,17 @@
+{
+  "target": "harvester",
+  "taskId": "77bdf3de-e216-4073-874d-dce13f84458d",
+  "workerId": "a2a-server-harvester-0",
+  "workerName": "harvester-a2a-server-harvester-0",
+  "workspaceId": "api-harvester-validation",
+  "workspacePath": "/var/lib/codetether/repos/api-validation",
+  "file": "/var/lib/codetether/repos/api-validation/api-harvester-ae99124bba21f223.txt",
+  "marker": "api-harvester-ae99124bba21f223",
+  "model": "github-copilot/gpt-5-mini",
+  "submittedAt": "2026-10-05T18:53:21.100Z",
+  "sha256": "c00261cce99b3fd605d71bbcf925e7e7aa4ea677c8bb3c8ee90821e9ed6aaeec",
+  "sessionId": null,
+  "status": "completed",
+  "verifiedAt": "2026-10-05T18:54:29.829Z",
+  "realExecution": true
+}

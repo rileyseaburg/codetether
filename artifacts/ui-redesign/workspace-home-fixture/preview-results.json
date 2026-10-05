@@ -1,0 +1,68 @@
+{
+  "level": "mocked local",
+  "results": [
+    {
+      "name": "desktop",
+      "width": 1280,
+      "documentWidth": 1280,
+      "workspaceButtons": 8,
+      "launchVisible": true,
+      "discovery": {
+        "x": 85,
+        "y": 183.5,
+        "width": 215.84375,
+        "height": 25
+      },
+      "launcher": {
+        "x": 593.390625,
+        "y": 162.5,
+        "width": 622.609375,
+        "height": 489
+      },
+      "advancedVisible": false,
+      "monitorVisible": false
+    },
+    {
+      "name": "desktop-dark",
+      "width": 1280,
+      "documentWidth": 1280,
+      "workspaceButtons": 8,
+      "launchVisible": true,
+      "discovery": {
+        "x": 85,
+        "y": 183.5,
+        "width": 215.84375,
+        "height": 25
+      },
+      "launcher": {
+        "x": 593.390625,
+        "y": 162.5,
+        "width": 622.609375,
+        "height": 489
+      },
+      "advancedVisible": false,
+      "monitorVisible": false
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "documentWidth": 390,
+      "workspaceButtons": 8,
+      "launchVisible": true,
+      "discovery": {
+        "x": 33,
+        "y": 241.5,
+        "width": 215.84375,
+        "height": 25
+      },
+      "launcher": {
+        "x": 16,
+        "y": 814.5,
+        "width": 358,
+        "height": 557
+      },
+      "advancedVisible": false,
+      "monitorVisible": false
+    }
+  ]
+}

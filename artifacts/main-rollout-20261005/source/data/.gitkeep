@@ -1,0 +1,2 @@
+# This directory contains persistent data files
+# monitor.db - SQLite database for agent logs

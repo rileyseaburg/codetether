@@ -1,0 +1,367 @@
+{
+  "info" : {
+    "arguments" : [
+      "devicectl",
+      "list",
+      "devices",
+      "--timeout",
+      "10",
+      "--json-output",
+      "/Users/rileyseaburg/a2amonitor-login-20261005/evidence/device-readiness-rehearsal.json"
+    ],
+    "commandType" : "devicectl.list.devices",
+    "environment" : {
+
+    },
+    "jsonVersion" : 2,
+    "outcome" : "success",
+    "version" : "443.24"
+  },
+  "result" : {
+    "devices" : [
+      {
+        "capabilities" : [
+          {
+            "featureIdentifier" : "com.apple.coredevice.feature.tags",
+            "name" : "Modify Tags"
+          },
+          {
+            "featureIdentifier" : "com.apple.coredevice.feature.unpairdevice",
+            "name" : "Unpair Device"
+          }
+        ],
+        "connectionProperties" : {
+          "authenticationType" : "manualPairing",
+          "isMobileDeviceOnly" : false,
+          "pairingState" : "paired",
+          "potentialHostnames" : [
+            "00008112-001659A00C08C01E.coredevice.local",
+            "36E298E9-421D-58CD-B296-91F2ED2CAEEA.coredevice.local"
+          ],
+          "tunnelState" : "unavailable"
+        },
+        "deviceProperties" : {
+          "ddiServicesAvailable" : false,
+          "name" : "Chelsie Marie’s iPad",
+          "osBuildUpdate" : "22H352",
+          "osVersionNumber" : "18.7.8"
+        },
+        "hardwareProperties" : {
+          "cpuType" : {
+            "name" : "arm64e",
+            "subType" : 2,
+            "type" : 16777228
+          },
+          "deviceType" : "iPad",
+          "ecid" : 6290993419173918,
+          "hardwareModel" : "J618AP",
+          "platform" : "iOS",
+          "productType" : "iPad14,4",
+          "supportedDeviceFamilies" : [
+            1,
+            2
+          ],
+          "udid" : "00008112-001659A00C08C01E"
+        },
+        "identifier" : "36E298E9-421D-58CD-B296-91F2ED2CAEEA",
+        "tags" : [
+
+        ],
+        "visibilityClass" : "default"
+      },
+      {
+        "capabilities" : [
+          {
+            "featureIdentifier" : "com.apple.coredevice.feature.tags",
+            "name" : "Modify Tags"
+          },
+          {
+            "featureIdentifier" : "com.apple.coredevice.feature.unpairdevice",
+            "name" : "Unpair Device"
+          }
+        ],
+        "connectionProperties" : {
+          "authenticationType" : "manualPairing",
+          "isMobileDeviceOnly" : false,
+          "lastConnectionDate" : "2025-09-03T23:52:05.283Z",
+          "pairingState" : "paired",
+          "potentialHostnames" : [
+            "00008101-000508382628801E.coredevice.local",
+            "3ED0A98B-41E5-52A2-BEA8-984EA1BC23C2.coredevice.local"
+          ],
+          "tunnelState" : "unavailable"
+        },
+        "deviceProperties" : {
+          "bootedFromSnapshot" : true,
+          "bootedSnapshotName" : "com.apple.os.update-6BC8B57DFC148FF764E95BE609DC16464BB9E4AF19BD66A7ABFB2A4D259AE53A",
+          "ddiServicesAvailable" : false,
+          "developerModeStatus" : "enabled",
+          "hasInternalOSBuild" : false,
+          "name" : "iPhone",
+          "osBuildUpdate" : "22F76",
+          "osVersionNumber" : "18.5",
+          "rootFileSystemIsWritable" : false
+        },
+        "hardwareProperties" : {
+          "authListingIdentifiers" : {
+            "APProductionMode" : true,
+            "ApECID" : 1416412134932510,
+            "BMU,UniqueID" : 783778975,
+            "BbSNUM" : "0xcb38af82",
+            "BoardID" : 12,
+            "ChipID" : 33025,
+            "HardwareModel" : "D53gAP",
+            "Rap,ECID" : "0x0064040450720a2f",
+            "SE,ID" : "0x041c2e1b8a16900221730789283160236d38a0b01a439d5d",
+            "Savage,UID" : "0xc92938575ab4e22ad2c4d48ce911e208",
+            "SerialNumber" : "DX3JJBE70DXT",
+            "eUICC,EID" : "89049032006008882600072095426320"
+          },
+          "cpuType" : {
+            "name" : "arm64e",
+            "subType" : 2,
+            "type" : 16777228
+          },
+          "deviceType" : "iPhone",
+          "ecid" : 1416412134932510,
+          "hardwareModel" : "D53gAP",
+          "internalStorageCapacity" : 64000000000,
+          "isProductionFused" : true,
+          "marketingName" : "iPhone 12",
+          "platform" : "iOS",
+          "productType" : "iPhone13,2",
+          "reality" : "physical",
+          "serialNumber" : "DX3JJBE70DXT",
+          "supportedCPUTypes" : [
+            {
+              "name" : "arm64e",
+              "subType" : 2,
+              "type" : 16777228
+            },
+            {
+              "name" : "arm64",
+              "subType" : 0,
+              "type" : 16777228
+            },
+            {
+              "name" : "arm64",
+              "subType" : 1,
+              "type" : 16777228
+            },
+            {
+              "name" : "arm64_32",
+              "subType" : 1,
+              "type" : 33554444
+            }
+          ],
+          "supportedDeviceFamilies" : [
+            1
+          ],
+          "thinningProductType" : "iPhone13,2",
+          "udid" : "00008101-000508382628801E"
+        },
+        "identifier" : "3ED0A98B-41E5-52A2-BEA8-984EA1BC23C2",
+        "tags" : [
+
+        ],
+        "visibilityClass" : "default"
+      },
+      {
+        "capabilities" : [
+          {
+            "featureIdentifier" : "com.apple.coredevice.feature.tags",
+            "name" : "Modify Tags"
+          },
+          {
+            "featureIdentifier" : "com.apple.coredevice.feature.unpairdevice",
+            "name" : "Unpair Device"
+          }
+        ],
+        "connectionProperties" : {
+          "authenticationType" : "manualPairing",
+          "isMobileDeviceOnly" : false,
+          "lastConnectionDate" : "2026-08-13T17:37:34.923Z",
+          "pairingState" : "paired",
+          "potentialHostnames" : [
+            "00008140-001E61591411801C.coredevice.local",
+            "9362FCFF-0C4C-57A2-A3E9-F29332667712.coredevice.local"
+          ],
+          "tunnelState" : "unavailable"
+        },
+        "deviceProperties" : {
+          "bootedFromSnapshot" : true,
+          "bootedSnapshotName" : "com.apple.os.update-9A70B35AABAB414B52F0478F247D4600B985549CAD4C0ACA6E0AD996808CDABC",
+          "ddiServicesAvailable" : false,
+          "developerModeStatus" : "enabled",
+          "hasInternalOSBuild" : false,
+          "name" : "iPhone",
+          "osBuildUpdate" : "23G71",
+          "osVersionNumber" : "26.6",
+          "rootFileSystemIsWritable" : false
+        },
+        "hardwareProperties" : {
+          "authListingIdentifiers" : {
+            "APProductionMode" : true,
+            "ApECID" : 8551284517994524,
+            "BMU,UniqueID" : 1721537102,
+            "BbSNUM" : "0x2fe05ac9",
+            "BoardID" : 12,
+            "ChipID" : 33088,
+            "HardwareModel" : "D93AP",
+            "Rap,ECID" : "0x007405873c059f50",
+            "SE,ID" : "0x04291bdb0e2490024336087093328717ffd50f7ae2ca237e",
+            "Savage,UID" : "0x0ed86f8044c77d40ca0ec310f1a6296a",
+            "SerialNumber" : "K30GQ5HXM3",
+            "Yonkers,ECID" : "0xbf6c2de00ed3bdd713c4c38e7f2305b2",
+            "eUICC,EID" : "89049032007408885200211685997777"
+          },
+          "cpuType" : {
+            "name" : "arm64e",
+            "subType" : 2,
+            "type" : 16777228
+          },
+          "deviceType" : "iPhone",
+          "ecid" : 8551284517994524,
+          "hardwareModel" : "D93AP",
+          "internalStorageCapacity" : 128000000000,
+          "isProductionFused" : true,
+          "marketingName" : "iPhone 16 Pro",
+          "platform" : "iOS",
+          "productType" : "iPhone17,1",
+          "reality" : "physical",
+          "serialNumber" : "K30GQ5HXM3",
+          "supportedCPUTypes" : [
+            {
+              "name" : "arm64e",
+              "subType" : 2,
+              "type" : 16777228
+            },
+            {
+              "name" : "arm64",
+              "subType" : 0,
+              "type" : 16777228
+            },
+            {
+              "name" : "arm64",
+              "subType" : 1,
+              "type" : 16777228
+            },
+            {
+              "name" : "arm64_32",
+              "subType" : 1,
+              "type" : 33554444
+            }
+          ],
+          "supportedDeviceFamilies" : [
+            1
+          ],
+          "thinningProductType" : "iPhone17,1",
+          "udid" : "00008140-001E61591411801C"
+        },
+        "identifier" : "9362FCFF-0C4C-57A2-A3E9-F29332667712",
+        "tags" : [
+
+        ],
+        "visibilityClass" : "default"
+      },
+      {
+        "capabilities" : [
+          {
+            "featureIdentifier" : "com.apple.coredevice.feature.tags",
+            "name" : "Modify Tags"
+          },
+          {
+            "featureIdentifier" : "com.apple.coredevice.feature.unpairdevice",
+            "name" : "Unpair Device"
+          }
+        ],
+        "connectionProperties" : {
+          "authenticationType" : "manualPairing",
+          "isMobileDeviceOnly" : false,
+          "lastConnectionDate" : "2026-10-05T11:56:44.631Z",
+          "pairingState" : "paired",
+          "potentialHostnames" : [
+            "00008110-001879C23E0A401E.coredevice.local",
+            "4745B27B-2B68-5164-A053-B869B07EE2CA.coredevice.local"
+          ],
+          "tunnelState" : "unavailable"
+        },
+        "deviceProperties" : {
+          "bootedFromSnapshot" : true,
+          "bootedSnapshotName" : "com.apple.os.update-7AA355115B63E0506A9B0824F4A0F6E2815C8EA2F4A4007903EF6A45E97DC805",
+          "ddiServicesAvailable" : false,
+          "developerModeStatus" : "enabled",
+          "hasInternalOSBuild" : false,
+          "name" : "riley",
+          "osBuildUpdate" : "23D127",
+          "osVersionNumber" : "26.3",
+          "releaseType" : "Beta",
+          "rootFileSystemIsWritable" : false
+        },
+        "hardwareProperties" : {
+          "authListingIdentifiers" : {
+            "APProductionMode" : true,
+            "ApECID" : 6889274612531230,
+            "BMU,UniqueID" : 780096763,
+            "BbSNUM" : "0xa2c75615",
+            "BoardID" : 14,
+            "ChipID" : 33040,
+            "HardwareModel" : "D64AP",
+            "Rap,ECID" : "0x006403c43082e798",
+            "SE,ID" : "0x044230b3ce14900221080138803151900e8bf42bd44d5f00",
+            "Savage,UID" : "0x000127067d0476c61dbc56533489c442",
+            "SerialNumber" : "K3VLY4D9QF",
+            "eUICC,EID" : "89049032007008882600121516025042"
+          },
+          "cpuType" : {
+            "name" : "arm64e",
+            "subType" : 2,
+            "type" : 16777228
+          },
+          "deviceType" : "iPhone",
+          "ecid" : 6889274612531230,
+          "hardwareModel" : "D64AP",
+          "internalStorageCapacity" : 128000000000,
+          "isProductionFused" : true,
+          "marketingName" : "iPhone 13 Pro Max",
+          "platform" : "iOS",
+          "productType" : "iPhone14,3",
+          "reality" : "physical",
+          "serialNumber" : "K3VLY4D9QF",
+          "supportedCPUTypes" : [
+            {
+              "name" : "arm64e",
+              "subType" : 2,
+              "type" : 16777228
+            },
+            {
+              "name" : "arm64",
+              "subType" : 0,
+              "type" : 16777228
+            },
+            {
+              "name" : "arm64",
+              "subType" : 1,
+              "type" : 16777228
+            },
+            {
+              "name" : "arm64_32",
+              "subType" : 1,
+              "type" : 33554444
+            }
+          ],
+          "supportedDeviceFamilies" : [
+            1
+          ],
+          "thinningProductType" : "iPhone14,3",
+          "udid" : "00008110-001879C23E0A401E"
+        },
+        "identifier" : "4745B27B-2B68-5164-A053-B869B07EE2CA",
+        "tags" : [
+
+        ],
+        "visibilityClass" : "default"
+      }
+    ]
+  }
+}

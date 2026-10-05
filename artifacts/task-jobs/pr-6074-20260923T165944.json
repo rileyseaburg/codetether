@@ -1,0 +1,1091 @@
+{
+  "at": "2026-09-23T16:59:43.708655+00:00",
+  "pr": {
+    "number": 6074,
+    "state": "open",
+    "merged": false,
+    "mergeable": true,
+    "head": "c85d1d479e3da86b37240406d9355c0e0874a630",
+    "ref": "codetether/issue-6031",
+    "title": "Fix #6031: [ERROR] spotlessbinco: Error assigning zone for customer 511: error returned from database: invalid GeoJson representation at line 342",
+    "issue": null,
+    "updated_at": "2026-09-23T16:53:41Z"
+  },
+  "checks": [
+    {
+      "context": "CodeTether PR Review / CodeTether Review (pull_request_target)",
+      "status": "pending",
+      "description": "Waiting to run",
+      "updated_at": "2026-09-23T16:53:43Z"
+    },
+    {
+      "context": "Dev Image Builds / Build and push Dev Rust backend (pull_request)",
+      "status": "pending",
+      "description": "Blocked by required conditions",
+      "updated_at": "2026-09-23T16:53:44Z"
+    },
+    {
+      "context": "Dev Image Builds / Build and push Dev Fastify API (pull_request)",
+      "status": "pending",
+      "description": "Blocked by required conditions",
+      "updated_at": "2026-09-23T16:53:47Z"
+    },
+    {
+      "context": "Dev Image Builds / build-and-push (pull_request)",
+      "status": "pending",
+      "description": "Waiting to run",
+      "updated_at": "2026-09-23T16:53:50Z"
+    },
+    {
+      "context": "Dev Image Builds / build-and-push-dev-api (pull_request)",
+      "status": "pending",
+      "description": "Waiting to run",
+      "updated_at": "2026-09-23T16:53:51Z"
+    },
+    {
+      "context": "Secret Scan / gitleaks (pull_request)",
+      "status": "pending",
+      "description": "Waiting to run",
+      "updated_at": "2026-09-23T16:53:52Z"
+    }
+  ],
+  "files": [
+    "config/database/migrations/20260914124411-fix_service_zone_assignment_boundary/README.md",
+    "config/database/migrations/20260914124411-fix_service_zone_assignment_boundary/down.sql",
+    "config/database/migrations/20260914124411-fix_service_zone_assignment_boundary/up.sql",
+    "config/database/migrations/20260923165016-service_zone_assignment_cursor/README.md",
+    "config/database/migrations/20260923165016-service_zone_assignment_cursor/down.sql",
+    "config/database/migrations/20260923165016-service_zone_assignment_cursor/regression.sql",
+    "config/database/migrations/20260923165016-service_zone_assignment_cursor/up.sql",
+    "src/jobs/assign_service_zones.rs",
+    "src/jobs/assign_service_zones/customer.rs",
+    "src/jobs/assign_service_zones/geocode.rs"
+  ],
+  "tasks": [
+    {
+      "id": "842efc02-2921-4e48-954f-2fb420d1eccb",
+      "status": "completed",
+      "title": "Prepare Forgejo task #6031",
+      "error": null,
+      "created_at": "2026-09-12 10:46:50.006205+00:00",
+      "updated_at": "2026-09-12 21:28:14.228693+00:00",
+      "completed_at": "2026-09-12 21:28:14.132702+00:00",
+      "metadata": {
+        "workflow_stage": "prepare",
+        "issue_number": 6031,
+        "pr_head_sha": "",
+        "branch_name": "codetether/issue-6031",
+        "forgejo_agent_task_id": 556,
+        "temporal_workflow_id": "forgejo-agent-task-556",
+        "temporal_attempt": 1,
+        "job_name": "ct-task-c7311826bdbe15af13059770196721ff",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "9b0f1a26-617f-4383-b302-296d55f811a3",
+      "status": "completed",
+      "title": "Work Forgejo task #6031",
+      "error": null,
+      "created_at": "2026-09-12 21:28:21.605063+00:00",
+      "updated_at": "2026-09-14 12:48:40.770490+00:00",
+      "completed_at": "2026-09-14 12:48:40.593534+00:00",
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6031,
+        "pr_head_sha": "",
+        "branch_name": "codetether/issue-6031",
+        "forgejo_agent_task_id": 556,
+        "temporal_workflow_id": "forgejo-agent-task-556",
+        "temporal_attempt": 1,
+        "job_name": "ct-task-97a6a8776bba4cfdf1ab8ef75168b601",
+        "job_cleanup_scheduled": true,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6074",
+          "number": 6074
+        }
+      }
+    },
+    {
+      "id": "c6269770-8df2-529d-98fb-a6cb5e3ef591",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-14 12:48:59.028394+00:00",
+      "updated_at": "2026-09-14 13:13:41.158003+00:00",
+      "completed_at": "2026-09-14 12:52:35.326127+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "51e7a0754fc26d45b5e71c8952723e34fef1b59b",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "e0156a96-7978-4977-af88-3a57f3f20035"
+        ],
+        "recovery_state": "needs_input",
+        "recovery_blocker": "no_verified_commit_or_validation",
+        "recovery_task_id": "e5bdd830-a2cb-43dc-aaf1-acacf86e2cc8",
+        "recovery_reconciled": true
+      }
+    },
+    {
+      "id": "e0156a96-7978-4977-af88-3a57f3f20035",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-14 12:49:04.256125+00:00",
+      "updated_at": "2026-09-14 12:52:32.508283+00:00",
+      "completed_at": "2026-09-14 12:52:21.063755+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "51e7a0754fc26d45b5e71c8952723e34fef1b59b",
+        "review_owner_id": "c6269770-8df2-529d-98fb-a6cb5e3ef591",
+        "job_name": "ct-task-c6aeca95b62955497a9451d51cdcc486",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "e5bdd830-a2cb-43dc-aaf1-acacf86e2cc8",
+      "status": "completed",
+      "title": "Resolve review feedback for PR #6074",
+      "error": null,
+      "created_at": "2026-09-14 12:52:39.786600+00:00",
+      "updated_at": "2026-09-14 13:13:41.676905+00:00",
+      "completed_at": "2026-09-14 13:13:25.560382+00:00",
+      "metadata": {
+        "workflow_stage": "review_recovery",
+        "issue_number": 6031,
+        "pr_number": 6074,
+        "pr_head_sha": "51e7a0754fc26d45b5e71c8952723e34fef1b59b",
+        "branch_name": "codetether/issue-6031",
+        "review_owner_id": "c6269770-8df2-529d-98fb-a6cb5e3ef591",
+        "recovery_state": "needs_input",
+        "recovery_blocker": "no_verified_commit_or_validation",
+        "recovery_task_id": "e5bdd830-a2cb-43dc-aaf1-acacf86e2cc8",
+        "recovery_native_request": 556,
+        "recovery_attempt": 1,
+        "recovery_reconciled": true,
+        "job_name": "ct-task-506a82f679c9e89a21cef375de71963d",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "f361b9e6-ba80-56ca-96fb-33b6dd6b6c7d",
+      "status": "failed",
+      "title": "Review PR #6074",
+      "error": "review_blocked",
+      "created_at": "2026-09-14 13:26:59.458713+00:00",
+      "updated_at": "2026-09-14 13:30:05.093165+00:00",
+      "completed_at": "2026-09-14 13:30:05.093165+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "6794f049452d404ca9ddea84bccd07376a0b005a",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "BLOCKED",
+        "review_error_reason": "review_chunk_blocked",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "cc712c71-a418-4b69-8d1b-3f1572f9f2e3"
+        ]
+      }
+    },
+    {
+      "id": "cc712c71-a418-4b69-8d1b-3f1572f9f2e3",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-14 13:27:09.837849+00:00",
+      "updated_at": "2026-09-14 13:29:52.671790+00:00",
+      "completed_at": "2026-09-14 13:29:47.131128+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "6794f049452d404ca9ddea84bccd07376a0b005a",
+        "review_owner_id": "f361b9e6-ba80-56ca-96fb-33b6dd6b6c7d",
+        "job_name": "ct-task-e9586cb73b8aa88faab626efa5960f74",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "68557b0b-ab24-55ef-a971-9a7c8596bde4",
+      "status": "cancelled",
+      "title": "Review PR #6074",
+      "error": "review_head_changed_or_paused",
+      "created_at": "2026-09-14 14:01:25.611863+00:00",
+      "updated_at": "2026-09-14 14:22:03.004224+00:00",
+      "completed_at": "2026-09-14 14:22:03.004224+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "e6f24bedb6430505cd5a063633c5914b0c44f9ea",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_error_reason": "review_chunk_state_failed",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "16303f6d-9835-482b-9416-4857882d5ed3"
+        ]
+      }
+    },
+    {
+      "id": "16303f6d-9835-482b-9416-4857882d5ed3",
+      "status": "cancelled",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-14 14:01:29.923712+00:00",
+      "updated_at": "2026-09-14 14:22:00.850256+00:00",
+      "completed_at": "2026-09-14 14:22:00.850256+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "e6f24bedb6430505cd5a063633c5914b0c44f9ea",
+        "review_owner_id": "68557b0b-ab24-55ef-a971-9a7c8596bde4",
+        "job_name": "ct-task-ebc6bb813375a01731750c0f1049a435",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "f51b554b-496a-5a38-8c72-1d1e67f53f27",
+      "status": "cancelled",
+      "title": "Review PR #6074",
+      "error": "review_cancelled_or_stale",
+      "created_at": "2026-09-14 14:21:28.748918+00:00",
+      "updated_at": "2026-09-14 14:35:59.353618+00:00",
+      "completed_at": "2026-09-14 14:35:59.353618+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "eb759e759477bbdbcdebbae1d4c9b92f4005758b",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_attempt": 1
+      }
+    },
+    {
+      "id": "68afba7e-be96-497e-a8c7-fc7318923a72",
+      "status": "cancelled",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-14 14:21:34.529945+00:00",
+      "updated_at": "2026-09-14 14:35:59.184828+00:00",
+      "completed_at": "2026-09-14 14:35:59.184828+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "eb759e759477bbdbcdebbae1d4c9b92f4005758b",
+        "review_owner_id": "f51b554b-496a-5a38-8c72-1d1e67f53f27",
+        "job_name": "ct-task-dc3b484bc7be6acae3f492d043e79051",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "dafcc30a-3cc0-55d3-9dab-60dac114aa2f",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-14 14:35:58.429421+00:00",
+      "updated_at": "2026-09-14 14:53:27.022133+00:00",
+      "completed_at": "2026-09-14 14:53:27.022133+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "e7f118efbcfde06255c56bfb22dee6ee6fd68853",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "49b9c870-aad8-4956-bba0-127cd3886f65"
+        ]
+      }
+    },
+    {
+      "id": "49b9c870-aad8-4956-bba0-127cd3886f65",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-14 14:36:04.415977+00:00",
+      "updated_at": "2026-09-14 14:53:12.154690+00:00",
+      "completed_at": "2026-09-14 14:53:00.091810+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "e7f118efbcfde06255c56bfb22dee6ee6fd68853",
+        "review_owner_id": "dafcc30a-3cc0-55d3-9dab-60dac114aa2f",
+        "job_name": "ct-task-1b11a9f9f14cbb10178591b4fa6ffc1c",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "ec9c8c2b-becf-52bb-ad32-a2403e1963a9",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-14 15:06:27.645340+00:00",
+      "updated_at": "2026-09-14 15:52:22.680702+00:00",
+      "completed_at": "2026-09-14 15:52:22.680702+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "f7805a86945d1b6964ac1598540823095c26a4ef",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "e0478987-6fea-4aff-b147-f282ddf11f0a"
+        ]
+      }
+    },
+    {
+      "id": "e0478987-6fea-4aff-b147-f282ddf11f0a",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-14 15:06:41.913649+00:00",
+      "updated_at": "2026-09-14 15:52:14.178836+00:00",
+      "completed_at": "2026-09-14 15:52:06.993788+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "f7805a86945d1b6964ac1598540823095c26a4ef",
+        "review_owner_id": "ec9c8c2b-becf-52bb-ad32-a2403e1963a9",
+        "job_name": "ct-task-19c95a15a776d5b5beebc178436639f3",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "2bf7fa6e-50ef-5240-96e2-92a4a189a8ed",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-14 18:57:21.662589+00:00",
+      "updated_at": "2026-09-14 19:51:02.357247+00:00",
+      "completed_at": "2026-09-14 19:51:02.357247+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "3f0abac089fbdb3f364bc315f8b544d1086abc29",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "6ff501a4-1686-4bc7-968e-82a1d82f5fe8"
+        ]
+      }
+    },
+    {
+      "id": "6ff501a4-1686-4bc7-968e-82a1d82f5fe8",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-14 18:57:39.386333+00:00",
+      "updated_at": "2026-09-14 19:50:59.941406+00:00",
+      "completed_at": "2026-09-14 19:50:50.797570+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "3f0abac089fbdb3f364bc315f8b544d1086abc29",
+        "review_owner_id": "2bf7fa6e-50ef-5240-96e2-92a4a189a8ed",
+        "job_name": "ct-task-b557340a248d16feb83d727aabe37b2e",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "4932dfec-236f-566a-9ed3-09013976dc07",
+      "status": "failed",
+      "title": "Review PR #6074",
+      "error": "review_blocked",
+      "created_at": "2026-09-15 01:09:24.151192+00:00",
+      "updated_at": "2026-09-15 01:12:24.671531+00:00",
+      "completed_at": "2026-09-15 01:12:24.671531+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "590ae5344662854bc75332ab9b1c8f3092740ba6",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "BLOCKED",
+        "review_error_reason": "review_chunk_blocked",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "bdcdc97a-beda-49ec-bd0b-16024843c520"
+        ]
+      }
+    },
+    {
+      "id": "bdcdc97a-beda-49ec-bd0b-16024843c520",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-15 01:09:31.577194+00:00",
+      "updated_at": "2026-09-15 01:12:16.160416+00:00",
+      "completed_at": "2026-09-15 01:12:04.596169+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "590ae5344662854bc75332ab9b1c8f3092740ba6",
+        "review_owner_id": "4932dfec-236f-566a-9ed3-09013976dc07",
+        "job_name": "ct-task-9b1a43421fb3ec33b3c7ffb439a5e932",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "c451c1d9-19a2-5d34-997f-665efeea7fd6",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-15 01:15:47.604399+00:00",
+      "updated_at": "2026-09-15 01:26:20.048037+00:00",
+      "completed_at": "2026-09-15 01:26:20.048037+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "f8dc79be64f15780a080de8754aaff91c8048888",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "13a5d605-6a8e-40e8-bf05-995c6f3a8db1"
+        ]
+      }
+    },
+    {
+      "id": "13a5d605-6a8e-40e8-bf05-995c6f3a8db1",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-15 01:15:51.972487+00:00",
+      "updated_at": "2026-09-15 01:26:18.404297+00:00",
+      "completed_at": "2026-09-15 01:26:07.181660+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "f8dc79be64f15780a080de8754aaff91c8048888",
+        "review_owner_id": "c451c1d9-19a2-5d34-997f-665efeea7fd6",
+        "job_name": "ct-task-6df10e9839d96cdfac857fb86de77fb8",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "b049935d-cf25-51c8-b838-77420b8f49a4",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-15 01:45:26.816936+00:00",
+      "updated_at": "2026-09-15 01:51:11.232969+00:00",
+      "completed_at": "2026-09-15 01:51:11.232969+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "3afe401ec54027560277ba4312a7db6e90b3382f",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "98cbf3e1-a6c4-4fb9-81b2-abc8ce9b2bd9"
+        ]
+      }
+    },
+    {
+      "id": "98cbf3e1-a6c4-4fb9-81b2-abc8ce9b2bd9",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-15 01:45:31.064725+00:00",
+      "updated_at": "2026-09-15 01:51:00.362567+00:00",
+      "completed_at": "2026-09-15 01:50:45.658235+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "3afe401ec54027560277ba4312a7db6e90b3382f",
+        "review_owner_id": "b049935d-cf25-51c8-b838-77420b8f49a4",
+        "job_name": "ct-task-64fbb2a9711cbd0413961b49b20919e9",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "01ab64fb-e10b-5f22-8492-a2be05710ef2",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-15 02:05:54.943386+00:00",
+      "updated_at": "2026-09-15 02:41:15.268234+00:00",
+      "completed_at": "2026-09-15 02:41:15.268234+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "fdad1fd5f07c3012ceca619e13401cb129a47a70",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "1edf8757-e520-4137-bcd9-e02fb9857809"
+        ]
+      }
+    },
+    {
+      "id": "1edf8757-e520-4137-bcd9-e02fb9857809",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-15 02:06:03.713336+00:00",
+      "updated_at": "2026-09-15 02:41:12.165524+00:00",
+      "completed_at": "2026-09-15 02:41:01.456677+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "fdad1fd5f07c3012ceca619e13401cb129a47a70",
+        "review_owner_id": "01ab64fb-e10b-5f22-8492-a2be05710ef2",
+        "job_name": "ct-task-9fcf06701fa3454e19f95c69e7bc41bb",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "a4ce40f2-501d-5d04-b071-ed1b713b1404",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-15 11:12:16.519083+00:00",
+      "updated_at": "2026-09-15 11:39:32.270297+00:00",
+      "completed_at": "2026-09-15 11:39:32.270297+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "1754a02e2cfe905c97bcdeefe6bee125413d93ee",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "12c0c85b-6fd9-46f4-9f27-1a1e1337574f"
+        ]
+      }
+    },
+    {
+      "id": "12c0c85b-6fd9-46f4-9f27-1a1e1337574f",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-15 11:12:24.855921+00:00",
+      "updated_at": "2026-09-15 11:39:30.934798+00:00",
+      "completed_at": "2026-09-15 11:39:30.705742+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "1754a02e2cfe905c97bcdeefe6bee125413d93ee",
+        "review_owner_id": "a4ce40f2-501d-5d04-b071-ed1b713b1404",
+        "job_name": "ct-task-376db2a2c7cbdd64cbf1905ccf4e0e79",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "8b6d0fde-d41e-5a7e-9e48-f6fc89fa060e",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-15 12:50:34.428807+00:00",
+      "updated_at": "2026-09-15 13:24:59.660320+00:00",
+      "completed_at": "2026-09-15 13:24:59.660320+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "d4b18b64cacaa8b116610babd16cb33aa4bb732e",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "5b101532-fc8e-41fd-b913-f43cb7253cf8"
+        ]
+      }
+    },
+    {
+      "id": "5b101532-fc8e-41fd-b913-f43cb7253cf8",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-15 12:50:59.875475+00:00",
+      "updated_at": "2026-09-15 13:24:57.285998+00:00",
+      "completed_at": "2026-09-15 13:24:49.768122+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "d4b18b64cacaa8b116610babd16cb33aa4bb732e",
+        "review_owner_id": "8b6d0fde-d41e-5a7e-9e48-f6fc89fa060e",
+        "job_name": "ct-task-d9000446ab62efed0289dc98d8d358a9",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "db0ff000-d050-553f-8f94-2e5861168948",
+      "status": "cancelled",
+      "title": "Review PR #6074",
+      "error": "review_head_changed_or_paused",
+      "created_at": "2026-09-16 02:38:04.453483+00:00",
+      "updated_at": "2026-09-16 02:49:53.177248+00:00",
+      "completed_at": "2026-09-16 02:49:53.177248+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "e006e90b7d8302f3970bb0caf83ca635e12f508e",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_error_reason": "review_capture_failed",
+        "review_chunk_task_ids": []
+      }
+    },
+    {
+      "id": "998b842b-b5f1-5063-b9f5-3475d3bc5610",
+      "status": "cancelled",
+      "title": "Review PR #6074",
+      "error": "review_head_changed_or_paused",
+      "created_at": "2026-09-16 02:39:34.796113+00:00",
+      "updated_at": "2026-09-16 02:55:09.007276+00:00",
+      "completed_at": "2026-09-16 02:55:09.007276+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "2041e58d3187bb1b1731a091b75d76b5bc1c3bfe",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_error_reason": "review_execution_failed",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "bfef47ee-8613-4bb7-8b4a-ec4827a9314c"
+        ]
+      }
+    },
+    {
+      "id": "bfef47ee-8613-4bb7-8b4a-ec4827a9314c",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-16 02:41:33.724726+00:00",
+      "updated_at": "2026-09-16 02:54:56.586960+00:00",
+      "completed_at": "2026-09-16 02:54:56.490992+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "2041e58d3187bb1b1731a091b75d76b5bc1c3bfe",
+        "review_owner_id": "998b842b-b5f1-5063-b9f5-3475d3bc5610",
+        "job_name": "ct-task-9fa67ca9164034f8150d64405c3e36ff",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "61225102-27ea-59d3-90c1-66d37c08552d",
+      "status": "cancelled",
+      "title": "Review PR #6074",
+      "error": "review_head_changed_or_paused",
+      "created_at": "2026-09-16 02:46:42.953889+00:00",
+      "updated_at": "2026-09-16 03:21:56.848835+00:00",
+      "completed_at": "2026-09-16 03:21:56.848835+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "16d173b2418dd88d9c392a091eab0e0bfb525089",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_error_reason": "review_chunk_state_failed",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "21bbca6b-1855-4634-8873-063912607818"
+        ]
+      }
+    },
+    {
+      "id": "21bbca6b-1855-4634-8873-063912607818",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-16 02:47:27.790331+00:00",
+      "updated_at": "2026-09-16 03:12:34.882271+00:00",
+      "completed_at": "2026-09-16 03:12:34.062284+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "16d173b2418dd88d9c392a091eab0e0bfb525089",
+        "review_owner_id": "61225102-27ea-59d3-90c1-66d37c08552d",
+        "job_name": "ct-task-1dae14b0be6e670b5cf4b609765323f0",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "65c97bef-a73c-5178-9aa1-a592d99a4c1b",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-16 03:16:09.858215+00:00",
+      "updated_at": "2026-09-16 03:52:00.337804+00:00",
+      "completed_at": "2026-09-16 03:52:00.337804+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "23eaf1345e361b895579c35a8d59d100e2c4f9f9",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "810edb74-d4c5-44ea-b368-129faffce31b"
+        ]
+      }
+    },
+    {
+      "id": "810edb74-d4c5-44ea-b368-129faffce31b",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-16 03:22:01.004037+00:00",
+      "updated_at": "2026-09-16 03:46:03.223616+00:00",
+      "completed_at": "2026-09-16 03:44:18.624109+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "23eaf1345e361b895579c35a8d59d100e2c4f9f9",
+        "review_owner_id": "65c97bef-a73c-5178-9aa1-a592d99a4c1b",
+        "job_name": "ct-task-ec0846031f3296d2aef0d462a5a5cda8",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "695070fe-0b64-5fe2-896d-f50f1a967378",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-16 11:46:01.832080+00:00",
+      "updated_at": "2026-09-16 12:16:19.732178+00:00",
+      "completed_at": "2026-09-16 12:16:19.732178+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "8e93c30a35d9ed21f3ee52b2eb881c6bdedbc81b",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "ad8d3f9b-b04b-418b-8810-5305ee087daa"
+        ]
+      }
+    },
+    {
+      "id": "ad8d3f9b-b04b-418b-8810-5305ee087daa",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-16 11:46:31.917245+00:00",
+      "updated_at": "2026-09-16 12:16:16.573870+00:00",
+      "completed_at": "2026-09-16 12:16:11.567234+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "8e93c30a35d9ed21f3ee52b2eb881c6bdedbc81b",
+        "review_owner_id": "695070fe-0b64-5fe2-896d-f50f1a967378",
+        "job_name": "ct-task-1ea4c88989a7686f1ae178748fb48688",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "10d2fb2b-3108-595f-973a-ed37862de777",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-16 23:11:47.763777+00:00",
+      "updated_at": "2026-09-16 23:37:53.216868+00:00",
+      "completed_at": "2026-09-16 23:37:53.216868+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "a420ee44cc37257f20d0f567690f6c6d5725bfc9",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "e7612a14-0014-4ff3-be3f-8960a5d9127e"
+        ]
+      }
+    },
+    {
+      "id": "e7612a14-0014-4ff3-be3f-8960a5d9127e",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-16 23:11:54.646803+00:00",
+      "updated_at": "2026-09-16 23:37:51.542108+00:00",
+      "completed_at": "2026-09-16 23:37:31.712290+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "a420ee44cc37257f20d0f567690f6c6d5725bfc9",
+        "review_owner_id": "10d2fb2b-3108-595f-973a-ed37862de777",
+        "job_name": "ct-task-cf99082276fdf3d38506b29dd0058199",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "502f078d-b911-5a5d-a43f-1101b499e7d5",
+      "status": "cancelled",
+      "title": "Review PR #6074",
+      "error": "review_cancelled_or_stale",
+      "created_at": "2026-09-23 04:29:35.936738+00:00",
+      "updated_at": "2026-09-23 04:58:11.885828+00:00",
+      "completed_at": "2026-09-23 04:58:11.885828+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "bee7bdccd16eeef15e0cd90b9d5439a72b448d61",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_attempt": 1
+      }
+    },
+    {
+      "id": "d753fe29-49b2-48cf-9e31-180691e273f5",
+      "status": "cancelled",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-23 04:29:40.630586+00:00",
+      "updated_at": "2026-09-23 04:58:11.554780+00:00",
+      "completed_at": "2026-09-23 04:58:11.554780+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "bee7bdccd16eeef15e0cd90b9d5439a72b448d61",
+        "review_owner_id": "502f078d-b911-5a5d-a43f-1101b499e7d5",
+        "job_name": "ct-task-f7e5dd0dc15619b5c959825a1f251fc2",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "def7cfb2-4a21-5821-8723-390e726830ea",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-23 04:55:04.211960+00:00",
+      "updated_at": "2026-09-23 04:59:20.755790+00:00",
+      "completed_at": "2026-09-23 04:59:20.755790+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "dbb96338f56900233c88a8e4164b814a75f1aed1",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "75ea2d47-8b91-484b-8564-5ee01334edf9"
+        ]
+      }
+    },
+    {
+      "id": "75ea2d47-8b91-484b-8564-5ee01334edf9",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-23 04:55:11.353551+00:00",
+      "updated_at": "2026-09-23 04:59:12.604494+00:00",
+      "completed_at": "2026-09-23 04:58:47.408493+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "dbb96338f56900233c88a8e4164b814a75f1aed1",
+        "review_owner_id": "def7cfb2-4a21-5821-8723-390e726830ea",
+        "job_name": "ct-task-430bbb9e1a9e9700fe788e781d4d96af",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "8cc0199d-0a09-5f4a-b539-b500f4bb0a50",
+      "status": "cancelled",
+      "title": "Review PR #6074",
+      "error": "review_head_changed_or_paused",
+      "created_at": "2026-09-23 12:33:33.547959+00:00",
+      "updated_at": "2026-09-23 13:00:24.320680+00:00",
+      "completed_at": "2026-09-23 13:00:24.320680+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "94d94bd3703d3f2a3d98c0142bc9e30516545fbd",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_error_reason": "review_chunk_state_failed",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "2e6f05b9-f057-400d-821d-d04cbee600fc"
+        ]
+      }
+    },
+    {
+      "id": "2e6f05b9-f057-400d-821d-d04cbee600fc",
+      "status": "cancelled",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-23 12:33:40.573823+00:00",
+      "updated_at": "2026-09-23 13:00:20.815339+00:00",
+      "completed_at": "2026-09-23 13:00:20.815339+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "94d94bd3703d3f2a3d98c0142bc9e30516545fbd",
+        "review_owner_id": "8cc0199d-0a09-5f4a-b539-b500f4bb0a50",
+        "job_name": "ct-task-2a7ddc471d5d73872d8d1633a33500e0",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "a50b04b5-e4b0-5bec-a975-3f338bb63959",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-23 12:59:47.175872+00:00",
+      "updated_at": "2026-09-23 14:27:21.589553+00:00",
+      "completed_at": "2026-09-23 13:26:35.480853+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "4e1e5d6e4385129d9a9d5a7c3cc0ec4eb3f7703c",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "250e6532-d717-44db-9a45-b41c310ce1fa"
+        ],
+        "recovery_state": "needs_input",
+        "recovery_blocker": "no_verified_commit_or_validation",
+        "recovery_task_id": "f68f7d01-63b7-4dab-9976-1242fc390e54",
+        "recovery_reconciled": true
+      }
+    },
+    {
+      "id": "250e6532-d717-44db-9a45-b41c310ce1fa",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-23 12:59:54.368234+00:00",
+      "updated_at": "2026-09-23 13:26:34.032859+00:00",
+      "completed_at": "2026-09-23 13:26:28.169369+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "4e1e5d6e4385129d9a9d5a7c3cc0ec4eb3f7703c",
+        "review_owner_id": "a50b04b5-e4b0-5bec-a975-3f338bb63959",
+        "job_name": "ct-task-f5f443035045871ba8ff53a7ccdb67ae",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "f68f7d01-63b7-4dab-9976-1242fc390e54",
+      "status": "completed",
+      "title": "Resolve review feedback for PR #6074",
+      "error": null,
+      "created_at": "2026-09-23 13:37:04.880834+00:00",
+      "updated_at": "2026-09-23 14:27:21.671721+00:00",
+      "completed_at": "2026-09-23 14:25:44.615079+00:00",
+      "metadata": {
+        "workflow_stage": "review_recovery",
+        "issue_number": 6031,
+        "pr_number": 6074,
+        "pr_head_sha": "4e1e5d6e4385129d9a9d5a7c3cc0ec4eb3f7703c",
+        "branch_name": "codetether/issue-6031",
+        "review_owner_id": "a50b04b5-e4b0-5bec-a975-3f338bb63959",
+        "recovery_state": "needs_input",
+        "recovery_blocker": "no_verified_commit_or_validation",
+        "recovery_task_id": "f68f7d01-63b7-4dab-9976-1242fc390e54",
+        "recovery_native_request": 556,
+        "recovery_attempt": 2,
+        "recovery_reconciled": true,
+        "job_name": "ct-task-7a40902c5f1e2d91e103f26c6c87837c",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "120531aa-6fa2-53f1-a739-72abf582defa",
+      "status": "completed",
+      "title": "Review PR #6074",
+      "error": "",
+      "created_at": "2026-09-23 16:26:52.741658+00:00",
+      "updated_at": "2026-09-23 16:58:23.704337+00:00",
+      "completed_at": "2026-09-23 16:32:55.874295+00:00",
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "0cb30021858f28d190f6f689b31701c9e7e5111b",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true,
+        "review_verdict": "CHANGES_REQUESTED",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "ce9f8a55-b749-4fc7-825f-7085651f0a58"
+        ],
+        "recovery_state": "new_head_review",
+        "recovery_task_id": "1aa04d8d-5b35-4f06-9c6f-4e1bc64f2108",
+        "recovery_next_owner": "8dd5f91e-5e0b-54a2-b29b-06a966b1129d",
+        "recovery_reconciled": true
+      }
+    },
+    {
+      "id": "ce9f8a55-b749-4fc7-825f-7085651f0a58",
+      "status": "completed",
+      "title": "PR #6074 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-23 16:27:05.774166+00:00",
+      "updated_at": "2026-09-23 16:32:47.886629+00:00",
+      "completed_at": "2026-09-23 16:31:30.672904+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6074,
+        "pr_head_sha": "0cb30021858f28d190f6f689b31701c9e7e5111b",
+        "review_owner_id": "120531aa-6fa2-53f1-a739-72abf582defa",
+        "job_name": "ct-task-6b4d2bd3870b9cf5990103e37057027e",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "1aa04d8d-5b35-4f06-9c6f-4e1bc64f2108",
+      "status": "completed",
+      "title": "Resolve review feedback for PR #6074",
+      "error": null,
+      "created_at": "2026-09-23 16:37:07.818500+00:00",
+      "updated_at": "2026-09-23 16:58:23.746828+00:00",
+      "completed_at": "2026-09-23 16:55:21.960507+00:00",
+      "metadata": {
+        "workflow_stage": "review_recovery",
+        "issue_number": 6031,
+        "pr_number": 6074,
+        "pr_head_sha": "0cb30021858f28d190f6f689b31701c9e7e5111b",
+        "branch_name": "codetether/issue-6031",
+        "review_owner_id": "120531aa-6fa2-53f1-a739-72abf582defa",
+        "recovery_state": "new_head_review",
+        "recovery_next_owner": "8dd5f91e-5e0b-54a2-b29b-06a966b1129d",
+        "recovery_native_request": 556,
+        "recovery_attempt": 3,
+        "recovery_reconciled": true,
+        "job_name": "ct-task-6e8ab6e0ed8b300f489b72b2406c90b9",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "8dd5f91e-5e0b-54a2-b29b-06a966b1129d",
+      "status": "working",
+      "title": "Review PR #6074",
+      "error": null,
+      "created_at": "2026-09-23 16:53:49.595559+00:00",
+      "updated_at": "2026-09-23 16:53:49.595559+00:00",
+      "completed_at": null,
+      "metadata": {
+        "pr_number": 6074,
+        "pr_head_sha": "c85d1d479e3da86b37240406d9355c0e0874a630",
+        "branch_name": "codetether/issue-6031",
+        "review_owner": true
+      }
+    }
+  ],
+  "natives": [
+    {
+      "id": 556,
+      "status": "failed",
+      "operation": "fix",
+      "branch": "codetether/issue-6031",
+      "head_sha": null,
+      "error": null,
+      "external_task_id": "e5bdd830-a2cb-43dc-aaf1-acacf86e2cc8",
+      "updated_at": "2026-09-14T13:13:43Z",
+      "workflow": {
+        "status": "COMPLETED",
+        "run_id": "01a0953a-1c2c-7405-aed6-a64d96a63dbe",
+        "closed": "2026-09-21 13:13:48.517396+00:00"
+      }
+    }
+  ]
+}

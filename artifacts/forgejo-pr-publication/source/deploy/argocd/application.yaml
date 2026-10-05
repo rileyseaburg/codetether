@@ -1,0 +1,256 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: codetether-a2a-server
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: codetether-a2a-server
+    app.kubernetes.io/part-of: codetether
+spec:
+  project: codetether
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: a2a-system
+  source:
+    repoURL: https://forgejo.quantum-forge.io/riley/codetether.git
+    targetRevision: main
+    path: chart/a2a-server
+    helm:
+      releaseName: a2a-server
+      parameters:
+        - name: image.tag
+          value: terminal-970864939256
+        - name: blueGreen.rolloutId.green
+          value: terminal-970864939256
+      valuesObject:
+        app:
+          name: CodeTether Server
+          description: Production CodeTether A2A coordination server
+          logLevel: INFO
+          enhanced: true
+        image:
+          repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
+          tag: terminal-970864939256
+          pullPolicy: Always
+        imagePullSecrets:
+          - name: registry-credentials
+        blueGreen:
+          enabled: true
+          mode: bluegreen
+          serviceColor: green
+          images:
+            green:
+              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:terminal-970864939256
+          legacyReplicaCount: 0
+          replicas:
+            blue: 0
+            green: 2
+          rolloutId:
+            legacy: ""
+            blue: ""
+            green: terminal-970864939256
+        service:
+          type: ClusterIP
+          port: 8000
+          targetPort: 8000
+        ingress:
+          enabled: true
+          className: nginx
+          annotations:
+            cert-manager.io/cluster-issuer: cloudflare-issuer
+            nginx.ingress.kubernetes.io/ssl-redirect: "true"
+            nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+            nginx.ingress.kubernetes.io/enable-cors: "true"
+            nginx.ingress.kubernetes.io/cors-allow-origin: "https://codetether.run, https://docs.codetether.run, https://quantum-forge.codetether.run"
+            nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
+            nginx.ingress.kubernetes.io/cors-allow-headers: "DNT, User-Agent, X-Requested-With, If-None-Match, If-Modified-Since, Content-Type, Range, Authorization, X-Tenant-ID, X-API-Key"
+            nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+            nginx.ingress.kubernetes.io/cors-max-age: "86400"
+          hosts:
+            - host: api.codetether.run
+              paths:
+                - path: /
+                  pathType: Prefix
+                  port: 8000
+          tls:
+            - secretName: a2a-server-tls
+              hosts:
+                - api.codetether.run
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+          requests:
+            cpu: 500m
+            memory: 16Mi
+        autoscaling:
+          enabled: false
+        podDisruptionBudget:
+          enabled: false
+        redis:
+          enabled: true
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              memory: 128Mi
+        postgresql:
+          enabled: false
+        externalPostgresql:
+          existingSecret: a2a-server-database
+          secretKey: DATABASE_URL
+        auth:
+          enabled: true
+          tokens: {}
+        secret:
+          create: false
+        # GitHub App automation is intentionally disabled: this platform is
+        # Forgejo-only. Leaving the App credentials mounted allowed stale
+        # GitHub-era tasks to be enqueued and pushed to github.com.
+        githubApp:
+          existingSecret: ""
+        forgejo:
+          existingSecret: a2a-server-forgejo
+          apiUrl: https://forgejo.quantum-forge.io/api/v1
+          botUsername: codetether-bot
+        agentIdentity:
+          enabled: true
+        spiffe:
+          enabled: true
+          trustDomain: codetether.run
+          audience: a2a-server
+          jwksUrl: https://spire-spiffe-oidc-discovery-provider.spire.svc.cluster.local/keys
+          allowTokenLegacy: true
+          bundle:
+            namespace: spire
+            configMap: spire-bundle
+            key: bundle.spiffe
+        temporal:
+          enabled: true
+          address: temporal-frontend.temporal.svc.cluster.local:7233
+          namespace: codetether-prod
+          taskQueue: codetether-forgejo-agent
+          secretRef: a2a-server-forgejo
+          replicas: 1
+        # `vault-token` was removed here on purpose. That static Secret expired
+        # and a2a_server.vault_client prefers VAULT_TOKEN over Kubernetes auth,
+        # so every Git-credential read for Forgejo mention tasks returned 403
+        # and the webhook answered 503. Without the env var the client logs in
+        # with its own SA JWT (role `a2a-server`, bound to a2a-server@a2a-system).
+        existingEnvFromSecrets:
+          - harvester-api-keys
+        envFromSecret:
+          A2A_AUTH_TOKENS: a2a-server-auth-tokens
+          KEYCLOAK_AGENT_REALM: codetether-identity-provisioner
+          KEYCLOAK_PROVISIONER_REALM: codetether-identity-provisioner
+          KEYCLOAK_PROVISIONER_CLIENT_ID: codetether-identity-provisioner
+          KEYCLOAK_PROVISIONER_CLIENT_SECRET: codetether-identity-provisioner
+        env:
+          A2A_HOST: "0.0.0.0"
+          A2A_PORT: "8000"
+          A2A_LOG_LEVEL: INFO
+          MCP_HTTP_ENABLED: "true"
+          MCP_HTTP_HOST: "0.0.0.0"
+          MCP_HTTP_PORT: "9000"
+          A2A_AGENT_NAME: CodeTether Server
+          A2A_AGENT_DESCRIPTION: Production CodeTether A2A coordination server
+          A2A_AGENT_ORG: CodeTether
+          A2A_AGENT_ORG_URL: https://codetether.run
+          A2A_AGENT_URL: https://api.codetether.run
+          A2A_AGENT_DOCS_URL: https://docs.codetether.run
+          MARKETING_SITE_URL: http://codetether-marketing.a2a-server.svc.cluster.local:3000
+          WORKER_INFRA_CACHE_TTL_SECONDS: "30"
+          WORKER_INFRA_NODE_MAP: ""
+          # Approved CodeTether PRs are merged by the GitHub App after reviewer,
+          # feedback, and status-check gates pass. Argo CD then deploys main via GitOps.
+          # Worker pods explicitly opt in to the Vault-backed ChatGPT Codex
+          # backend under harvester.extraEnv below.
+          # GITHUB_APP_MODEL_REF still names the model used for Forgejo tasks;
+          # the GitHub App itself has no credentials and cannot act.
+          #
+          # The OpenRouter account ran out of credits and returned a permanent
+          # 402 ("Insufficient credits"), which correctly is not retried and so
+          # failed tasks outright. Use the Vault-backed ChatGPT Codex backend,
+          # which workers opt into under harvester.extraEnv below.
+          GITHUB_APP_MODEL_REF: openai-codex/gpt-6-astra-fast:high
+          FORGEJO_STATUS_REMEDIATION_ENABLED: "false"
+          FORGEJO_AUTOMATION_PAUSED_PRS: "riley/spotlessbinco#5873"
+          GITHUB_APP_ACTIVE_WORK_ENABLED: "false"
+          GITHUB_APP_AUTO_MERGE_ENABLED: "false"
+          # GitHub REST Checks/status publishing does not consume GitHub Actions runner minutes.
+          # checks = rich Check Runs first, then commit-status secondary path.
+          # statuses = commit statuses only; off = no commit-attached status publishing.
+          GITHUB_APP_STATUS_PUBLISHER: "off"
+        livekit:
+          enabled: false
+        knative:
+          enabled: false
+        monitoring:
+          serviceMonitor:
+            enabled: false
+        networkPolicy:
+          enabled: false
+        marketing:
+          enabled: false
+        docs:
+          enabled: false
+        opa:
+          enabled: false
+        harvester:
+          enabled: true
+          replicaCount: 2
+          image:
+            repository: registry.quantum-forge.net/cluster-ci-cache/codetether-worker
+            tag: 4.7.5-dev.49-astra-client-f65279c7-devtools2
+            pullPolicy: IfNotPresent
+          tokenSecret:
+            name: a2a-server-worker-token
+            key: CODETETHER_TOKEN
+          # Vault Kubernetes auth (VAULT_ROLE + projected SA JWT). The worker
+          # logs in with its own service account and re-authenticates on 403,
+          # so provider discovery no longer depends on a static token Secret.
+          # The previous `vault-token` Secret (created 2026-06-06) had expired,
+          # which left the harvester with only the env-sourced providers
+          # (cerebras, openrouter) and made every explicit openai-codex task fail.
+          vault:
+            enabled: true
+            address: http://vault.vault.svc.cluster.local:8200
+            role: codetether-harvester
+            authMount: kubernetes
+            audience: vault
+            mount: secret
+            secretsPath: codetether/providers
+            tokenSecret:
+              name: ""
+          defaultProvider: openai-codex
+          defaultModel: openai-codex/gpt-6-astra-fast:high
+          providerSecrets:
+            envFrom:
+              - secretRef:
+                  name: harvester-api-keys
+          # No --max-concurrent-tasks override: the worker default of 4 applies,
+          # giving the two-pod pool 8 slots. The previous cap of 1 serialized
+          # every worker, so a large queue waited behind two long-running tasks.
+          extraArgs: []
+          extraEnv:
+            - name: CODETETHER_OPENAI_CODEX_ALLOW_CHATGPT_BACKEND
+              value: "1"
+        commonLabels:
+          app.kubernetes.io/part-of: codetether
+          app.kubernetes.io/managed-by: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/name: a2a-system
+        app.kubernetes.io/part-of: codetether
+        app.kubernetes.io/managed-by: argocd
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true

@@ -148,11 +148,14 @@ class LiveKitBridge:
             logger.error(f'Failed to create LiveKit room {room_name}: {e}')
             raise
 
-    async def get_room_info(self, room_name: str) -> Optional[Dict[str, Any]]:
+    async def get_room_info(
+        self, room_name: str, *, strict: bool = False
+    ) -> Optional[Dict[str, Any]]:
         """Get information about an existing room using the SDK.
 
         Args:
             room_name: Name of the room to get info for
+            strict: Propagate service errors instead of treating them as absent
 
         Returns:
             Room information dictionary or None if room doesn't exist
@@ -180,6 +183,8 @@ class LiveKitBridge:
 
         except Exception as e:
             logger.error(f'Failed to get room info for {room_name}: {e}')
+            if strict:
+                raise
             return None
 
     def mint_access_token(
@@ -389,7 +394,9 @@ class LiveKitBridge:
             logger.error(f'Failed to delete room {room_name}: {e}')
             return False
 
-    async def list_participants(self, room_name: str) -> List[Dict[str, Any]]:
+    async def list_participants(
+        self, room_name: str, *, strict: bool = False
+    ) -> List[Dict[str, Any]]:
         """List participants in a room via SDK API.
 
         Args:
@@ -410,14 +417,18 @@ class LiveKitBridge:
                     'state': int(p.state) if p.state is not None else None,
                     'metadata': p.metadata,
                     'joined_at': p.joined_at,
+                    'kind': api.ParticipantInfo.Kind.Name(p.kind).lower(),
+                    'attributes': dict(p.attributes),
                 }
-                for p in participants
+                for p in participants.participants
             ]
 
         except Exception as e:
             logger.error(
                 f'Failed to list participants for room {room_name}: {e}'
             )
+            if strict:
+                raise
             return []
 
     def generate_join_url(

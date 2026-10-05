@@ -1,0 +1,233 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - link "Skip to main content" [ref=e3] [cursor=pointer]:
+      - /url: "#dashboard-main"
+    - generic [ref=e5]:
+      - link "CodeTether" [ref=e7] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e9]
+        - generic [ref=e11]: CodeTether
+      - navigation [ref=e12]:
+        - list [ref=e13]:
+          - listitem [ref=e14]:
+            - link "Get Started New" [ref=e15] [cursor=pointer]:
+              - /url: /dashboard/getting-started
+              - img [ref=e16]
+              - text: Get Started
+              - generic [ref=e18]: New
+          - listitem [ref=e19]:
+            - link "Workspaces" [ref=e20] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e21]
+              - text: Workspaces
+          - listitem [ref=e23]:
+            - link "Workers" [ref=e24] [cursor=pointer]:
+              - /url: /dashboard/workers
+              - img [ref=e25]
+              - text: Workers
+          - listitem [ref=e27]:
+            - link "OKR New" [ref=e28] [cursor=pointer]:
+              - /url: /dashboard/okr
+              - img [ref=e29]
+              - text: OKR
+              - generic [ref=e31]: New
+          - listitem [ref=e32]:
+            - link "Swarm New" [ref=e33] [cursor=pointer]:
+              - /url: /dashboard/swarm
+              - img [ref=e34]
+              - text: Swarm
+              - generic [ref=e36]: New
+          - listitem [ref=e37]:
+            - link "MCP Tools New" [ref=e38] [cursor=pointer]:
+              - /url: /dashboard/mcp
+              - img [ref=e39]
+              - text: MCP Tools
+              - generic [ref=e41]: New
+          - listitem [ref=e42]:
+            - link "Security New" [ref=e43] [cursor=pointer]:
+              - /url: /dashboard/security
+              - img [ref=e44]
+              - text: Security
+              - generic [ref=e46]: New
+          - listitem [ref=e47]:
+            - link "Ralph New" [ref=e48] [cursor=pointer]:
+              - /url: /dashboard/ralph
+              - img [ref=e49]
+              - text: Ralph
+              - generic [ref=e51]: New
+          - listitem [ref=e52]:
+            - link "Cognition" [ref=e53] [cursor=pointer]:
+              - /url: /dashboard/cognition
+              - img [ref=e54]
+              - text: Cognition
+          - listitem [ref=e56]:
+            - link "Avatar New" [ref=e57] [cursor=pointer]:
+              - /url: /dashboard/avatar
+              - img [ref=e58]
+              - text: Avatar
+              - generic [ref=e61]: New
+          - listitem [ref=e62]:
+            - link "Ads New" [ref=e63] [cursor=pointer]:
+              - /url: /dashboard/ads
+              - img [ref=e64]
+              - text: Ads
+              - generic [ref=e66]: New
+          - listitem [ref=e67]:
+            - link "Benchmarks" [ref=e68] [cursor=pointer]:
+              - /url: /dashboard/benchmarks
+              - img [ref=e69]
+              - text: Benchmarks
+          - listitem [ref=e71]:
+            - link "Analytics New" [ref=e72] [cursor=pointer]:
+              - /url: /dashboard/analytics
+              - img [ref=e73]
+              - text: Analytics
+              - generic [ref=e75]: New
+          - listitem [ref=e76]:
+            - link "Cronjobs" [ref=e77] [cursor=pointer]:
+              - /url: /cronjobs
+              - img [ref=e78]
+              - text: Cronjobs
+          - listitem [ref=e80]:
+            - link "Tasks" [ref=e81] [cursor=pointer]:
+              - /url: /dashboard/tasks
+              - img [ref=e82]
+              - text: Tasks
+          - listitem [ref=e84]:
+            - link "Sessions" [ref=e85] [cursor=pointer]:
+              - /url: /dashboard/sessions
+              - img [ref=e86]
+              - text: Sessions
+          - listitem [ref=e88]:
+            - link "Output" [ref=e89] [cursor=pointer]:
+              - /url: /dashboard/output
+              - img [ref=e90]
+              - text: Output
+          - listitem [ref=e92]:
+            - link "Activity" [ref=e93] [cursor=pointer]:
+              - /url: /dashboard/activity
+              - img [ref=e94]
+              - text: Activity
+          - listitem [ref=e96]:
+            - link "GitHub Actions New" [ref=e97] [cursor=pointer]:
+              - /url: /dashboard/integrations/github-actions
+              - img [ref=e98]
+              - text: GitHub Actions
+              - generic [ref=e100]: New
+          - listitem [ref=e101]:
+            - link "GitHub App New" [ref=e102] [cursor=pointer]:
+              - /url: /dashboard/workflows/github-app
+              - img [ref=e103]
+              - text: GitHub App
+              - generic [ref=e105]: New
+          - listitem [ref=e106]:
+            - link "Automations" [ref=e107] [cursor=pointer]:
+              - /url: /dashboard/automations
+              - img [ref=e108]
+              - text: Automations
+          - listitem [ref=e111]:
+            - link "Billing" [ref=e112] [cursor=pointer]:
+              - /url: /dashboard/billing
+              - img [ref=e113]
+              - text: Billing
+          - listitem [ref=e115]:
+            - link "Settings" [ref=e116] [cursor=pointer]:
+              - /url: /dashboard/settings
+              - img [ref=e117]
+              - text: Settings
+    - generic [ref=e120]:
+      - generic [ref=e122]:
+        - navigation "Breadcrumb" [ref=e123]:
+          - link "Dashboard" [ref=e124] [cursor=pointer]:
+            - /url: /dashboard
+          - generic [ref=e125]: /
+          - generic [ref=e126]: Workers
+        - generic [ref=e127]:
+          - button "Switch to light mode" [ref=e128]:
+            - img [ref=e129]
+          - link "Settings" [ref=e131] [cursor=pointer]:
+            - /url: /dashboard/settings
+            - img [ref=e132]
+          - button "Open user menu" [ref=e136]:
+            - generic [ref=e137]: A
+            - generic [ref=e138]: Audit User
+          - link "← Back to Site" [ref=e139] [cursor=pointer]:
+            - /url: /
+      - main [ref=e140]:
+        - generic [ref=e141]:
+          - generic [ref=e142]:
+            - generic [ref=e143]:
+              - heading "Workers" [level=1] [ref=e144]
+              - paragraph [ref=e145]: Manage and monitor registered workers
+            - generic [ref=e146]:
+              - button "Show All (1)" [ref=e147]
+              - button "Refresh" [ref=e148]
+          - generic [ref=e149]:
+            - generic [ref=e150]:
+              - generic [ref=e151]: "1"
+              - generic [ref=e152]: Online
+            - generic [ref=e153]:
+              - generic [ref=e154]: "0"
+              - generic [ref=e155]: Stale (<24h)
+            - generic [ref=e156]:
+              - generic [ref=e157]: "0"
+              - generic [ref=e158]: Offline (>24h)
+            - generic [ref=e159]:
+              - generic [ref=e160]: "0"
+              - generic [ref=e161]: 🦀 CodeTether
+            - generic [ref=e162]:
+              - generic [ref=e163]: "1"
+              - generic [ref=e164]: 🐍 Workers
+          - generic [ref=e166]:
+            - generic [ref=e167]:
+              - generic [ref=e168]:
+                - generic [ref=e169]:
+                  - generic [ref=e170]:
+                    - generic [ref=e171]: 🐍
+                    - text: CodeTether Worker
+                  - generic [ref=e172]: SSE connected
+                - generic [ref=e173]:
+                  - heading "Fixture Worker" [level=3] [ref=e174]
+                  - generic [ref=e175]: Online
+                - paragraph [ref=e176]: fixture-worker
+              - generic [ref=e177]:
+                - button "Open Chat" [ref=e178]
+                - button [ref=e179]:
+                  - img [ref=e180]
+            - generic [ref=e182]:
+              - generic [ref=e183]: 2 models
+              - generic [ref=e184]: 0 workspaces
+              - generic [ref=e185]: 0s ago
+          - generic [ref=e187]:
+            - generic [ref=e188]:
+              - generic [ref=e189]:
+                - paragraph [ref=e190]: Real-time SSE chat
+                - generic [ref=e191]:
+                  - heading "Fixture Worker" [level=2] [ref=e192]
+                  - generic [ref=e193]:
+                    - generic [ref=e194]: 🐍
+                    - text: CodeTether Worker
+                - paragraph [ref=e195]: fixture-worker
+              - button "Close" [ref=e196]
+            - generic [ref=e198]: Send a message to this worker. Responses stream live over SSE.
+            - generic [ref=e199]:
+              - generic [ref=e200]:
+                - generic [ref=e201]:
+                  - generic [ref=e202]: Model
+                  - generic [ref=e203]:
+                    - combobox "Model" [active] [ref=e204]: openai:alpha
+                    - status [ref=e205]: 2 of 2 models available
+                - paragraph [ref=e206]: "Recommended: openai:alpha"
+              - generic [ref=e207]:
+                - textbox "Message this worker..." [ref=e208]
+                - button "Send" [disabled] [ref=e209]
+              - paragraph [ref=e210]: "This uses /v1/agent/tasks + /v1/agent/tasks/{task_id}/output/stream and sends model_ref explicitly."
+  - button "Open chat" [ref=e212]:
+    - img [ref=e214]
+  - button "Open Next.js Dev Tools" [ref=e221] [cursor=pointer]:
+    - img [ref=e222]
+  - alert [ref=e225]
+```

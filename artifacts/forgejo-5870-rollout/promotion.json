@@ -1,0 +1,16 @@
+[
+  {"op":"test","path":"/spec/source/repoURL","value":"https://forgejo.quantum-forge.io/riley/codetether.git"},
+  {"op":"test","path":"/spec/destination/namespace","value":"a2a-system"},
+  {"op":"test","path":"/spec/source/helm/valuesObject/blueGreen/serviceColor","value":"green"},
+  {"op":"test","path":"/spec/source/helm/parameters/0/name","value":"image.tag"},
+  {"op":"test","path":"/spec/source/helm/parameters/0/value","value":"main-4e0fe718d799"},
+  {"op":"test","path":"/spec/source/helm/parameters/1/name","value":"blueGreen.rolloutId.green"},
+  {"op":"test","path":"/spec/source/helm/parameters/1/value","value":"ci-main-4e0fe718d799"},
+  {"op":"test","path":"/spec/source/helm/valuesObject/image/tag","value":"main-4e0fe718d799"},
+  {"op":"test","path":"/spec/source/helm/valuesObject/blueGreen/images/green/image","value":"registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-4e0fe718d799"},
+  {"op":"replace","path":"/spec/source/helm/parameters/0/value","value":"repair-752c0c8cf1b3"},
+  {"op":"replace","path":"/spec/source/helm/parameters/1/value","value":"repair-752c0c8cf1b3"},
+  {"op":"replace","path":"/spec/source/helm/valuesObject/image/tag","value":"repair-752c0c8cf1b3"},
+  {"op":"replace","path":"/spec/source/helm/valuesObject/blueGreen/images/green/image","value":"registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:repair-752c0c8cf1b3"},
+  {"op":"replace","path":"/spec/source/helm/valuesObject/blueGreen/rolloutId/green","value":"repair-752c0c8cf1b3"}
+]

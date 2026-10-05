@@ -1,0 +1,23 @@
+{
+  "workerId": "ubuntu-dev-sessions",
+  "projects": [
+    {
+      "workspace_id": "local-codetether-agent",
+      "name": "CodeTether Agent",
+      "path": "/home/riley/A2A-Server-MCP/codetether-agent"
+    },
+    {
+      "workspace_id": "local-a2a-server-mcp",
+      "name": "A2A Server",
+      "path": "/home/riley/A2A-Server-MCP"
+    },
+    {
+      "workspace_id": "ios-e2e-ubuntu-dev",
+      "name": "iOS Validation",
+      "path": "/home/riley/A2A-Server-MCP/artifacts/ios-e2e-web"
+    }
+  ],
+  "formerWorkerId": "wrk_1791203157_35195f4f7b97da0a",
+  "noFilesModified": true,
+  "at": "2026-10-05T21:09:05.251Z"
+}

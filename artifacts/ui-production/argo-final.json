@@ -1,0 +1,97 @@
+{
+  "level": "live deployment/Argo",
+  "app": "codetether-marketing",
+  "namespace": "argocd",
+  "destination": {
+    "namespace": "a2a-server",
+    "server": "https://kubernetes.default.svc"
+  },
+  "sourceRevision": "a1d68a889bd3e752e5a00b6cfba90a0e9888c0c0",
+  "sync": {
+    "comparedTo": {
+      "destination": {
+        "namespace": "a2a-server",
+        "server": "https://kubernetes.default.svc"
+      },
+      "source": {
+        "helm": {
+          "releaseName": "codetether",
+          "valuesObject": {
+            "apiProxy": {
+              "backendPort": 8000,
+              "backendService": "codetether-a2a-server",
+              "enabled": true
+            },
+            "enabled": true,
+            "env": {
+              "A2A_API_BACKEND": "http://codetether-a2a-server.a2a-server.svc.cluster.local:8000",
+              "AUTH_TRUST_HOST": "true",
+              "CONTACT_NOTIFICATION_EMAIL": "riley@spotlessbinco.com",
+              "KEYCLOAK_CLIENT_ID": "a2a-monitor",
+              "KEYCLOAK_ISSUER": "https://auth.quantum-forge.io/realms/quantum-forge",
+              "SENDGRID_API_KEY": "",
+              "SENDGRID_FROM_EMAIL": "noreply@codetether.run"
+            },
+            "image": {
+              "pullPolicy": "IfNotPresent",
+              "repository": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing",
+              "tag": "ui-a1d68a889bd3"
+            },
+            "imagePullSecrets": [
+              {
+                "name": "registry-credentials"
+              }
+            ],
+            "ingress": {
+              "annotations": {
+                "cert-manager.io/cluster-issuer": "cloudflare-issuer",
+                "nginx.ingress.kubernetes.io/ssl-redirect": "true"
+              },
+              "className": "nginx",
+              "enabled": true,
+              "host": "codetether.run",
+              "tls": {
+                "secretName": "codetether-marketing-tls"
+              }
+            },
+            "keycloak": {
+              "secretName": "keycloak-client-secret"
+            },
+            "replicaCount": 1,
+            "resources": {
+              "limits": {
+                "cpu": "500m",
+                "memory": "512Mi"
+              },
+              "requests": {
+                "cpu": "100m",
+                "memory": "256Mi"
+              }
+            },
+            "rolloutId": "qf-auth-202605270346",
+            "service": {
+              "port": 3000,
+              "targetPort": 3000,
+              "type": "ClusterIP"
+            }
+          }
+        },
+        "path": "chart/a2a-server/charts/marketing",
+        "repoURL": "git@github.com:rileyseaburg/codetether.git",
+        "targetRevision": "a1d68a889bd3e752e5a00b6cfba90a0e9888c0c0"
+      }
+    },
+    "revision": "a1d68a889bd3e752e5a00b6cfba90a0e9888c0c0",
+    "status": "Synced"
+  },
+  "health": {
+    "lastTransitionTime": "2026-09-06T22:30:41Z",
+    "status": "Healthy"
+  },
+  "operationPhase": "Succeeded",
+  "image": {
+    "pullPolicy": "IfNotPresent",
+    "repository": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing",
+    "tag": "ui-a1d68a889bd3"
+  }
+}

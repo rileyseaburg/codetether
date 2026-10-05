@@ -1,0 +1,21 @@
+{
+  "session_id": "330345c1-9adc-4864-8fd4-6f3986d8c351",
+  "items": [],
+  "evidence": [
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

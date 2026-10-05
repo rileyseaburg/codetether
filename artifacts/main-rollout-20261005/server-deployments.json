@@ -1,0 +1,948 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "argocd.argoproj.io/tracking-id": "codetether-a2a-server:apps/Deployment:a2a-system/a2a-server-deployment-green",
+                    "deployment.kubernetes.io/revision": "191"
+                },
+                "creationTimestamp": "2026-05-06T13:54:57Z",
+                "generation": 203,
+                "labels": {
+                    "app.kubernetes.io/instance": "a2a-server",
+                    "app.kubernetes.io/managed-by": "argocd",
+                    "app.kubernetes.io/name": "a2a-server-bg",
+                    "app.kubernetes.io/part-of": "codetether",
+                    "app.kubernetes.io/version": "1.4.3",
+                    "color": "green",
+                    "helm.sh/chart": "a2a-server-1.4.3"
+                },
+                "name": "a2a-server-deployment-green",
+                "namespace": "a2a-system",
+                "resourceVersion": "700723548",
+                "uid": "59c60882-c243-48b2-bce5-3d9286a9f50e"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 2,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/instance": "a2a-server",
+                        "app.kubernetes.io/name": "a2a-server-bg",
+                        "color": "green"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": 0,
+                        "maxUnavailable": 1
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "checksum/config": "2ffc5da24c8abd5c852a0fef48f06753a86b7891fd521393b8482a3a06e36669",
+                            "codetether.dev/harbor-image": "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:claim-status-73668f20f0b9",
+                            "codetether.dev/hotfix-claim-status": "73668f2",
+                            "codetether.dev/rollout-id": "main-fe28073-20260508211721",
+                            "kubectl.kubernetes.io/restartedAt": "2026-07-19T22:32:31Z",
+                            "rollme": "main-eb2051a212a2"
+                        },
+                        "creationTimestamp": null,
+                        "labels": {
+                            "app.kubernetes.io/component": "server",
+                            "app.kubernetes.io/instance": "a2a-server",
+                            "app.kubernetes.io/managed-by": "argocd",
+                            "app.kubernetes.io/name": "a2a-server-bg",
+                            "app.kubernetes.io/part-of": "codetether",
+                            "app.kubernetes.io/version": "1.4.3",
+                            "color": "green",
+                            "helm.sh/chart": "a2a-server-1.4.3"
+                        }
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "command": [
+                                    "python",
+                                    "run_server.py",
+                                    "run",
+                                    "--host",
+                                    "0.0.0.0",
+                                    "--port",
+                                    "8000",
+                                    "--enhanced"
+                                ],
+                                "env": [
+                                    {
+                                        "name": "OPA_LOCAL_MODE",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "OPA_ENABLED",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "SPIFFE_ENABLED",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "SPIFFE_TRUST_DOMAIN",
+                                        "value": "codetether.io"
+                                    },
+                                    {
+                                        "name": "SPIFFE_ISSUER",
+                                        "value": "https://oidc-discovery.codetether.io"
+                                    },
+                                    {
+                                        "name": "SPIFFE_WORKER_IDS",
+                                        "value": "spiffe://codetether.io/ns/a2a-system/sa/a2a-server-harvester"
+                                    },
+                                    {
+                                        "name": "SPIFFE_AUDIENCE",
+                                        "value": "a2a-server"
+                                    },
+                                    {
+                                        "name": "SPIFFE_JWKS_URL",
+                                        "value": "https://spire-spiffe-oidc-discovery-provider.spire.svc.cluster.local/keys"
+                                    },
+                                    {
+                                        "name": "SPIFFE_JWKS_TTL",
+                                        "value": "300"
+                                    },
+                                    {
+                                        "name": "SPIFFE_ALLOW_TOKEN_LEGACY",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "SPIFFE_ROLE_MAP"
+                                    },
+                                    {
+                                        "name": "SPIFFE_DEFAULT_ROLE",
+                                        "value": "a2a-agent"
+                                    },
+                                    {
+                                        "name": "SPIFFE_BUNDLE_NAMESPACE",
+                                        "value": "spire"
+                                    },
+                                    {
+                                        "name": "SPIFFE_BUNDLE_CONFIGMAP",
+                                        "value": "spire-bundle"
+                                    },
+                                    {
+                                        "name": "SPIFFE_BUNDLE_KEY",
+                                        "value": "bundle.spiffe"
+                                    },
+                                    {
+                                        "name": "AGENT_IDENTITY_NAMESPACE",
+                                        "value": "a2a-system"
+                                    },
+                                    {
+                                        "name": "A2A_AUTH_TOKENS",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "A2A_AUTH_TOKENS",
+                                                "name": "a2a-server-auth-tokens"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_AGENT_REALM",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "KEYCLOAK_AGENT_REALM",
+                                                "name": "codetether-identity-provisioner"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_URL",
+                                        "value": "http://keycloak.keycloak.svc.cluster.local:8080"
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_REALM",
+                                        "value": "quantum-forge"
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_CLIENT_ID",
+                                        "value": "a2a-monitor"
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_CLIENT_SECRET",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "KEYCLOAK_CLIENT_SECRET",
+                                                "name": "a2a-server-keycloak-auth"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_PROVISIONER_CLIENT_ID",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "KEYCLOAK_PROVISIONER_CLIENT_ID",
+                                                "name": "codetether-identity-provisioner"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_PROVISIONER_CLIENT_SECRET",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "KEYCLOAK_PROVISIONER_CLIENT_SECRET",
+                                                "name": "codetether-identity-provisioner"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_PROVISIONER_REALM",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "KEYCLOAK_PROVISIONER_REALM",
+                                                "name": "codetether-identity-provisioner"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "A2A_AGENT_DESCRIPTION",
+                                        "value": "Production CodeTether A2A coordination server"
+                                    },
+                                    {
+                                        "name": "A2A_AGENT_DOCS_URL",
+                                        "value": "https://docs.codetether.run"
+                                    },
+                                    {
+                                        "name": "A2A_AGENT_NAME",
+                                        "value": "CodeTether Server"
+                                    },
+                                    {
+                                        "name": "A2A_AGENT_ORG",
+                                        "value": "CodeTether"
+                                    },
+                                    {
+                                        "name": "A2A_AGENT_ORG_URL",
+                                        "value": "https://codetether.run"
+                                    },
+                                    {
+                                        "name": "A2A_AGENT_URL",
+                                        "value": "https://api.codetether.run"
+                                    },
+                                    {
+                                        "name": "A2A_HOST",
+                                        "value": "0.0.0.0"
+                                    },
+                                    {
+                                        "name": "A2A_LOG_LEVEL",
+                                        "value": "INFO"
+                                    },
+                                    {
+                                        "name": "A2A_PORT",
+                                        "value": "8000"
+                                    },
+                                    {
+                                        "name": "A2A_SCHEMA_INIT_ON_STARTUP",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "CODETETHER_DASHBOARD_URL",
+                                        "value": "https://codetether.run"
+                                    },
+                                    {
+                                        "name": "CODETETHER_TASK_CLAIM_ORDER",
+                                        "value": "newest"
+                                    },
+                                    {
+                                        "name": "FORGEJO_AUTOMATION_PAUSED_PRS",
+                                        "value": "riley/spotlessbinco#5873"
+                                    },
+                                    {
+                                        "name": "FORGEJO_AUTO_MERGE_REQUIRED_CHECKS",
+                                        "value": "{\"riley/spotlessbinco\":[\n  \"Dev Image Builds / build-and-push (pull_request)\",\n  \"Dev Image Builds / Build and push Dev Rust backend (pull_request)\",\n  \"Dev Image Builds / build-and-push-dev-api (pull_request)\",\n  \"Dev Image Builds / Build and push Dev Fastify API (pull_request)\",\n  \"Secret Scan / gitleaks (pull_request)\",\n  \"CodeTether / Harvester Review\"\n]}"
+                                    },
+                                    {
+                                        "name": "FORGEJO_REVIEW_RECOVERY_REPOS",
+                                        "value": "riley/spotlessbinco"
+                                    },
+                                    {
+                                        "name": "FORGEJO_REVIEW_SAFE_WORKER",
+                                        "value": "harvester-pr-review"
+                                    },
+                                    {
+                                        "name": "FORGEJO_SINGLE_REVIEW_REPOS",
+                                        "value": "riley/spotlessbinco"
+                                    },
+                                    {
+                                        "name": "FORGEJO_STATUS_REMEDIATION_ENABLED",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "GITHUB_APP_ACTIVE_WORK_ENABLED",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "GITHUB_APP_AUTO_MERGE_ENABLED",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "GITHUB_APP_DENY_REPOS"
+                                    },
+                                    {
+                                        "name": "GITHUB_APP_MODEL_REF",
+                                        "value": "openai-codex/gpt-6-astra-fast:high"
+                                    },
+                                    {
+                                        "name": "GITHUB_APP_STATUS_PUBLISHER",
+                                        "value": "off"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_ALLOWED_NODES",
+                                        "value": "k8s-worker-1,k8s-worker-2,k8s-worker-3,k8s-worker-4"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_EXCLUDED_NODES",
+                                        "value": "kube-worker-08,node7,storage-node,spotless-tv-gpu"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_MAX_ACTIVE",
+                                        "value": "8"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_MAX_ACTIVE_READONLY",
+                                        "value": "4"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_MAX_RETAINED",
+                                        "value": "40"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_NAMESPACE",
+                                        "value": "a2a-system"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_REPOS",
+                                        "value": "riley/spotlessbinco"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_TEMPLATE",
+                                        "value": "a2a-server-task-job-template"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_TTL",
+                                        "value": "60"
+                                    },
+                                    {
+                                        "name": "MARKETING_SITE_URL",
+                                        "value": "http://codetether-marketing.a2a-server.svc.cluster.local:3000"
+                                    },
+                                    {
+                                        "name": "MCP_HTTP_ENABLED",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "MCP_HTTP_HOST",
+                                        "value": "0.0.0.0"
+                                    },
+                                    {
+                                        "name": "MCP_HTTP_PORT",
+                                        "value": "9000"
+                                    },
+                                    {
+                                        "name": "WORKER_INFRA_CACHE_TTL_SECONDS",
+                                        "value": "30"
+                                    },
+                                    {
+                                        "name": "WORKER_INFRA_NODE_MAP"
+                                    },
+                                    {
+                                        "name": "FORGEJO_API_URL",
+                                        "value": "https://forgejo.quantum-forge.io/api/v1"
+                                    },
+                                    {
+                                        "name": "FORGEJO_BOT_USERNAME",
+                                        "value": "codetether-bot"
+                                    },
+                                    {
+                                        "name": "DATABASE_URL",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "DATABASE_URL",
+                                                "name": "a2a-server-database"
+                                            }
+                                        }
+                                    }
+                                ],
+                                "envFrom": [
+                                    {
+                                        "secretRef": {
+                                            "name": "harvester-api-keys"
+                                        }
+                                    },
+                                    {
+                                        "configMapRef": {
+                                            "name": "a2a-server-config"
+                                        }
+                                    },
+                                    {
+                                        "secretRef": {
+                                            "name": "a2a-server-forgejo"
+                                        }
+                                    }
+                                ],
+                                "image": "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-eb2051a212a2",
+                                "imagePullPolicy": "Always",
+                                "livenessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/.well-known/agent-card.json",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "initialDelaySeconds": 30,
+                                    "periodSeconds": 10,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 5
+                                },
+                                "name": "a2a-server",
+                                "ports": [
+                                    {
+                                        "containerPort": 8000,
+                                        "name": "http",
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "readinessProbe": {
+                                    "failureThreshold": 3,
+                                    "httpGet": {
+                                        "path": "/.well-known/agent-card.json",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "initialDelaySeconds": 5,
+                                    "periodSeconds": 5,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 3
+                                },
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "2",
+                                        "memory": "4Gi"
+                                    },
+                                    "requests": {
+                                        "cpu": "500m",
+                                        "memory": "1Gi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": false,
+                                    "runAsNonRoot": true,
+                                    "runAsUser": 1000
+                                },
+                                "startupProbe": {
+                                    "failureThreshold": 30,
+                                    "httpGet": {
+                                        "path": "/.well-known/agent-card.json",
+                                        "port": "http",
+                                        "scheme": "HTTP"
+                                    },
+                                    "initialDelaySeconds": 10,
+                                    "periodSeconds": 10,
+                                    "successThreshold": 1,
+                                    "timeoutSeconds": 5
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File",
+                                "volumeMounts": [
+                                    {
+                                        "mountPath": "/app/data",
+                                        "name": "data"
+                                    },
+                                    {
+                                        "mountPath": "/app/a2a_server/github_app/router.py",
+                                        "name": "github-app-hotfix",
+                                        "readOnly": true,
+                                        "subPath": "router.py"
+                                    }
+                                ]
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "imagePullSecrets": [
+                            {
+                                "name": "registry-credentials"
+                            }
+                        ],
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "fsGroup": 1000,
+                            "runAsNonRoot": true,
+                            "runAsUser": 1000
+                        },
+                        "serviceAccount": "a2a-server",
+                        "serviceAccountName": "a2a-server",
+                        "terminationGracePeriodSeconds": 30,
+                        "tolerations": [
+                            {
+                                "effect": "NoSchedule",
+                                "key": "node.kubernetes.io/disk-pressure",
+                                "operator": "Exists"
+                            }
+                        ],
+                        "volumes": [
+                            {
+                                "name": "data",
+                                "persistentVolumeClaim": {
+                                    "claimName": "a2a-server-data"
+                                }
+                            },
+                            {
+                                "configMap": {
+                                    "defaultMode": 420,
+                                    "items": [
+                                        {
+                                            "key": "router.py",
+                                            "path": "router.py"
+                                        }
+                                    ],
+                                    "name": "codetether-github-app-hotfix-20260506"
+                                },
+                                "name": "github-app-hotfix"
+                            }
+                        ]
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 2,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-06-15T12:27:11Z",
+                        "lastUpdateTime": "2026-06-15T12:27:11Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-06-27T05:23:38Z",
+                        "lastUpdateTime": "2026-10-05T02:48:43Z",
+                        "message": "ReplicaSet \"a2a-server-deployment-green-78d998dcf\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 203,
+                "readyReplicas": 2,
+                "replicas": 2,
+                "updatedReplicas": 2
+            }
+        },
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "annotations": {
+                    "argocd.argoproj.io/tracking-id": "codetether-a2a-server:apps/Deployment:a2a-system/a2a-server-temporal-worker",
+                    "deployment.kubernetes.io/revision": "69"
+                },
+                "creationTimestamp": "2026-07-19T20:24:46Z",
+                "generation": 71,
+                "labels": {
+                    "app.kubernetes.io/component": "temporal-worker",
+                    "app.kubernetes.io/instance": "a2a-server",
+                    "app.kubernetes.io/managed-by": "argocd",
+                    "app.kubernetes.io/name": "a2a-server",
+                    "app.kubernetes.io/part-of": "codetether",
+                    "app.kubernetes.io/version": "1.4.3",
+                    "helm.sh/chart": "a2a-server-1.4.3"
+                },
+                "name": "a2a-server-temporal-worker",
+                "namespace": "a2a-system",
+                "resourceVersion": "700721813",
+                "uid": "b5416a44-f987-413c-a35c-dca588b5b114"
+            },
+            "spec": {
+                "progressDeadlineSeconds": 600,
+                "replicas": 1,
+                "revisionHistoryLimit": 10,
+                "selector": {
+                    "matchLabels": {
+                        "app.kubernetes.io/component": "temporal-worker",
+                        "app.kubernetes.io/instance": "a2a-server",
+                        "app.kubernetes.io/name": "a2a-server"
+                    }
+                },
+                "strategy": {
+                    "rollingUpdate": {
+                        "maxSurge": "25%",
+                        "maxUnavailable": "25%"
+                    },
+                    "type": "RollingUpdate"
+                },
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "kubectl.kubernetes.io/restartedAt": "2026-08-06T17:13:48Z"
+                        },
+                        "creationTimestamp": null,
+                        "labels": {
+                            "app.kubernetes.io/component": "temporal-worker",
+                            "app.kubernetes.io/instance": "a2a-server",
+                            "app.kubernetes.io/name": "a2a-server"
+                        }
+                    },
+                    "spec": {
+                        "containers": [
+                            {
+                                "command": [
+                                    "python",
+                                    "-m",
+                                    "a2a_server.temporal.worker"
+                                ],
+                                "env": [
+                                    {
+                                        "name": "FORGEJO_TEMPORAL_ENABLED",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "TEMPORAL_ADDRESS",
+                                        "value": "temporal-frontend.temporal.svc.cluster.local:7233"
+                                    },
+                                    {
+                                        "name": "TEMPORAL_NAMESPACE",
+                                        "value": "codetether-prod"
+                                    },
+                                    {
+                                        "name": "TEMPORAL_FORGEJO_TASK_QUEUE",
+                                        "value": "codetether-forgejo-agent"
+                                    },
+                                    {
+                                        "name": "FORGEJO_API_URL",
+                                        "value": "https://forgejo.quantum-forge.io/api/v1"
+                                    },
+                                    {
+                                        "name": "FORGEJO_BOT_USERNAME",
+                                        "value": "codetether-bot"
+                                    },
+                                    {
+                                        "name": "DATABASE_URL",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "DATABASE_URL",
+                                                "name": "a2a-server-database"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "A2A_AUTH_TOKENS",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "A2A_AUTH_TOKENS",
+                                                "name": "a2a-server-auth-tokens"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_AGENT_REALM",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "KEYCLOAK_AGENT_REALM",
+                                                "name": "codetether-identity-provisioner"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_CLIENT_SECRET",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "KEYCLOAK_CLIENT_SECRET",
+                                                "name": "a2a-server-keycloak-auth"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_PROVISIONER_CLIENT_ID",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "KEYCLOAK_PROVISIONER_CLIENT_ID",
+                                                "name": "codetether-identity-provisioner"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_PROVISIONER_CLIENT_SECRET",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "KEYCLOAK_PROVISIONER_CLIENT_SECRET",
+                                                "name": "codetether-identity-provisioner"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "KEYCLOAK_PROVISIONER_REALM",
+                                        "valueFrom": {
+                                            "secretKeyRef": {
+                                                "key": "KEYCLOAK_PROVISIONER_REALM",
+                                                "name": "codetether-identity-provisioner"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "A2A_AGENT_DESCRIPTION",
+                                        "value": "Production CodeTether A2A coordination server"
+                                    },
+                                    {
+                                        "name": "A2A_AGENT_DOCS_URL",
+                                        "value": "https://docs.codetether.run"
+                                    },
+                                    {
+                                        "name": "A2A_AGENT_NAME",
+                                        "value": "CodeTether Server"
+                                    },
+                                    {
+                                        "name": "A2A_AGENT_ORG",
+                                        "value": "CodeTether"
+                                    },
+                                    {
+                                        "name": "A2A_AGENT_ORG_URL",
+                                        "value": "https://codetether.run"
+                                    },
+                                    {
+                                        "name": "A2A_AGENT_URL",
+                                        "value": "https://api.codetether.run"
+                                    },
+                                    {
+                                        "name": "A2A_HOST",
+                                        "value": "0.0.0.0"
+                                    },
+                                    {
+                                        "name": "A2A_LOG_LEVEL",
+                                        "value": "INFO"
+                                    },
+                                    {
+                                        "name": "A2A_PORT",
+                                        "value": "8000"
+                                    },
+                                    {
+                                        "name": "A2A_SCHEMA_INIT_ON_STARTUP",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "CODETETHER_DASHBOARD_URL",
+                                        "value": "https://codetether.run"
+                                    },
+                                    {
+                                        "name": "CODETETHER_TASK_CLAIM_ORDER",
+                                        "value": "newest"
+                                    },
+                                    {
+                                        "name": "FORGEJO_AUTOMATION_PAUSED_PRS",
+                                        "value": "riley/spotlessbinco#5873"
+                                    },
+                                    {
+                                        "name": "FORGEJO_AUTO_MERGE_REQUIRED_CHECKS",
+                                        "value": "{\"riley/spotlessbinco\":[\n  \"Dev Image Builds / build-and-push (pull_request)\",\n  \"Dev Image Builds / Build and push Dev Rust backend (pull_request)\",\n  \"Dev Image Builds / build-and-push-dev-api (pull_request)\",\n  \"Dev Image Builds / Build and push Dev Fastify API (pull_request)\",\n  \"Secret Scan / gitleaks (pull_request)\",\n  \"CodeTether / Harvester Review\"\n]}"
+                                    },
+                                    {
+                                        "name": "FORGEJO_REVIEW_RECOVERY_REPOS",
+                                        "value": "riley/spotlessbinco"
+                                    },
+                                    {
+                                        "name": "FORGEJO_REVIEW_SAFE_WORKER",
+                                        "value": "harvester-pr-review"
+                                    },
+                                    {
+                                        "name": "FORGEJO_SINGLE_REVIEW_REPOS",
+                                        "value": "riley/spotlessbinco"
+                                    },
+                                    {
+                                        "name": "FORGEJO_STATUS_REMEDIATION_ENABLED",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "GITHUB_APP_ACTIVE_WORK_ENABLED",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "GITHUB_APP_AUTO_MERGE_ENABLED",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "name": "GITHUB_APP_DENY_REPOS"
+                                    },
+                                    {
+                                        "name": "GITHUB_APP_MODEL_REF",
+                                        "value": "openai-codex/gpt-6-astra-fast:high"
+                                    },
+                                    {
+                                        "name": "GITHUB_APP_STATUS_PUBLISHER",
+                                        "value": "off"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_ALLOWED_NODES",
+                                        "value": "k8s-worker-1,k8s-worker-2,k8s-worker-3,k8s-worker-4"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_EXCLUDED_NODES",
+                                        "value": "kube-worker-08,node7,storage-node,spotless-tv-gpu"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_MAX_ACTIVE",
+                                        "value": "8"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_MAX_ACTIVE_READONLY",
+                                        "value": "4"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_MAX_RETAINED",
+                                        "value": "40"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_NAMESPACE",
+                                        "value": "a2a-system"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_REPOS",
+                                        "value": "riley/spotlessbinco"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_TEMPLATE",
+                                        "value": "a2a-server-task-job-template"
+                                    },
+                                    {
+                                        "name": "HARVESTER_JOB_TTL",
+                                        "value": "60"
+                                    },
+                                    {
+                                        "name": "MARKETING_SITE_URL",
+                                        "value": "http://codetether-marketing.a2a-server.svc.cluster.local:3000"
+                                    },
+                                    {
+                                        "name": "MCP_HTTP_ENABLED",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "name": "MCP_HTTP_HOST",
+                                        "value": "0.0.0.0"
+                                    },
+                                    {
+                                        "name": "MCP_HTTP_PORT",
+                                        "value": "9000"
+                                    },
+                                    {
+                                        "name": "WORKER_INFRA_CACHE_TTL_SECONDS",
+                                        "value": "30"
+                                    },
+                                    {
+                                        "name": "WORKER_INFRA_NODE_MAP"
+                                    }
+                                ],
+                                "envFrom": [
+                                    {
+                                        "secretRef": {
+                                            "name": "harvester-api-keys"
+                                        }
+                                    },
+                                    {
+                                        "configMapRef": {
+                                            "name": "a2a-server-config"
+                                        }
+                                    },
+                                    {
+                                        "secretRef": {
+                                            "name": "a2a-server-forgejo"
+                                        }
+                                    }
+                                ],
+                                "image": "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-eb2051a212a2",
+                                "imagePullPolicy": "Always",
+                                "name": "temporal-worker",
+                                "resources": {
+                                    "limits": {
+                                        "cpu": "1",
+                                        "memory": "1Gi"
+                                    },
+                                    "requests": {
+                                        "cpu": "100m",
+                                        "memory": "256Mi"
+                                    }
+                                },
+                                "securityContext": {
+                                    "allowPrivilegeEscalation": false,
+                                    "capabilities": {
+                                        "drop": [
+                                            "ALL"
+                                        ]
+                                    },
+                                    "readOnlyRootFilesystem": false,
+                                    "runAsNonRoot": true,
+                                    "runAsUser": 1000
+                                },
+                                "terminationMessagePath": "/dev/termination-log",
+                                "terminationMessagePolicy": "File"
+                            }
+                        ],
+                        "dnsPolicy": "ClusterFirst",
+                        "imagePullSecrets": [
+                            {
+                                "name": "registry-credentials"
+                            }
+                        ],
+                        "restartPolicy": "Always",
+                        "schedulerName": "default-scheduler",
+                        "securityContext": {
+                            "fsGroup": 1000,
+                            "runAsNonRoot": true,
+                            "runAsUser": 1000
+                        },
+                        "serviceAccount": "a2a-server",
+                        "serviceAccountName": "a2a-server",
+                        "terminationGracePeriodSeconds": 60
+                    }
+                }
+            },
+            "status": {
+                "availableReplicas": 1,
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-10-05T00:22:44Z",
+                        "lastUpdateTime": "2026-10-05T00:22:44Z",
+                        "message": "Deployment has minimum availability.",
+                        "reason": "MinimumReplicasAvailable",
+                        "status": "True",
+                        "type": "Available"
+                    },
+                    {
+                        "lastTransitionTime": "2026-07-19T20:24:46Z",
+                        "lastUpdateTime": "2026-10-05T02:47:42Z",
+                        "message": "ReplicaSet \"a2a-server-temporal-worker-5496f5d8fb\" has successfully progressed.",
+                        "reason": "NewReplicaSetAvailable",
+                        "status": "True",
+                        "type": "Progressing"
+                    }
+                ],
+                "observedGeneration": 71,
+                "readyReplicas": 1,
+                "replicas": 1,
+                "updatedReplicas": 1
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

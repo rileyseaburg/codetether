@@ -1,0 +1,7 @@
+{
+  "image": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing:ui-eb2051a212a2",
+  "digest": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing@sha256:fbd3f4c362329c3972dd297cb2de028a29e9da3a7ed748a2af89c7cc45401c87",
+  "imageId": "sha256:224ff8a8dc5b65bf43a295a9462646341bd36a5211cc041c6d72570b0b2e0159",
+  "sourceRevision": "eb2051a212a2c729a7963da8e1dda39a4e958513",
+  "pullSecret": "registry-credentials"
+}

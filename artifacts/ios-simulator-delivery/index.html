@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A2A Monitor — signed iPhone test build</title>
+<style>body{font:17px system-ui;max-width:720px;margin:3rem auto;padding:0 1.2rem;line-height:1.6;color:#17233b}a{color:#1257bd}.button{display:inline-block;background:#1257bd;color:white;padding:.7rem 1rem;border-radius:.6rem;text-decoration:none}code{overflow-wrap:anywhere}aside{background:#eef4ff;padding:1rem;border-radius:.6rem}</style>
+<h1>A2A Monitor</h1>
+<p>Signed Ad Hoc iPhone test build · Version 1.0.0 (2)</p>
+<p><a class="button" href="itms-services://?action=download-manifest&amp;url=https%3A%2F%2Fserver.codetether.run%2Fdownloads%2Fa2amonitor%2F20261005%2Fmanifest.plist">Install on Riley's registered iPhone</a></p>
+<p><a href="A2AMonitor-1.0.0-2.ipa">Download signed IPA</a></p>
+<aside>Open this page in Safari on the registered iPhone. This Ad Hoc profile is device-specific; it is not an App Store release. A download link does not prove installation on the physical phone.</aside>
+<h2>What was tested</h2>
+<p>The native Swift client running in iOS Simulator submitted a real task to the local worker, received the task's result, and verified the generated HTML file, HTTP response, SHA-256 and active hosting process.</p>
+<p>Task ID: <code>b009806e-6184-4d5f-a5cb-2ca7ccf93214</code>. Xcode: one live test passed; zero failures or skips.</p>
+<p><strong>User sign-in was not tested.</strong> The simulator test used a temporary restricted service-auth harness. It did not enter passwords, exercise the Keycloak sign-in UI, or install this build on the physical phone.</p>
+<p><a href="proof.json">Sanitized test and package evidence</a></p>
+<h2>Package integrity</h2>
+<p>IPA SHA-256:<br><code>4679f356dde97dbbfd82c5b64c68cd3911ad4431e497d7e2253767d449319109</code></p>
+<p>After signing in, open <strong>Command → Tasks &amp; Responses</strong>. The app retains the real task ID and displays that task's returned response.</p>
+<p>No credentials are embedded in this download page.</p>
+</html>
+

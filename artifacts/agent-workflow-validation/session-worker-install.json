@@ -1,0 +1,9 @@
+{
+  "version": "codetether 4.7.6-dev.24",
+  "sha256": "2a86d64cb356176cf92d5fb977c55aa5700219b79e35fd91017bd264fec5371f",
+  "binary": "/home/riley/.local/lib/codetether/session-worker-4.7.6-dev.24",
+  "workerId": "ubuntu-dev-sessions",
+  "unit": "codetether-work-session-worker.service",
+  "stateDirectory": "/home/riley/.local/share/codetether-session-worker",
+  "credentialsPrinted": false
+}

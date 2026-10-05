@@ -1,0 +1,842 @@
+---
+# Source: a2a-server/templates/harvester-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: codetether-a2a-server-harvester
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    app.kubernetes.io/component: harvester
+---
+# Source: a2a-server/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: codetether-a2a-server
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+automountServiceAccountToken: true
+---
+# Source: a2a-server/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: codetether-a2a-server-config
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+data:
+  # Server configuration
+  A2A_HOST: "0.0.0.0"
+  A2A_PORT: "8000"
+  A2A_LOG_LEVEL: "INFO"
+
+  # Redis configuration
+  A2A_REDIS_URL: "redis://codetether-a2a-server-redis-master:6379"
+
+  # Agent configuration
+  A2A_AGENT_NAME: "CodeTether Server"
+  A2A_AGENT_DESCRIPTION: "Production CodeTether A2A coordination server"
+  A2A_AGENT_ORG: "CodeTether"
+  A2A_AGENT_ORG_URL: "https://codetether.run"
+  A2A_AGENT_URL: "https://api.codetether.run"
+  A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
+
+  # Authentication enabled flag
+  A2A_AUTH_ENABLED: "true"
+
+  # Keycloak SSO configuration (non-secret values)
+  KEYCLOAK_URL: "https://auth.quantum-forge.io"
+  KEYCLOAK_ISSUER: "https://auth.quantum-forge.io/realms/quantum-forge"
+  KEYCLOAK_REALM: "quantum-forge"
+  KEYCLOAK_CLIENT_ID: "a2a-monitor"
+
+  # Worker authentication token lives in a Secret (worker-auth-secret.yaml).
+
+  # Sandbox execution
+
+  # RLS is enabled by default for multi-tenant isolation
+  RLS_ENABLED: "true"
+
+  # Durable Forgejo Temporal orchestration (non-secret client settings)
+  FORGEJO_TEMPORAL_ENABLED: "false"
+
+  # Database persistence paths (use mounted volume for persistence across restarts)
+  MONITOR_DB_PATH: "/app/data/monitor.db"
+  SESSIONS_DB_PATH: "/app/data/sessions.db"
+  AGENT_DB_PATH: "/app/data/agent.db"
+  # Backward compat: old env var still recognized by the server
+  OPENCODE_DB_PATH: "/app/data/agent.db"
+---
+# Source: a2a-server/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: codetether-a2a-server-data
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Source: a2a-server/templates/harvester-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: codetether-a2a-server-harvester
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    app.kubernetes.io/component: harvester
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/component: harvester
+  ports:
+    - name: health
+      port: 8080
+      targetPort: health
+      protocol: TCP
+    - name: a2a
+      port: 8081
+      targetPort: a2a
+      protocol: TCP
+---
+# Source: a2a-server/templates/redis.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: codetether-a2a-server-redis-master
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: redis
+      protocol: TCP
+      name: redis
+  selector:
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/component: redis
+---
+# Source: a2a-server/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: codetether-a2a-server
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+  annotations:
+    bluegreen/mode: "bluegreen"
+    bluegreen/active-color: "green"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+    # MCP is now integrated on the same port under /mcp/* paths
+    # No separate MCP port needed
+  selector:
+    app.kubernetes.io/name: a2a-server-bg
+    app.kubernetes.io/instance: codetether
+    color: "green"
+    app.kubernetes.io/component: server
+---
+# Source: a2a-server/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codetether-a2a-server-deployment-blue
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server-bg
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    color: "blue"
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server-bg
+      app.kubernetes.io/instance: codetether
+      color: "blue"
+  template:
+    metadata:
+      annotations:
+        checksum/config: 3377dcd9e680d910c50f8faab098fc79b9199a5030650e5a904c7097774715a5
+      labels:
+        helm.sh/chart: a2a-server-1.4.3
+        app.kubernetes.io/name: a2a-server-bg
+        app.kubernetes.io/instance: codetether
+        app.kubernetes.io/version: "1.4.3"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/managed-by: argocd
+        app.kubernetes.io/part-of: codetether
+        color: "blue"
+        app.kubernetes.io/component: server
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+      serviceAccountName: codetether-a2a-server
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: a2a-server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-d518d97
+          imagePullPolicy: Always
+          command:
+            - python
+            - run_server.py
+            - run
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --enhanced
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+            # MCP is now integrated on the same port under /mcp/* paths
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          envFrom:
+            
+            - secretRef:
+                name: harvester-api-keys
+            - configMapRef:
+                name: codetether-a2a-server-config
+            - secretRef:
+                name: codetether-a2a-server-forgejo
+          env:
+            - name: OPA_LOCAL_MODE
+              value: "true"
+            - name: OPA_ENABLED
+              value: "true"
+            
+            
+            
+            - name: A2A_AUTH_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-auth-tokens
+                  key: A2A_AUTH_TOKENS
+            - name: A2A_AGENT_DESCRIPTION
+              value: "Production CodeTether A2A coordination server"
+            - name: A2A_AGENT_DOCS_URL
+              value: "https://docs.codetether.run"
+            - name: A2A_AGENT_NAME
+              value: "CodeTether Server"
+            - name: A2A_AGENT_ORG
+              value: "CodeTether"
+            - name: A2A_AGENT_ORG_URL
+              value: "https://codetether.run"
+            - name: A2A_AGENT_URL
+              value: "https://api.codetether.run"
+            - name: A2A_HOST
+              value: "0.0.0.0"
+            - name: A2A_LOG_LEVEL
+              value: "INFO"
+            - name: A2A_PORT
+              value: "8000"
+            - name: GITHUB_APP_AUTO_MERGE_ENABLED
+              value: "true"
+            - name: GITHUB_APP_MERGE_METHOD
+              value: "squash"
+            - name: GITHUB_APP_STATUS_PUBLISHER
+              value: "checks"
+            - name: MCP_HTTP_ENABLED
+              value: "true"
+            - name: MCP_HTTP_HOST
+              value: "0.0.0.0"
+            - name: MCP_HTTP_PORT
+              value: "9000"
+            - name: WORKER_INFRA_CACHE_TTL_SECONDS
+              value: "30"
+            - name: WORKER_INFRA_NODE_MAP
+              value: ""
+            - name: FORGEJO_API_URL
+              value: "https://forgejo.quantum-forge.io/api/v1"
+            - name: FORGEJO_BOT_USERNAME
+              value: "codetether"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-database
+                  key: DATABASE_URL
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: codetether-a2a-server-data
+---
+# Source: a2a-server/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codetether-a2a-server-deployment-green
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server-bg
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    color: "green"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server-bg
+      app.kubernetes.io/instance: codetether
+      color: "green"
+  template:
+    metadata:
+      annotations:
+        checksum/config: 3377dcd9e680d910c50f8faab098fc79b9199a5030650e5a904c7097774715a5
+        rollme: "claimfix-20260506-152900"
+      labels:
+        helm.sh/chart: a2a-server-1.4.3
+        app.kubernetes.io/name: a2a-server-bg
+        app.kubernetes.io/instance: codetether
+        app.kubernetes.io/version: "1.4.3"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/managed-by: argocd
+        app.kubernetes.io/part-of: codetether
+        color: "green"
+        app.kubernetes.io/component: server
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+      serviceAccountName: codetether-a2a-server
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: a2a-server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-d518d97
+          imagePullPolicy: Always
+          command:
+            - python
+            - run_server.py
+            - run
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --enhanced
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+            # MCP is now integrated on the same port under /mcp/* paths
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          envFrom:
+            
+            - secretRef:
+                name: harvester-api-keys
+            - configMapRef:
+                name: codetether-a2a-server-config
+            - secretRef:
+                name: codetether-a2a-server-forgejo
+          env:
+            - name: OPA_LOCAL_MODE
+              value: "true"
+            - name: OPA_ENABLED
+              value: "true"
+            
+            
+            
+            - name: A2A_AUTH_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-auth-tokens
+                  key: A2A_AUTH_TOKENS
+            - name: A2A_AGENT_DESCRIPTION
+              value: "Production CodeTether A2A coordination server"
+            - name: A2A_AGENT_DOCS_URL
+              value: "https://docs.codetether.run"
+            - name: A2A_AGENT_NAME
+              value: "CodeTether Server"
+            - name: A2A_AGENT_ORG
+              value: "CodeTether"
+            - name: A2A_AGENT_ORG_URL
+              value: "https://codetether.run"
+            - name: A2A_AGENT_URL
+              value: "https://api.codetether.run"
+            - name: A2A_HOST
+              value: "0.0.0.0"
+            - name: A2A_LOG_LEVEL
+              value: "INFO"
+            - name: A2A_PORT
+              value: "8000"
+            - name: GITHUB_APP_AUTO_MERGE_ENABLED
+              value: "true"
+            - name: GITHUB_APP_MERGE_METHOD
+              value: "squash"
+            - name: GITHUB_APP_STATUS_PUBLISHER
+              value: "checks"
+            - name: MCP_HTTP_ENABLED
+              value: "true"
+            - name: MCP_HTTP_HOST
+              value: "0.0.0.0"
+            - name: MCP_HTTP_PORT
+              value: "9000"
+            - name: WORKER_INFRA_CACHE_TTL_SECONDS
+              value: "30"
+            - name: WORKER_INFRA_NODE_MAP
+              value: ""
+            - name: FORGEJO_API_URL
+              value: "https://forgejo.quantum-forge.io/api/v1"
+            - name: FORGEJO_BOT_USERNAME
+              value: "codetether"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-database
+                  key: DATABASE_URL
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: codetether-a2a-server-data
+---
+# Source: a2a-server/templates/redis.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codetether-a2a-server-redis
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    app.kubernetes.io/component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server
+      app.kubernetes.io/instance: codetether
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: a2a-server
+        app.kubernetes.io/instance: codetether
+        app.kubernetes.io/component: redis
+    spec:
+      containers:
+        - name: redis
+          image: "redis:7-alpine"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              memory: 128Mi
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+# Source: a2a-server/templates/harvester-statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: codetether-a2a-server-harvester
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    app.kubernetes.io/component: harvester
+spec:
+  serviceName: codetether-a2a-server-harvester
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server
+      app.kubernetes.io/instance: codetether
+      app.kubernetes.io/component: harvester
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: a2a-server
+        app.kubernetes.io/instance: codetether
+        app.kubernetes.io/component: harvester
+      annotations:
+        checksum/config: 3377dcd9e680d910c50f8faab098fc79b9199a5030650e5a904c7097774715a5
+    spec:
+      serviceAccountName: codetether-a2a-server-harvester
+      imagePullSecrets:
+        - name: registry-credentials
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        # Harvester workspaces are per-repository clones on a node-local volume.
+        # Without bounded retention they accumulate until the node crosses
+        # kubelet's DiskPressure threshold, which taints the node and leaves the
+        # harvester Pending, so queued tasks are accepted and never executed.
+        # This sidecar reclaims only clones that are older than the retention
+        # window AND have no uncommitted, unpushed, or stashed work.
+        - name: workspace-reclaim
+          image: "registry.quantum-forge.net/cluster-ci-cache/codetether-worker:latest"
+          imagePullPolicy: Always
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -u
+              root=/var/lib/codetether/repos
+              retain_days=3
+              interval=3600
+              min_free_pct=20
+              git config --global --add safe.directory '*' >/dev/null 2>&1 || true
+              while true; do
+                free_pct=$(df -P "$root" | awk 'NR==2 {print 100 - int($5)}')
+                echo "workspace-reclaim: free=${free_pct}% threshold=${min_free_pct}%"
+                if [ "$free_pct" -lt "$min_free_pct" ]; then
+                  find "$root" -maxdepth 1 -mindepth 1 -type d -mtime "+${retain_days}" 2>/dev/null |
+                  while read -r ws; do
+                    name=$(basename "$ws")
+                    case "$name" in .*) continue ;; esac
+                    gd=$(find "$ws" -maxdepth 2 -name .git -type d 2>/dev/null | head -1)
+                    if [ -n "$gd" ]; then
+                      wt=$(dirname "$gd")
+                      dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l)
+                      unpushed=$(git -C "$wt" log --branches --not --remotes --oneline 2>/dev/null | wc -l)
+                      stash=$(git -C "$wt" stash list 2>/dev/null | wc -l)
+                      readable=$(git -C "$wt" rev-parse --is-inside-work-tree 2>/dev/null || echo no)
+                      # Preserve anything unreadable or carrying unsaved work.
+                      if [ "$readable" != true ] ||
+                         [ "$dirty" -ne 0 ] || [ "$unpushed" -ne 0 ] || [ "$stash" -ne 0 ]; then
+                        echo "workspace-reclaim: preserving $name (dirty=$dirty unpushed=$unpushed stash=$stash)"
+                        continue
+                      fi
+                    fi
+                    echo "workspace-reclaim: reclaiming $name"
+                    rm -rf "$ws" || echo "workspace-reclaim: failed $name"
+                  done
+                fi
+                sleep "$interval"
+              done
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 25m
+              memory: 64Mi
+          volumeMounts:
+            - name: workspace
+              mountPath: /var/lib/codetether/repos
+        - name: harvester
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: "registry.quantum-forge.net/cluster-ci-cache/codetether-worker:latest"
+          imagePullPolicy: Always
+          command:
+            - /usr/local/bin/codetether
+          args:
+            - worker
+            - --server
+            - http://codetether-a2a-server:8000
+            - --workspaces
+            - /var/lib/codetether/repos
+            - --name
+            - "harvester-$(POD_NAME)"
+            - --auto-approve
+            - "safe"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: PERSISTENT_WORKER_ENABLED
+              value: "true"
+            - name: PERSISTENT_WORKER_LEASE_SECONDS
+              value: "3600"
+            - name: PERSISTENT_WORKER_MAX_TIMEOUT
+              value: "604800"
+            - name: GITHUB_PROGRESS_ENABLED
+              value: "true"
+            - name: CODETETHER_HARVESTER_ENABLED
+              value: "true"
+            - name: CODETETHER_WORKER_A2A_MDNS
+              value: "true"
+            - name: CODETETHER_WORKER_PUBLIC_URL
+              value: "http://$(POD_NAME).codetether-a2a-server-harvester.spire.svc.cluster.local:8080"
+            - name: CODETETHER_WORKER_PORT
+              value: "8080"
+            - name: CODETETHER_WORKER_A2A_PORT
+              value: "8081"
+            - name: CODETETHER_SERVER
+              value: http://codetether-a2a-server:8000
+            - name: CODETETHER_WORKER_CAPABILITIES
+              value: "harvester,persistent,persistent-workspace,persistent_workspace,git-clone,repo-cache"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-database
+                  key: DATABASE_URL
+            - name: HOME
+              value: "/var/lib/codetether/repos/.codetether-home"
+            - name: XDG_CONFIG_HOME
+              value: "/var/lib/codetether/repos/.codetether-home/.config"
+            - name: XDG_DATA_HOME
+              value: "/var/lib/codetether/repos/.codetether-home/.local/share"
+            - name: XDG_CACHE_HOME
+              value: "/var/lib/codetether/repos/.codetether-home/.cache"
+            - name: CODETETHER_AGENT_HOME
+              value: "/var/lib/codetether/repos/.codetether-home/.codetether-agent"
+            - name: CODETETHER_HOME
+              value: "/var/lib/codetether/repos/.codetether-home/.codetether-agent"
+          ports:
+            - name: health
+              containerPort: 8080
+              protocol: TCP
+            - name: a2a
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            limits:
+              cpu: "4"
+              memory: 16Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - name: workspace
+              mountPath: /var/lib/codetether/repos
+            - name: workspace
+              mountPath: /home/worker
+              subPath: .worker-home
+  volumeClaimTemplates:
+    - metadata:
+        name: workspace
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 50Gi
+---
+# Source: a2a-server/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: codetether-a2a-server
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: codetether
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-issuer
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-allow-headers: DNT, User-Agent, X-Requested-With,
+      If-None-Match, If-Modified-Since, Content-Type, Range, Authorization, X-Tenant-ID,
+      X-API-Key
+    nginx.ingress.kubernetes.io/cors-allow-methods: GET, PUT, POST, DELETE, PATCH, OPTIONS
+    nginx.ingress.kubernetes.io/cors-allow-origin: https://codetether.run, https://docs.codetether.run
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - "api.codetether.run"
+      secretName: a2a-server-tls
+  rules:
+    - host: "api.codetether.run"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: codetether-a2a-server
+                port:
+                  number: 8000

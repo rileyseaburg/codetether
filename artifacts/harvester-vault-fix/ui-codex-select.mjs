@@ -1,0 +1,32 @@
+// Select openai-codex/gpt-5.6-luna through the provider pill and confirm the value.
+import { chromium } from '/home/riley/A2A-Server-MCP/marketing-site/node_modules/playwright/index.mjs';
+import fs from 'node:fs';
+const out = '/home/riley/A2A-Server-MCP/artifacts/harvester-vault-fix';
+const browser = await chromium.connectOverCDP('http://127.0.0.1:9333');
+const ctx = await browser.newContext({ viewport: { width: 1400, height: 1000 }, storageState: `${out}/.ui-storage-state.json` });
+const page = await ctx.newPage();
+await page.goto('https://quantum-forge.codetether.run/dashboard', { waitUntil: 'networkidle', timeout: 60000 });
+await page.waitForTimeout(3000);
+await page.getByRole('button', { name: /Show Advanced Controls/i }).click();
+const box = page.locator('input[data-cy="model-selector-input"]').first();
+await box.scrollIntoViewIfNeeded();
+await box.click();
+await page.waitForTimeout(1200);
+const menu = page.locator('div.fixed.z-\\[90\\]').first();
+await menu.locator('button', { hasText: /^openai-codex\s*\d+$/ }).first().click();
+await page.waitForTimeout(1000);
+const options = await menu.locator('button span.font-medium').allInnerTexts();
+await page.screenshot({ path: `${out}/ui-08-codex-pill.png` });
+await menu.locator('button', { hasText: /^gpt-5\.6-luna/ }).first().click();
+await page.waitForTimeout(800);
+const inputValue = await box.inputValue();
+const info = await page.evaluate(() => {
+  const m = document.body.innerText.match(/openai-codex\/gpt-5\.6-luna[^\n]{0,80}/);
+  return m ? m[0] : null;
+});
+await page.screenshot({ path: `${out}/ui-09-codex-selected.png` });
+const r = { providerPillOptions: options, inputValue, selectedInfo: info };
+fs.writeFileSync(`${out}/ui-codex-select.json`, JSON.stringify(r, null, 2));
+console.log(JSON.stringify(r, null, 1));
+await ctx.close();
+await browser.close();

@@ -1,0 +1,13 @@
+--- a/src/forgejo_cli.tether
++++ b/src/forgejo_cli.tether
+@@ -58,3 +58,4 @@
+     if resp.is_err() {
+-        println("request failed: " + resp.err())
++        // Transport diagnostics can contain request authentication details.
++        println("request failed: transport error; authentication details suppressed")
+         return 1
+@@ -64,3 +65,2 @@
+         println("HTTP " + r.status + " " + r.reason)
+-        println(r.body)
+         return 1
+

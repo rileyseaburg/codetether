@@ -1,0 +1,57 @@
+{
+  "observedAt": "2026-10-05T21:09:05.329Z",
+  "requests": [
+    {
+      "route": "/v1/agent/workers?online_only=true",
+      "status": 200,
+      "elapsedMs": 848,
+      "responseBytes": 188250,
+      "rows": 3
+    },
+    {
+      "route": "/v1/agent/workspaces",
+      "status": 200,
+      "elapsedMs": 1136,
+      "responseBytes": 1271492,
+      "rows": 1963
+    },
+    {
+      "route": "/v1/agent/workers?online_only=true",
+      "status": 200,
+      "elapsedMs": 824,
+      "responseBytes": 188250,
+      "rows": 3
+    },
+    {
+      "route": "/v1/agent/workspaces",
+      "status": 200,
+      "elapsedMs": 1049,
+      "responseBytes": 1271492,
+      "rows": 1963
+    },
+    {
+      "route": "/v1/agent/workers?online_only=true",
+      "status": 200,
+      "elapsedMs": 1127,
+      "responseBytes": 188250,
+      "rows": 3
+    },
+    {
+      "route": "/v1/agent/workspaces",
+      "status": 200,
+      "elapsedMs": 947,
+      "responseBytes": 1271492,
+      "rows": 1963
+    }
+  ],
+  "database": {
+    "workers_preserved": 6251,
+    "stored_model_bytes": 589580958,
+    "bulk_model_bytes": 301357,
+    "bounded": true
+  },
+  "pod": {
+    "name": "a2a-server-deployment-green-84c495d894-kr4mp",
+    "restarts": 0
+  }
+}

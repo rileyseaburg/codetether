@@ -1,0 +1,10 @@
+{
+  "taskId": "9bf9cd72-4fc0-450b-971c-42efeaf9dabe",
+  "status": "failed",
+  "result": null,
+  "error": "Error: Bedrock API error (403 Forbidden): The security token included in the request is invalid.",
+  "phoneOrigin": false,
+  "observedAt": "2026-10-05T12:52:12.511Z",
+  "targetWorker": "wrk_1791203157_35195f4f7b97da0a",
+  "model": null
+}

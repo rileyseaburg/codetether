@@ -1,0 +1,31 @@
+{
+  "session_id": "641e1589-9355-4189-bbb4-a4d3418ec2a0",
+  "items": [],
+  "evidence": [
+    {
+      "kind": "argo",
+      "level": "live deployment/Argo",
+      "value": "healthy-synced"
+    },
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "db-migration",
+      "level": "live DB",
+      "value": "applied"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

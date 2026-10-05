@@ -1,15 +1,10 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
 import { useTenantApi } from '@/hooks/useTenantApi';
 import VoiceChatModal from './VoiceChatModal';
 
-/**
- * Default voice for one-click experience.
- * Must match one of the Python AVAILABLE_VOICES ids: puck, charon, kore, fenrir, aoede.
- */
-const DEFAULT_VOICE = { id: 'puck', name: 'Puck', description: 'Friendly and approachable' };
+interface VoiceChoice { id: string; name: string; description: string }
 
 type DeployState = 'idle' | 'deploying' | 'waiting' | 'error';
 type SessionState = 'idle' | 'creating' | 'error';
@@ -22,6 +17,7 @@ interface VoiceSessionResponse {
     voice: string;
     mode: string;
     expires_at: string;
+    user_id: string;
 }
 
 interface VoiceAgentButtonProps {
@@ -54,17 +50,7 @@ const RocketIcon = ({ className }: { className?: string }) => (
     </svg>
 );
 
-function generateUserId(): string {
-    if (typeof window === 'undefined') return `voice-${Date.now()}`;
-    const stored = localStorage.getItem('voice_user_id');
-    if (stored) return stored;
-    const id = crypto.randomUUID?.() ?? `voice-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    localStorage.setItem('voice_user_id', id);
-    return id;
-}
-
 export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed }: VoiceAgentButtonProps) {
-    const { data: session } = useSession();
     const { tenantFetch } = useTenantApi();
 
     const [deployState, setDeployState] = useState<DeployState>('idle');
@@ -75,9 +61,9 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
         token: string;
         serverUrl: string;
         roomName: string;
-        voice: { id: string; name: string; description: string };
+        voice: VoiceChoice;
+        userId: string;
     } | null>(null);
-    const [userId] = useState(generateUserId);
 
     const hasOnlineWorker = workers.some(w => w.is_sse_connected);
 
@@ -93,6 +79,7 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
                     subagent_id: subagentId,
                     env_vars: {
                         A2A_CODEBASE_ID: codebaseId ?? '',
+                        CODETETHER_WORKER_NAME: subagentId,
                         CODETETHER_LOG_LEVEL: 'info',
                     },
                 }),
@@ -106,8 +93,11 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
             setDeployState('waiting');
             for (let i = 0; i < 30; i++) {
                 await new Promise(r => setTimeout(r, 2000));
-                const check = await tenantFetch<{ workers?: Array<{ worker_id?: string }> }>('/v1/worker/connected');
-                if (check.data?.workers && check.data.workers.length > 0) {
+                // This endpoint contains only live SSE connections, not the merged worker inventory.
+                const check = await tenantFetch<{ workers?: Array<{ worker_id?: string; agent_name?: string }> }>('/v1/worker/connected');
+                if (check.error) throw new Error(`Could not check worker readiness: ${check.error}`);
+                if (check.data?.workers?.some(worker =>
+                    worker.agent_name === subagentId)) {
                     setDeployState('idle');
                     onWorkerDeployed?.();
                     return true;
@@ -128,17 +118,21 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
      * POST /v1/voice/sessions creates a LiveKit room, dispatches the voice agent
      * worker into it, and returns an access token for the user to join.
      */
-    const createVoiceSession = useCallback(async (): Promise<VoiceSessionResponse | null> => {
+    const createVoiceSession = useCallback(async (): Promise<(VoiceSessionResponse & { selectedVoice: VoiceChoice }) | null> => {
         setSessionState('creating');
         setError(null);
         try {
+            const catalog = await tenantFetch<{ voices: VoiceChoice[] }>('/v1/voice/voices');
+            const selectedVoice = catalog.data?.voices?.[0];
+            if (catalog.error || !selectedVoice) {
+                throw new Error(catalog.error || 'No voice is configured on this server');
+            }
             const resp = await tenantFetch<VoiceSessionResponse>('/v1/voice/sessions', {
                 method: 'POST',
                 body: JSON.stringify({
-                    voice: DEFAULT_VOICE.id,
+                    voice: selectedVoice.id,
                     mode: 'chat',
-                    codebase_id: codebaseId ?? null,
-                    user_id: userId,
+                    workspace_id: codebaseId ?? null,
                 }),
             });
             if (resp.error || !resp.data) {
@@ -146,14 +140,17 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
                 setSessionState('error');
                 return null;
             }
+            if (!resp.data.access_token || !resp.data.livekit_url || !resp.data.room_name || !resp.data.user_id) {
+                throw new Error('Voice server returned an incomplete connection');
+            }
             setSessionState('idle');
-            return resp.data;
+            return { ...resp.data, selectedVoice };
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));
             setSessionState('error');
             return null;
         }
-    }, [codebaseId, userId, tenantFetch]);
+    }, [codebaseId, tenantFetch]);
 
     const handleClick = useCallback(async () => {
         // Check for secure context (mic requires HTTPS or localhost)
@@ -180,18 +177,28 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
             token: voiceSession.access_token,
             serverUrl: voiceSession.livekit_url,
             roomName: voiceSession.room_name,
-            voice: DEFAULT_VOICE,
+            voice: voiceSession.selectedVoice,
+            userId: voiceSession.user_id,
         });
         setModalOpen(true);
     }, [hasOnlineWorker, deployWorker, createVoiceSession]);
 
-    const handleClose = useCallback(() => {
+    const handleClose = useCallback(async () => {
+        const roomName = connectionInfo?.roomName;
         setModalOpen(false);
         setConnectionInfo(null);
         setDeployState('idle');
         setSessionState('idle');
         setError(null);
-    }, []);
+        if (roomName) {
+            try {
+                const result = await tenantFetch('/v1/voice/sessions/' + encodeURIComponent(roomName), { method: 'DELETE' });
+                if (result.error) setError('Could not end voice session: ' + result.error);
+            } catch (err) {
+                setError('Could not end voice session: ' + (err instanceof Error ? err.message : String(err)));
+            }
+        }
+    }, [connectionInfo, tenantFetch]);
 
     const isLoading = sessionState === 'creating' || deployState === 'deploying' || deployState === 'waiting';
 
@@ -235,8 +242,7 @@ export default function VoiceAgentButton({ codebaseId, workers, onWorkerDeployed
                     serverUrl={connectionInfo.serverUrl}
                     roomName={connectionInfo.roomName}
                     voice={connectionInfo.voice}
-                    userId={userId}
-                    accessToken={session?.accessToken}
+                    userId={connectionInfo.userId}
                     onClose={handleClose}
                 />
             )}

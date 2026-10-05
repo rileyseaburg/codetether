@@ -1,0 +1,151 @@
+name: CodeTether PR Review
+
+on:
+  # Run trusted automation from the base branch; never execute PR-owned scripts
+  # with repository write credentials or webhook secrets.
+  pull_request_target:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_dispatch: {}
+
+concurrency:
+  group: codetether-pr-review-${{ github.event.pull_request.number || github.ref }}
+  # This review is a required status on PRs. Let in-flight reviews finish so a
+  # close follow-up push cannot leave the visible required check cancelled.
+  cancel-in-progress: false
+
+jobs:
+  review:
+    name: CodeTether Review
+    runs-on: spotlessbinco-k8s
+    # Forgejo counts queued time against this limit. The repository currently
+    # has one cluster runner, so a production image build can occupy it for
+    # longer than the review itself takes.
+    timeout-minutes: 180
+    env:
+      FORGEJO_TOKEN: ${{ github.token }}
+      FORGEJO_API_URL: https://forgejo.quantum-forge.io/api/v1
+      FORGEJO_REPOSITORY: ${{ github.repository }}
+      # The shared runner label spans cluster and LAN runners. Override the
+      # runner-provided review URL with the public route understood by both the
+      # deployed base script and this branch's script.
+      CODETETHER_REVIEW_URL: https://api.codetether.run/v1/agent/tasks
+      CODETETHER_JSON_URL: https://api.codetether.run/v1/agent/tasks
+      # The complete diff remains exact and is split into bounded chunks below.
+      CODETETHER_REVIEW_DIFF_MAX_BYTES: '20000000'
+      CODETETHER_REVIEW_CHUNK_MAX_BYTES: '200000'
+      CODETETHER_REVIEW_CHUNK_CONCURRENCY: '2'
+      CODETETHER_REVIEW_CHUNK_MAX_COUNT: '128'
+      CODETETHER_REVIEW_PROMPT_MAX_BYTES: '240000'
+      CODETETHER_REVIEW_TASK_MAX_BYTES: '900000'
+      CODETETHER_CONNECT_TIMEOUT_SECONDS: '15'
+      CODETETHER_HTTP_TIMEOUT_SECONDS: '60'
+      CODETETHER_REVIEW_TIMEOUT_SECONDS: '1800'
+      CODETETHER_REVIEW_MODEL: openai-codex/gpt-5.5-fast:high
+      CODETETHER_REVIEW_AUTO_APPROVE: 'true'
+      # The worker task budget is 20 minutes. Keep polling beyond that budget so
+      # a terminal provider/worker failure cannot be misreported as a green run.
+      CODETETHER_TASK_POLL_ATTEMPTS: '360'
+      CODETETHER_TASK_POLL_INTERVAL_SECONDS: '5'
+      # Keep reviews on the native read-only plan agent of an online worker that
+      # advertises the configured model.
+      CODETETHER_REVIEW_TARGET_AGENT: harvester-a2a-server-harvester-1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          github-server-url: http://192.168.50.80:3000
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+
+      - name: Ensure CodeTether review tools are available
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for tool in curl jq python3 timeout ssh-keygen; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              missing+=("$tool")
+            fi
+          done
+          wants_gnupg=false
+          if ! command -v gpg >/dev/null 2>&1; then
+            wants_gnupg=true
+          fi
+          if ((${#missing[@]} == 0)) && [ "$wants_gnupg" = false ]; then
+            curl --version | head -n 1
+            jq --version
+            python3 --version
+            timeout --version | head -n 1 || true
+            gpg --version | head -n 1
+            exit 0
+          fi
+          if [ "$(id -u)" -eq 0 ]; then
+            as_root=()
+          elif command -v sudo >/dev/null 2>&1; then
+            as_root=(sudo -n)
+          else
+            if ((${#missing[@]} > 0)); then
+              echo "::error::missing required CodeTether review tools (${missing[*]}) and cannot install without root or passwordless sudo."
+              exit 1
+            fi
+            echo "::warning::gpg is unavailable and cannot be installed without root or passwordless sudo; using key-sentinel validation."
+            exit 0
+          fi
+          if command -v apt-get >/dev/null 2>&1; then
+            "${as_root[@]}" apt-get update
+            DEBIAN_FRONTEND=noninteractive "${as_root[@]}" apt-get install -y --no-install-recommends curl jq python3 coreutils openssh-client
+            if [ "$wants_gnupg" = true ]; then
+              DEBIAN_FRONTEND=noninteractive "${as_root[@]}" apt-get install -y --no-install-recommends gnupg || \
+                echo "::warning::failed to install optional gnupg package; using key-sentinel validation."
+            fi
+          elif command -v apk >/dev/null 2>&1; then
+            "${as_root[@]}" apk add --no-cache curl jq python3 coreutils openssh-client
+            if [ "$wants_gnupg" = true ]; then
+              "${as_root[@]}" apk add --no-cache gnupg || \
+                echo "::warning::failed to install optional gnupg package; using key-sentinel validation."
+            fi
+          else
+            if ((${#missing[@]} > 0)); then
+              echo "::error::missing required CodeTether review tools (${missing[*]}) and no supported package manager is available."
+              exit 1
+            fi
+            echo "::warning::gpg is unavailable and no supported package manager is available; using key-sentinel validation."
+            exit 0
+          fi
+          curl --version | head -n 1
+          jq --version
+          python3 --version
+          timeout --version | head -n 1 || true
+          if command -v gpg >/dev/null 2>&1; then
+            gpg --version | head -n 1
+          fi
+
+      - name: Validate CodeTether review helpers
+        shell: bash
+        run: bash scripts/codetether-review/validate.sh
+
+      - name: Run CodeTether PR review
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The shared runner exports an internal service URL. Pin the public
+          # route in the step so that runner-level environment injection cannot
+          # override the endpoint configured for this workflow.
+          export CODETETHER_JSON_URL='https://api.codetether.run/v1/agent/tasks'
+          export CODETETHER_REVIEW_URL="$CODETETHER_JSON_URL"
+          export GNUPGHOME="$(mktemp -d)"
+          trap 'rm -rf "$GNUPGHOME"' EXIT
+          chmod 700 "$GNUPGHOME"
+          if command -v gpg >/dev/null 2>&1; then
+            gpg --batch --import config/codetether/author-signing-key.asc
+          else
+            echo "::warning::gpg is unavailable; continuing because the review helper does not require a local keyring."
+          fi
+          chmod +x scripts/codetether-pr-review.sh
+          scripts/codetether-pr-review.sh

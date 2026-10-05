@@ -1,0 +1,112 @@
+--- /dev/fd/63	2026-10-05 02:49:59.283438251 +0000
++++ /dev/fd/62	2026-10-05 02:49:59.283438251 +0000
+@@ -40,6 +40,8 @@
+               "memory": "64Mi"
+             }
+           },
++          "terminationMessagePath": "/dev/termination-log",
++          "terminationMessagePolicy": "File",
+           "volumeMounts": [
+             {
+               "mountPath": "/var/lib/codetether/repos",
+@@ -67,6 +69,7 @@
+               "name": "POD_NAME",
+               "valueFrom": {
+                 "fieldRef": {
++                  "apiVersion": "v1",
+                   "fieldPath": "metadata.name"
+                 }
+               }
+@@ -207,10 +210,12 @@
+             "failureThreshold": 3,
+             "httpGet": {
+               "path": "/health",
+-              "port": "health"
++              "port": "health",
++              "scheme": "HTTP"
+             },
+             "initialDelaySeconds": 30,
+             "periodSeconds": 30,
++            "successThreshold": 1,
+             "timeoutSeconds": 5
+           },
+           "name": "harvester",
+@@ -227,12 +232,15 @@
+             }
+           ],
+           "readinessProbe": {
++            "failureThreshold": 3,
+             "httpGet": {
+               "path": "/health",
+-              "port": "health"
++              "port": "health",
++              "scheme": "HTTP"
+             },
+             "initialDelaySeconds": 10,
+             "periodSeconds": 10,
++            "successThreshold": 1,
+             "timeoutSeconds": 5
+           },
+           "resources": {
+@@ -256,6 +264,8 @@
+             "runAsNonRoot": true,
+             "runAsUser": 1000
+           },
++          "terminationMessagePath": "/dev/termination-log",
++          "terminationMessagePolicy": "File",
+           "volumeMounts": [
+             {
+               "mountPath": "/var/lib/codetether/repos",
+@@ -276,6 +286,9 @@
+       ],
+       "imagePullSecrets": [
+         {
++          "name": "harbor-regcred"
++        },
++        {
+           "name": "registry-credentials"
+         }
+       ],
+@@ -284,11 +297,13 @@
+         "runAsNonRoot": true,
+         "runAsUser": 1000
+       },
++      "serviceAccount": "a2a-server-harvester",
+       "serviceAccountName": "a2a-server-harvester",
+       "volumes": [
+         {
+           "name": "vault-sa-token",
+           "projected": {
++            "defaultMode": 420,
+             "sources": [
+               {
+                 "serviceAccountToken": {
+@@ -304,12 +319,14 @@
+     }
+   },
+   "updateStrategy": {
+-    "rollingUpdate": null,
+     "type": "OnDelete"
+   },
+   "volumeClaimTemplates": [
+     {
++      "apiVersion": "v1",
++      "kind": "PersistentVolumeClaim",
+       "metadata": {
++        "creationTimestamp": null,
+         "name": "workspace"
+       },
+       "spec": {
+@@ -320,7 +337,11 @@
+           "requests": {
+             "storage": "50Gi"
+           }
+-        }
++        },
++        "volumeMode": "Filesystem"
++      },
++      "status": {
++        "phase": "Pending"
+       }
+     }
+   ]

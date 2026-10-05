@@ -1,0 +1,94 @@
+{
+  "level": "live deployment/Argo",
+  "mode": "changed local UI with real services; no frontend deployment change",
+  "base": "http://localhost:3001",
+  "api": "http://localhost:3001/api/tenant",
+  "backend": {
+    "namespace": "a2a-server",
+    "service": "codetether-a2a-server"
+  },
+  "started": "2026-09-06T20:10:39.288Z",
+  "stage": "waiting-for-real-token-refresh",
+  "checks": [
+    {
+      "check": "real OAuth authorization",
+      "origin": "https://auth.quantum-forge.io",
+      "path": "/realms/quantum-forge/protocol/openid-connect/auth",
+      "clientId": "a2a-monitor",
+      "redirectUri": "http://localhost:3001/api/auth/callback/keycloak",
+      "pkce": true,
+      "statePresent": true
+    },
+    {
+      "check": "real session",
+      "authenticated": true,
+      "hasRefreshToken": true,
+      "tenantId": null,
+      "error": null
+    },
+    {
+      "check": "token lifetime",
+      "issuedAt": 1788725442,
+      "expiresAt": 1788726342,
+      "waitSeconds": 840
+    }
+  ],
+  "requests": [
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/login",
+      "method": "POST",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "origin": "https://auth.quantum-forge.io",
+      "path": "/realms/quantum-forge/protocol/openid-connect/auth",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/callback/keycloak",
+      "method": "GET",
+      "status": 302
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "error": {
+    "name": "Error",
+    "message": "Token lifetime exceeds the bounded ten-minute refresh validation window"
+  },
+  "page": "http://localhost:3001/privacy",
+  "alerts": [
+    ""
+  ]
+}

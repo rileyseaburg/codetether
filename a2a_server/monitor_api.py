@@ -32,10 +32,15 @@ from fastapi.responses import (
     StreamingResponse,
 )
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from . import task_output
+from .worker_auth import verify_auth as verify_worker_auth, verify_worker_or_user_auth
 from pydantic import BaseModel
 
 # Import PostgreSQL persistence layer
 from . import database as db
+from .policy import require_permission
+from .voice_session_access import owned_voice_room, voice_agent_state, voice_owner
 from .forgejo_review_remediation import (
     ForgejoReviewRemediationRequest,
     start_review_remediation,
@@ -1876,6 +1881,8 @@ class WatchModeConfig(BaseModel):
 
 # Agent API Router (primary - used by codetether-agent workers via SSE)
 agent_router = APIRouter(prefix='/v1/agent', tags=['agent'])
+from .workspace_session_access import router as session_access_router
+agent_router.include_router(session_access_router)
 
 # Backward-compatible alias (deprecated — will be removed in a future release)
 agent_router_alias = agent_router
@@ -7317,39 +7324,32 @@ class TaskOutputChunk(BaseModel):
 
 
 @agent_router_alias.post('/tasks/{task_id}/output')
-async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
+async def stream_task_output(
+    task_id: str,
+    chunk: TaskOutputChunk,
+    request: Request,
+    _auth=Depends(verify_worker_auth),
+):
     """Receive streaming output from a worker (called by workers)."""
+    # Commit before publishing or touching the compatibility cache. Storage or
+    # authorization failures must never be acknowledged as successful output.
+    receipt = await task_output.append_output(request, task_id, chunk)
     if task_id not in _task_output_streams:
         _task_output_streams[task_id] = []
 
     _task_output_streams[task_id].append(
         {
             'output': chunk.output,
-            'timestamp': chunk.timestamp or datetime.utcnow().isoformat(),
+            'timestamp': receipt['timestamp'],
             'worker_id': chunk.worker_id,
+            'cursor': receipt['cursor'],
+            'event': chunk.event,
         }
     )
 
     # Keep only last 1000 lines per task
     if len(_task_output_streams[task_id]) > 1000:
         _task_output_streams[task_id] = _task_output_streams[task_id][-1000:]
-
-    try:
-        from . import database as db
-
-        pool = await db.get_pool()
-        if pool:
-            async with pool.acquire() as conn:
-                await conn.execute(
-                    """
-                    UPDATE tasks
-                    SET updated_at = NOW()
-                    WHERE id = $1
-                    """,
-                    task_id,
-                )
-    except Exception:
-        pass
 
     # Keep the Forgejo task page's session transcript current while the task is
     # still running. Without this, the panel stays empty for the whole run and
@@ -7385,61 +7385,69 @@ async def stream_task_output(task_id: str, chunk: TaskOutputChunk):
         },
     )
 
-    return {'success': True}
+    return {'success': True, 'cursor': receipt['cursor']}
 
 
 @agent_router_alias.get('/tasks/{task_id}/output')
-async def get_task_output(task_id: str, since: Optional[int] = None):
-    """Get streaming output for a task."""
-    outputs = _task_output_streams.get(task_id, [])
-
-    if since is not None and since < len(outputs):
-        outputs = outputs[since:]
-
-    return {
-        'task_id': task_id,
-        'outputs': outputs,
-        'total': len(_task_output_streams.get(task_id, [])),
-    }
+async def get_task_output(
+    task_id: str,
+    request: Request,
+    since: Optional[int] = None,
+    _auth=Depends(verify_worker_or_user_auth),
+):
+    """Replay committed output after an exclusive, durable cursor."""
+    return await task_output.read_output(request, task_id, since or 0)
 
 
 @agent_router_alias.get('/tasks/{task_id}/output/stream')
-async def stream_task_output_sse(task_id: str, request: Request):
-    """SSE stream for real-time task output."""
+async def stream_task_output_sse(
+    task_id: str,
+    request: Request,
+    since: Optional[int] = None,
+    _auth=Depends(verify_worker_or_user_auth),
+):
+    """Replay output across replicas/restarts, then follow new durable chunks."""
     from sse_starlette.sse import EventSourceResponse
 
+    # Authorize before sending HTTP 200; reconnect uses EventSource's cursor.
+    raw_cursor = request.headers.get('last-event-id')
+    try:
+        cursor = int(raw_cursor) if raw_cursor is not None else (since or 0)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail='Invalid output cursor') from exc
+    first_page = await task_output.read_output(request, task_id, cursor)
+
     async def event_generator():
-        last_index = 0
+        nonlocal cursor
+        page = first_page
         while True:
-            # Check if client disconnected
             if await request.is_disconnected():
                 break
-
-            outputs = _task_output_streams.get(task_id, [])
-            if len(outputs) > last_index:
-                for output in outputs[last_index:]:
-                    yield {
-                        'event': 'output',
-                        'data': json.dumps(output),
-                    }
-                last_index = len(outputs)
-
-            # Check task status
-            bridge = get_agent_bridge()
-            if bridge:
-                task = await bridge.get_task(task_id)
-                if task and task.status.value in (
-                    'completed',
-                    'failed',
-                    'cancelled',
-                ):
-                    yield {
-                        'event': 'done',
-                        'data': json.dumps({'status': task.status.value}),
-                    }
-                    break
-
-            await asyncio.sleep(0.1)
+            for output in page['outputs']:
+                cursor = output['cursor']
+                yield {
+                    'id': str(cursor),
+                    'event': 'output',
+                    'data': json.dumps(output),
+                }
+            # Drain every page before done; terminal output may exceed 1,000
+            # chunks. Replica-local bridge state is not authoritative.
+            if not page['has_more'] and page['status'] in (
+                'completed', 'failed', 'cancelled',
+            ):
+                yield {
+                    'event': 'done',
+                    'data': json.dumps({'status': page['status']}),
+                }
+                break
+            if not page['has_more']:
+                await asyncio.sleep(0.1)
+            try:
+                page = await task_output.read_output(request, task_id, cursor)
+            except HTTPException:
+                # Headers are sent. Close instead of emitting done or using
+                # stale ownership; the next connection must reauthorize.
+                break
 
     return EventSourceResponse(event_generator())
 
@@ -8727,6 +8735,7 @@ class VoiceSessionResponse(BaseModel):
     mode: str
     playback_style: str
     expires_at: str
+    user_id: str
 
 
 voice_router = APIRouter(prefix='/v1/voice', tags=['voice'])
@@ -8773,7 +8782,10 @@ async def list_voices():
 
 
 @voice_router.post('/sessions', response_model=VoiceSessionResponse)
-async def create_voice_session(request: VoiceSessionRequest):
+async def create_voice_session(
+    request: VoiceSessionRequest,
+    user: Dict[str, Any] = Depends(require_permission('voice:write')),
+):
     """Start a new voice session."""
     bridge = get_livekit_bridge()
     if not bridge:
@@ -8805,6 +8817,31 @@ async def create_voice_session(request: VoiceSessionRequest):
     )
     worker_id = request.worker_id.strip() if request.worker_id else None
 
+    # Authorize execution targets before dispatching an agent. Room ownership
+    # alone must not grant access to someone else's workspace or session.
+    if request.session_id:
+        session = await db.db_get_session(request.session_id)
+        session_workspace = session.get('workspace_id') if session else None
+        if not session_workspace or (
+            workspace_id and session_workspace != workspace_id
+        ):
+            raise HTTPException(status_code=404, detail='Voice target not found')
+        workspace_id = session_workspace
+    if workspace_id:
+        workspace = await db.db_get_workspace(workspace_id)
+        if not workspace or (
+            (workspace.get('tenant_id') or None)
+            != (user.get('tenant_id') or None)
+        ):
+            raise HTTPException(status_code=404, detail='Voice target not found')
+        if worker_id and worker_id != workspace.get('worker_id'):
+            raise HTTPException(status_code=404, detail='Voice target not found')
+    elif worker_id:
+        raise HTTPException(
+            status_code=400,
+            detail='A workspace is required when selecting a voice worker',
+        )
+
     metadata = {
         'voice': request.voice,
         'mode': request.mode,
@@ -8812,7 +8849,7 @@ async def create_voice_session(request: VoiceSessionRequest):
         'workspace_id': workspace_id,
         'codebase_id': workspace_id,
         'session_id': request.session_id,
-        'user_id': request.user_id,
+        **voice_owner(user),
         'worker_id': worker_id,
         'target_worker_id': worker_id,
     }
@@ -8853,7 +8890,8 @@ async def create_voice_session(request: VoiceSessionRequest):
             'Ensure voice worker is online and LIVEKIT_VOICE_AGENT_NAME matches.',
         )
 
-    user_identity = request.user_id or f'user-{uuid.uuid4().hex[:8]}'
+    # Never mint another principal's token using a client-supplied identity.
+    user_identity = metadata['user_id']
 
     try:
         access_token = bridge.mint_access_token(
@@ -8885,11 +8923,16 @@ async def create_voice_session(request: VoiceSessionRequest):
         mode=request.mode,
         playback_style=request.playback_style,
         expires_at=expires_at.isoformat(),
+        user_id=user_identity,
     )
 
 
 @voice_router.get('/sessions/{room_name}')
-async def get_voice_session(room_name: str, user_id: Optional[str] = None):
+async def get_voice_session(
+    room_name: str,
+    user_id: Optional[str] = None,
+    user: Dict[str, Any] = Depends(require_permission('voice:read')),
+):
     """Get session info for a voice session.
 
     If user_id is provided, a new access token will be generated for reconnection.
@@ -8898,23 +8941,7 @@ async def get_voice_session(room_name: str, user_id: Optional[str] = None):
     if not bridge:
         raise HTTPException(status_code=503, detail='LiveKit not available')
 
-    room_info = await bridge.get_room_info(room_name)
-    if not room_info:
-        raise HTTPException(
-            status_code=404, detail=f'Room {room_name} not found'
-        )
-
-    metadata_str = room_info.get('metadata', '')
-    metadata = {}
-    if metadata_str:
-        try:
-            metadata = (
-                json.loads(metadata_str)
-                if isinstance(metadata_str, str)
-                else metadata_str
-            )
-        except Exception:
-            pass
+    room_info, metadata = await owned_voice_room(bridge, room_name, user)
 
     response = {
         'room_name': room_name,
@@ -8928,12 +8955,13 @@ async def get_voice_session(room_name: str, user_id: Optional[str] = None):
         'worker_id': metadata.get('worker_id'),
         'session_id': metadata.get('session_id'),
         'livekit_url': bridge.public_url,
+        'user_id': metadata['user_id'],
     }
 
     if user_id:
         try:
             access_token = bridge.mint_access_token(
-                identity=user_id,
+                identity=metadata['user_id'],
                 room_name=room_name,
                 a2a_role='participant',
                 metadata=json.dumps(metadata),
@@ -8945,17 +8973,24 @@ async def get_voice_session(room_name: str, user_id: Optional[str] = None):
             ).isoformat()
         except Exception as e:
             logger.warning(f'Failed to mint access token for reconnection: {e}')
+            raise HTTPException(
+                status_code=503, detail='Failed to generate reconnection token'
+            ) from e
 
     return response
 
 
 @voice_router.delete('/sessions/{room_name}')
-async def delete_voice_session(room_name: str):
+async def delete_voice_session(
+    room_name: str,
+    user: Dict[str, Any] = Depends(require_permission('voice:delete')),
+):
     """End a voice session."""
     bridge = get_livekit_bridge()
     if not bridge:
         raise HTTPException(status_code=503, detail='LiveKit not available')
 
+    await owned_voice_room(bridge, room_name, user)
     success = await bridge.delete_room(room_name)
     if not success:
         raise HTTPException(
@@ -8967,60 +9002,34 @@ async def delete_voice_session(room_name: str):
 
 
 @voice_router.get('/sessions/{room_name}/state')
-async def get_voice_session_state(room_name: str):
+async def get_voice_session_state(
+    room_name: str,
+    user: Dict[str, Any] = Depends(require_permission('voice:read')),
+):
     """Get the current agent state for a voice session.
 
     Returns the agent's current state: idle, listening, thinking, speaking, or error.
     This endpoint is used by voice clients to update their UI with the agent's status.
 
-    The state is determined by checking:
-    1. If the room exists and has metadata with a session_id
-    2. If there's an active LiveKit connection
-    3. Falls back to 'idle' if state cannot be determined
+    State comes from the agent participant's LiveKit attributes. A worker
+    without state telemetry is 'unknown'; service outages return HTTP 503.
     """
     bridge = get_livekit_bridge()
     if not bridge:
         raise HTTPException(status_code=503, detail='LiveKit not available')
 
     try:
-        room_info = await bridge.get_room_info(room_name)
-        if not room_info:
-            raise HTTPException(
-                status_code=404, detail=f'Room {room_name} not found'
-            )
-
-        metadata_str = room_info.get('metadata', '')
-        metadata = {}
-        if metadata_str:
-            try:
-                metadata = (
-                    json.loads(metadata_str)
-                    if isinstance(metadata_str, str)
-                    else metadata_str
-                )
-            except Exception:
-                pass
-
-        session_id = metadata.get('session_id')
-
-        if not session_id:
-            return 'idle'
-
-        num_participants = room_info.get('num_participants', 0)
-
-        if num_participants == 0:
-            return 'idle'
-
-        if num_participants > 1:
-            return 'speaking'
-
-        return 'listening'
+        await owned_voice_room(bridge, room_name, user)
+        return await voice_agent_state(bridge, room_name)
 
     except HTTPException:
         raise
     except Exception as e:
         logger.warning(f'Failed to get session state for {room_name}: {e}')
-        return 'idle'
+        raise HTTPException(
+            status_code=503,
+            detail='Voice session state unavailable',
+        ) from e
 
 
 # Export the monitoring service, routers and helpers

@@ -1,0 +1,74 @@
+# ServiceAccount and RBAC for codetether-worker in Knative
+# Required for:
+# 1. GCR image pull authentication
+# 2. Vault token access
+# 3. Knative queue-proxy sidecar permissions
+#
+# Apply: kubectl apply -f codetether-worker-rbac.yaml -n a2a-server
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: codetether-worker
+  namespace: a2a-server
+  labels:
+    app: codetether-worker
+    codetether.run/component: worker
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: codetether-worker
+  namespace: a2a-server
+  labels:
+    app: codetether-worker
+    codetether.run/component: worker
+rules:
+  # Read own pod metadata (for Knative scaling decisions)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  # Read configmaps (for future feature flags)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+  # Read secrets (vault-token is referenced explicitly via secretKeyRef)
+  # This is for future use if worker needs direct secret access
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+    resourceNames: ["vault-token"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: codetether-worker
+  namespace: a2a-server
+  labels:
+    app: codetether-worker
+    codetether.run/component: worker
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: codetether-worker
+subjects:
+  - kind: ServiceAccount
+    name: codetether-worker
+    namespace: a2a-server
+---
+# Bind the gcr-pull-secret to the ServiceAccount for image pulls
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gcr-pull-secret-sa
+  namespace: a2a-server
+  labels:
+    app: codetether-worker
+  annotations:
+    kubernetes.io/service-account.name: codetether-worker
+type: kubernetes.io/dockerconfigjson
+data:
+  # This will be populated by kubectl patch below
+  .dockerconfigjson: e30K

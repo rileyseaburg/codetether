@@ -1,0 +1,351 @@
+{
+  "session_id": "4b123221-7dec-46ef-bebe-a061eec5c816",
+  "items": [],
+  "evidence": [
+    {
+      "kind": "argo",
+      "level": "live deployment/Argo",
+      "value": "healthy-synced"
+    },
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/home/riley/spotlessbinco/test-results/infra-kanel-strict-generat-15daa-ls-unresolved-source-output-source-contracts"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/home/riley/spotlessbinco/test-results/infra-forgejo-dev-build-Fo-862d7-n-DinD-with-cached-BuildKit-source-contracts"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-initial/ui-regressions-password-au-579df-ers-can-start-paid-checkout-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-initial/ui-regressions-password-au-579df-ers-can-start-paid-checkout-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-initial/ui-regressions-password-au-579df-ers-can-start-paid-checkout-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-initial/ui-regressions-password-au-579df-ers-can-start-paid-checkout-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-initial/ui-regressions-password-au-579df-ers-can-start-paid-checkout-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-initial/ui-regressions-password-au-579df-ers-can-start-paid-checkout-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-initial/ui-regressions-mobile-navi-83832-l-opened-and-restores-focus-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-initial/ui-regressions-mobile-navi-83832-l-opened-and-restores-focus-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "--outputFile=test-results/dashboard-shell-results.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/dashboard-shell-results.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/dashboard-shell-eslint.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-initial/ui-regressions-mobile-navi-83832-l-opened-and-restores-focus-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-initial/ui-regressions-mobile-navi-83832-l-opened-and-restores-focus-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-retry/ui-regressions-mobile-navi-83832-l-opened-and-restores-focus-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-retry/ui-regressions-mobile-navi-83832-l-opened-and-restores-focus-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-retry/ui-regressions-billing-pre-e7fe0-age-unavailable-and-retries-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-retry/ui-regressions-billing-pre-e7fe0-age-unavailable-and-retries-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-retry/ui-regressions-billing-pre-e7fe0-age-unavailable-and-retries-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/ui-settings-billing.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-verified/ui-regressions-dashboard-m-101d0-itors-without-a-test-bypass-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-verified/ui-regressions-dashboard-m-101d0-itors-without-a-test-bypass-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-verified/ui-regressions-dashboard-m-101d0-itors-without-a-test-bypass-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-verified/ui-regressions-dashboard-m-101d0-itors-without-a-test-bypass-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-verified/ui-regressions-mobile-navi-83832-l-opened-and-restores-focus-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-fixes/playwright-verified/ui-regressions-mobile-navi-83832-l-opened-and-restores-focus-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/sessions-resilience.log"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/sessions-resilience-eslint.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/sessions-resilience.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/sessions-resilience-format.log"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/sessions-resilience.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/model-selector-eslint.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/model-selector.log"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/model-selector-results.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/model-selector-results.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/model-selector-results.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/model-selector-eslint-final.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/model-selector-eslint.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/model-selector-final.log"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/model-selector-final-results.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/model-selector-format.log"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/model-selector.log"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/model-selector-results.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/model-selector-types.log"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-pass2/playwright-initial/ui-regressions-dashboard-t-d7a41-nd-synchronizes-across-tabs-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-pass2/playwright-initial/ui-regressions-dashboard-t-d7a41-nd-synchronizes-across-tabs-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/sessions-resilience-verified.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/sessions-resilience-verified.log`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/sessions-resilience-types.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/sessions-resilience-eslint-comparison.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-pass2/playwright-initial/ui-regressions-dashboard-t-d7a41-nd-synchronizes-across-tabs-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-pass2/playwright-initial/ui-regressions-dashboard-t-d7a41-nd-synchronizes-across-tabs-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/model-selector-final-results.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/model-selector-final.log`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/model-selector-eslint-final.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/model-selector-types.log`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-pass2/playwright-initial/ui-regressions-sessions-an-e31ca-retry-without-looking-empty-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-pass2/playwright-initial/ui-regressions-sessions-an-e31ca-retry-without-looking-empty-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-pass2/playwright-final/ui-regressions-model-picke-958b7-ection-without-trapping-Tab-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-pass2/playwright-final/ui-regressions-model-picke-958b7-ection-without-trapping-Tab-chromium/trace.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/artifacts/ui-pass2/playwright-final/ui-regressions-model-picke-958b7-ection-without-trapping-Tab-chromium/trace.zip"
+    },
+    {
+      "kind": "db-migration",
+      "level": "live DB",
+      "value": "applied"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

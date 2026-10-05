@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>A2A backend rehearsal</title>
+</head>
+<body>
+  <h1>A2A backend rehearsal</h1>
+  <p>marker: ios-backend-rehearsal-20261005</p>
+  <p>UTC time: <span id="utc-time">(loading)</span></p>
+  <p>This request was NOT submitted from an iPhone.</p>
+  <script>
+    // Display current UTC time when the page is loaded
+    document.getElementById('utc-time').textContent = new Date().toISOString();
+  </script>
+</body>
+</html>

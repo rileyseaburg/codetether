@@ -1,0 +1,7 @@
+validated spiffe_id=spiffe://codetether.io/ns/a2a-system/sa/a2a-server-harvester
+worker_allowed=True
+old_trust_domain_codetether.run -> rejected 403
+
+Command: SVID=$(kubectl -n spire exec spire-server-0 -c spire-server -- /opt/spire/bin/spire-server jwt mint -spiffeID spiffe://codetether.io/ns/a2a-system/sa/a2a-server-harvester -audience a2a-server -ttl 60s) venv/bin/python scripts/spire_svid_check.py
+JWKS source: live spire/spire-bundle ConfigMap (5 jwt-svid keys), saved as artifacts/ui-audit/spire-bundle.json
+Level: live SPIRE-minted SVID, validated by local (undeployed) server code.

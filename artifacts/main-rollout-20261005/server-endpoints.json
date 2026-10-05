@@ -1,0 +1,55 @@
+{
+    "apiVersion": "v1",
+    "kind": "Endpoints",
+    "metadata": {
+        "annotations": {
+            "endpoints.kubernetes.io/last-change-trigger-time": "2026-10-05T02:48:43Z"
+        },
+        "creationTimestamp": "2026-05-06T13:54:57Z",
+        "labels": {
+            "app.kubernetes.io/instance": "a2a-server",
+            "app.kubernetes.io/managed-by": "argocd",
+            "app.kubernetes.io/name": "a2a-server",
+            "app.kubernetes.io/part-of": "codetether",
+            "app.kubernetes.io/version": "1.4.3",
+            "helm.sh/chart": "a2a-server-1.4.3"
+        },
+        "name": "a2a-server",
+        "namespace": "a2a-system",
+        "resourceVersion": "700723545",
+        "uid": "1347f5bf-4c43-455e-9c78-6167c1495ad6"
+    },
+    "subsets": [
+        {
+            "addresses": [
+                {
+                    "ip": "10.233.66.4",
+                    "nodeName": "k8s-worker-2",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "a2a-server-deployment-green-78d998dcf-nt2dx",
+                        "namespace": "a2a-system",
+                        "uid": "4f56de62-23b4-4f39-9ceb-aa529843a946"
+                    }
+                },
+                {
+                    "ip": "10.233.66.49",
+                    "nodeName": "k8s-worker-2",
+                    "targetRef": {
+                        "kind": "Pod",
+                        "name": "a2a-server-deployment-green-78d998dcf-622s6",
+                        "namespace": "a2a-system",
+                        "uid": "4bc476b6-9821-468a-b7a6-0c7273268388"
+                    }
+                }
+            ],
+            "ports": [
+                {
+                    "name": "http",
+                    "port": 8000,
+                    "protocol": "TCP"
+                }
+            ]
+        }
+    ]
+}

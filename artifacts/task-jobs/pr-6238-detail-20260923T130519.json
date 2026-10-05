@@ -1,0 +1,351 @@
+{
+  "commits": [
+    {
+      "sha": "a7a3d2a2e1e1e8f17c9ab3bf5c912cf7343ddf43",
+      "author": "riley",
+      "committer": "riley",
+      "date": "2026-09-23T12:59:35Z",
+      "message": "Merge branch 'main' into codetether/issue-6237\n"
+    },
+    {
+      "sha": "a5193370639b6a1917a3b9eebdee3995a52a1841",
+      "author": "riley",
+      "committer": "riley",
+      "date": "2026-09-23T12:30:16Z",
+      "message": "Merge branch 'main' into codetether/issue-6237\n"
+    },
+    {
+      "sha": "88809ef4df3a136d15a3e1dfc40f97f159b751b6",
+      "author": null,
+      "committer": null,
+      "date": "2026-09-23T09:40:59Z",
+      "message": "fix(facebook): bound ad-set reward queries to eligible delivery\n\nCodeTether-Provenance-ID: ctprov_f4c6a4261c404df4ba0c58bbe7758676\nCodeTether-Origin: worker\nCod"
+    }
+  ],
+  "reviews": [
+    {
+      "id": 1964,
+      "state": "COMMENT",
+      "user": "codetether-bot",
+      "commit": "88809ef4df3a136d15a3e1dfc40f97f159b751b6",
+      "submitted": "2026-09-23T09:44:27Z",
+      "body": "BLOCKED\n\nReview blocked: `review_chunk_blocked`. No approval was issued.\nChunk task `c2d38f4d-00a3-4f18-bf7a-d26ae90e9d93`: Static review of this exact chunk found no confirmed blocking correctness, security, or data-loss defect. Approval is blocked on missing compilation and runtime evidence: all supplied CI checks are pending, and the publisher reports no compilation, tests, or runtime verification.\n\n<!-- codetether-review-owner:0f79054b-af14-5d4e-8661-efb2a40f63fa:1 -->"
+    },
+    {
+      "id": 1971,
+      "state": "COMMENT",
+      "user": "codetether-bot",
+      "commit": "a5193370639b6a1917a3b9eebdee3995a52a1841",
+      "submitted": "2026-09-23T12:34:09Z",
+      "body": "BLOCKED\n\nReview blocked: `review_chunk_blocked`. No approval was issued.\nChunk task `f18cdeb2-bdaf-459c-8db4-dc576b2d3b3a`: Static review of this supplied chunk found no definite blocking code defect, exposed credential values, or destructive writes. Compilation and the claimed timeout improvement remain unverified: CI evidence is empty, and the publisher explicitly reports no compilation, tests, or runtime verification. No tools were used or files changed.\n\n<!-- codetether-review-owner:7e3eb45a-4c5c-5f96-8315-e8b656c08f72:1 -->"
+    }
+  ],
+  "comments": [],
+  "workflow": {
+    "status": "RUNNING",
+    "pending": [],
+    "state": {
+      "active_task_id": "33b529b6-ecaa-45a5-a93e-97b397b1036e",
+      "cancel_requested": false,
+      "completed_stages": [
+        "prepare",
+        "code",
+        "fix"
+      ],
+      "retry_requested": false,
+      "review_verdict": "BLOCKED"
+    },
+    "history": [
+      {
+        "id": 410,
+        "time": "2026-09-23T09:51:16.978116760Z",
+        "type": 18,
+        "name": null
+      },
+      {
+        "id": 411,
+        "time": "2026-09-23T09:51:16.978133001Z",
+        "type": 5,
+        "name": null
+      },
+      {
+        "id": 412,
+        "time": "2026-09-23T09:51:17.002532162Z",
+        "type": 6,
+        "name": null
+      },
+      {
+        "id": 413,
+        "time": "2026-09-23T09:51:17.036908464Z",
+        "type": 7,
+        "name": null
+      },
+      {
+        "id": 414,
+        "time": "2026-09-23T09:51:17.037003158Z",
+        "type": 10,
+        "name": "forgejo_review_snapshot"
+      },
+      {
+        "id": 415,
+        "time": "2026-09-23T09:51:17.048216914Z",
+        "type": 11,
+        "name": null
+      },
+      {
+        "id": 416,
+        "time": "2026-09-23T09:51:17.062230676Z",
+        "type": 12,
+        "name": null
+      },
+      {
+        "id": 417,
+        "time": "2026-09-23T09:51:17.062252277Z",
+        "type": 5,
+        "name": null
+      },
+      {
+        "id": 418,
+        "time": "2026-09-23T09:51:17.089984339Z",
+        "type": 6,
+        "name": null
+      },
+      {
+        "id": 419,
+        "time": "2026-09-23T09:51:17.119406977Z",
+        "type": 7,
+        "name": null
+      },
+      {
+        "id": 420,
+        "time": "2026-09-23T09:51:17.119466189Z",
+        "type": 17,
+        "name": null
+      },
+      {
+        "id": 421,
+        "time": "2026-09-23T09:51:32.121791674Z",
+        "type": 18,
+        "name": null
+      },
+      {
+        "id": 422,
+        "time": "2026-09-23T09:51:32.121806985Z",
+        "type": 5,
+        "name": null
+      },
+      {
+        "id": 423,
+        "time": "2026-09-23T09:51:32.134107341Z",
+        "type": 6,
+        "name": null
+      },
+      {
+        "id": 424,
+        "time": "2026-09-23T09:51:32.149867152Z",
+        "type": 7,
+        "name": null
+      },
+      {
+        "id": 425,
+        "time": "2026-09-23T09:51:32.149967786Z",
+        "type": 10,
+        "name": "forgejo_review_snapshot"
+      },
+      {
+        "id": 426,
+        "time": "2026-09-23T09:51:32.162855918Z",
+        "type": 11,
+        "name": null
+      },
+      {
+        "id": 427,
+        "time": "2026-09-23T09:51:32.200490617Z",
+        "type": 12,
+        "name": null
+      },
+      {
+        "id": 428,
+        "time": "2026-09-23T09:51:32.200504497Z",
+        "type": 5,
+        "name": null
+      },
+      {
+        "id": 429,
+        "time": "2026-09-23T09:51:32.219605289Z",
+        "type": 6,
+        "name": null
+      },
+      {
+        "id": 430,
+        "time": "2026-09-23T09:51:32.234923050Z",
+        "type": 7,
+        "name": null
+      },
+      {
+        "id": 431,
+        "time": "2026-09-23T09:51:32.234968672Z",
+        "type": 17,
+        "name": null
+      },
+      {
+        "id": 432,
+        "time": "2026-09-23T09:51:47.243549080Z",
+        "type": 18,
+        "name": null
+      },
+      {
+        "id": 433,
+        "time": "2026-09-23T09:51:47.243561340Z",
+        "type": 5,
+        "name": null
+      },
+      {
+        "id": 434,
+        "time": "2026-09-23T09:51:47.314031570Z",
+        "type": 6,
+        "name": null
+      },
+      {
+        "id": 435,
+        "time": "2026-09-23T09:51:47.371802806Z",
+        "type": 7,
+        "name": null
+      },
+      {
+        "id": 436,
+        "time": "2026-09-23T09:51:47.372143121Z",
+        "type": 10,
+        "name": "forgejo_review_snapshot"
+      },
+      {
+        "id": 437,
+        "time": "2026-09-23T09:51:47.542111811Z",
+        "type": 11,
+        "name": null
+      },
+      {
+        "id": 438,
+        "time": "2026-09-23T09:51:47.676431782Z",
+        "type": 12,
+        "name": null
+      },
+      {
+        "id": 439,
+        "time": "2026-09-23T09:51:47.676446152Z",
+        "type": 5,
+        "name": null
+      },
+      {
+        "id": 440,
+        "time": "2026-09-23T09:51:47.738852308Z",
+        "type": 6,
+        "name": null
+      },
+      {
+        "id": 441,
+        "time": "2026-09-23T09:51:47.806433828Z",
+        "type": 7,
+        "name": null
+      },
+      {
+        "id": 442,
+        "time": "2026-09-23T09:51:47.806555884Z",
+        "type": 10,
+        "name": "forgejo_dispatch_review"
+      },
+      {
+        "id": 443,
+        "time": "2026-09-23T09:51:47.887498695Z",
+        "type": 11,
+        "name": null
+      },
+      {
+        "id": 444,
+        "time": "2026-09-23T09:51:48.620322763Z",
+        "type": 13,
+        "name": "review_recovery_no_progress"
+      },
+      {
+        "id": 445,
+        "time": "2026-09-23T09:51:48.620344444Z",
+        "type": 5,
+        "name": null
+      },
+      {
+        "id": 446,
+        "time": "2026-09-23T09:51:48.644796016Z",
+        "type": 6,
+        "name": null
+      },
+      {
+        "id": 447,
+        "time": "2026-09-23T09:51:48.674877543Z",
+        "type": 7,
+        "name": null
+      },
+      {
+        "id": 448,
+        "time": "2026-09-23T09:51:48.674971858Z",
+        "type": 10,
+        "name": "forgejo_finalize_workflow"
+      },
+      {
+        "id": 449,
+        "time": "2026-09-23T09:51:48.693939224Z",
+        "type": 11,
+        "name": null
+      },
+      {
+        "id": 450,
+        "time": "2026-09-23T09:51:49.728977427Z",
+        "type": 12,
+        "name": null
+      },
+      {
+        "id": 451,
+        "time": "2026-09-23T09:51:49.729007698Z",
+        "type": 5,
+        "name": null
+      },
+      {
+        "id": 452,
+        "time": "2026-09-23T09:51:49.752278708Z",
+        "type": 6,
+        "name": null
+      },
+      {
+        "id": 453,
+        "time": "2026-09-23T09:51:49.850927219Z",
+        "type": 7,
+        "name": null
+      },
+      {
+        "id": 454,
+        "time": "2026-09-23T09:51:49.850988452Z",
+        "type": 17,
+        "name": null
+      }
+    ]
+  },
+  "task_results": [
+    {
+      "id": "33b529b6-ecaa-45a5-a93e-97b397b1036e",
+      "title": "Resolve review feedback for PR #6238",
+      "status": "completed",
+      "result": "I\u2019ll verify the branch and remote head first, then inspect the PR checks and validation workflow. I won\u2019t start a second review or change code unless I find a defect.\nThe local checkout, PR head, and remote branch all match `88809ef4df3a136d15a3e1dfc40f97f159b751b6`; the worktree is clean. This is a validation-evidence blocker, not a confirmed code defect. The PR already includes a read-only development-data regression check in the Fastify build workflow. I\u2019m checking that run before initiating another.\nThe validation dispatch was rejected by the installed CLI: `review credential is read-only; CodeTether server publishes changes`. I won\u2019t bypass that boundary with another credential. The Actions run-list request also timed out, so I can\u2019t verify build or runtime completion. CodeTether or an authorized operator needs to dispatch and monitor the existing workflow for this head.\n**needs_input** \u2014 validation is blocked by the harvester\u2019s read-only authorization.\n\n- **Verified SHA:** local HEAD, remote `codetether/issue-6237`, and PR #6238 all match `88809ef4df3a136d15a3e1dfc40f97f159b751b6`. Worktree remains clean.\n- **Classification:** missing validation evidence; no confirmed code defect requiring a change. No commit or push was made.\n- **Observed checks:** secret scan passed; build and OPA checks remain pending. Compilation/typecheck and runtime regression success are **not proven**.\n\nAttempted the established validation workflow:\n```sh\nforgejo-cli post \\\n  /repos/riley/spotlessbinco/actions/workflows/deploy-dev.yml/dispatches \\\n  '{\"ref\":\"codetether/issue-6237\",\"inputs\":{}}'\n```\n**Result:** rejected, exit 2:\n```text\nreview credential is read-only; CodeTether server publishes changes\n```\n\n**Required operator action:** CodeTether or an authorized operator must dispatch/mo"
+    },
+    {
+      "id": "c2d38f4d-00a3-4f18-bf7a-d26ae90e9d93",
+      "title": "PR #6238 review chunk 1",
+      "status": "completed",
+      "result": "{\n  \"reviewed_chunk_sha256\": \"9ce38a54aa6eb71a5a43435a10b9a206837aa4329b5cf8d556cb90d40c82d17a\",\n  \"verdict\": \"BLOCKED\",\n  \"summary\": \"Static review of this exact chunk found no confirmed blocking correctness, security, or data-loss defect. Approval is blocked on missing compilation and runtime evidence: all supplied CI checks are pending, and the publisher reports no compilation, tests, or runtime verification.\",\n  \"findings\": [\n    {\n      \"severity\": \"nonblocking\",\n      \"file\": \"api/src/services/facebookRewardDelivery.ts\",\n      \"description\": \"The replacement query introduces innerJoinLateral and relies on indexed correlated status lookups. The supplied chunk does not establish compatibility with the installed Drizzle version or successful execution within the database statement timeout. Compilation and the real-data verification results are needed to establish deployment readiness; neither was available for this review.\"\n    },\n    {\n      \"severity\": \"nonblocking\",\n      \"file\": \"api/src/scripts/verifyFacebookAdSetRewards.ts\",\n      \"description\": \"The parity check reports nonpositiveRealizedLeads but does not require any such cases. It can pass without exercising the documented zero/negative realized-value override. Add deterministic regression coverage for modeled-only, positive-realized, zero-net-refund, and negative-net-refund cases rather than treating a live-data pass as evidence for every case.\"\n    }\n  ]\n}"
+    },
+    {
+      "id": "f18cdeb2-bdaf-459c-8db4-dc576b2d3b3a",
+      "title": "PR #6238 review chunk 1",
+      "status": "completed",
+      "result": "{\"reviewed_chunk_sha256\":\"9ce38a54aa6eb71a5a43435a10b9a206837aa4329b5cf8d556cb90d40c82d17a\",\"verdict\":\"BLOCKED\",\"summary\":\"Static review of this supplied chunk found no definite blocking code defect, exposed credential values, or destructive writes. Compilation and the claimed timeout improvement remain unverified: CI evidence is empty, and the publisher explicitly reports no compilation, tests, or runtime verification. No tools were used or files changed.\",\"findings\":[{\"severity\":\"nonblocking\",\"file\":\"api/src/services/facebookRewardDelivery.ts\",\"description\":\"The replacement query depends on innerJoinLateral support in the installed Drizzle version and on database indexes providing acceptable performance. Neither dependency/schema evidence nor compilation, query-plan, or execution results are supplied. The added verifier is useful but its presence does not establish that it ran successfully. Successful compilation and representative execution of the delivery and lead-value queries under the existing statement timeout are needed to resolve this evidence blocker.\"}]}"
+    }
+  ]
+}

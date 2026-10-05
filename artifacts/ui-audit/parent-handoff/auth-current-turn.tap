@@ -1,0 +1,31 @@
+
+> codetether-marketing@1.4.2 test:auth
+> tsx --test src/lib/auth-ui.test.ts src/lib/signup-pkce.test.ts
+
+(node:1070835) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✔ standalone auth callbacks use the external TLS origin, not localhost (37.81993ms)
+✔ auth origin rejects foreign hosts while keeping local development supported (0.70093ms)
+✔ same-origin loopback proxy stays HTTP; remote APIs still require HTTPS (0.47253ms)
+✔ callback redirects match trusted origins, not substrings (0.62013ms)
+✔ tenant sign-in uses the trusted issuer and provisioned public client (1.49569ms)
+✔ untrusted realm URLs and invalid realm names are rejected (0.61882ms)
+✔ login redirects cannot leave the app (0.3447ms)
+✔ checkout uses password-login credentials and tenant metadata (0.70969ms)
+✔ SSO credentials take priority over stored credentials (1.16949ms)
+✔ malformed profile data does not discard a token (0.34041ms)
+✔ SSR and blocked browser storage remain safe (0.31518ms)
+(node:1070836) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✔ fresh tenant signup has PKCE/state and produces a session through a real Auth.js callback (160.395382ms)
+✔ a direct provider callback without initiating Auth.js cannot create a session (36.32412ms)
+✔ a tenant callback with a missing PKCE cookie cannot exchange a code (84.729241ms)
+✔ mismatched OAuth state fails before exchanging the tenant code (69.485201ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1056.631893

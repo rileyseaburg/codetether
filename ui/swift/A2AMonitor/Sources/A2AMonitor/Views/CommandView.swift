@@ -17,6 +17,7 @@ struct CommandView: View {
     @State private var audioLevel: Float = 0
     @State private var transcription = ""
     @State private var showingEnvironmentPicker = false
+    @State private var showingTasks = false
     @State private var selectedCodebaseId: String = ""
     
     var body: some View {
@@ -69,6 +70,16 @@ struct CommandView: View {
                 selectedId: $selectedCodebaseId,
                 isConnected: viewModel.isConnected
             )
+        }
+        .sheet(isPresented: $showingTasks) {
+            NavigationStack {
+                TasksView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showingTasks = false }
+                        }
+                    }
+            }
         }
     }
     
@@ -124,6 +135,11 @@ struct CommandView: View {
     
     var bottomSection: some View {
         VStack(spacing: 16) {
+            Button { showingTasks = true } label: {
+                Label("Tasks & Responses", systemImage: "checklist")
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("command.tasks")
             // Quick action chips
             HStack(spacing: 12) {
                 QuickActionChip(icon: "arrow.counterclockwise", title: "Last task") {
@@ -173,8 +189,7 @@ struct CommandView: View {
                 try await viewModel.triggerAgent(
                     codebase: codebase,
                     prompt: command,
-                    agent: "build",
-                    model: "claude-sonnet-4"
+                    agent: "build"
                 )
                 // Save as last command
                 viewModel.lastCommand = command

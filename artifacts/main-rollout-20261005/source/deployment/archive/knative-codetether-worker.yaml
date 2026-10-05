@@ -1,0 +1,170 @@
+# Knative Service for codetether-worker
+# This deploys the codetether-agent as a Knative Service that:
+# 1. Registers with the A2A server on startup
+# 2. Processes tasks via SSE polling (existing behavior)
+# 3. Scales to zero when idle
+#
+# Future: Add HTTP endpoint at /task to receive CloudEvents directly
+# from Knative Eventing instead of SSE polling.
+#
+# Apply: kubectl apply -f knative-codetether-worker.yaml -n a2a-server
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: codetether-worker-workspace
+  namespace: a2a-server
+  labels:
+    app: codetether-worker
+    component: ai-worker
+    codetether.run/component: worker
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-storage
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: codetether-worker
+  namespace: a2a-server
+  labels:
+    app: codetether-worker
+    component: ai-worker
+    codetether.run/component: worker
+  annotations:
+    # Prevent scale to zero during initial registration
+    serving.knative.dev/rollout-duration: "30s"
+spec:
+  template:
+    metadata:
+      annotations:
+        # Always keep 1 replica running (SSE polling worker needs continuous connection)
+        autoscaling.knative.dev/min-scale: "1"
+        autoscaling.knative.dev/max-scale: "3"
+        autoscaling.knative.dev/scale-to-zero-pod-retention-period: "300s"
+        # Target 1 concurrent task per pod (AI workload)
+        autoscaling.knative.dev/target: "1"
+        # Initial scale of 1 to ensure worker registers on deploy
+        autoscaling.knative.dev/initial-scale: "1"
+        # The worker binary performs Kubernetes auth natively using the
+        # pod's service account JWT — no Vault Agent sidecar is needed.
+    spec:
+      # ServiceAccount with RBAC for pod access and Vault Kubernetes auth
+      serviceAccountName: codetether-worker
+      # Single concurrent task per pod (CPU/GPU bound)
+      containerConcurrency: 1
+      # Maximum request timeout (10 minutes for long-running tasks)
+      timeoutSeconds: 600
+      containers:
+        - name: worker
+          image: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-worker:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http1
+          # Run the worker subcommand directly — native Kubernetes auth in
+          # the binary reads the pod SA JWT and obtains a Vault token itself.
+          command: ["codetether"]
+          args:
+            - worker
+            - --server
+            - http://codetether-a2a-server.a2a-server.svc.cluster.local:8000
+            - --name
+            - knative-worker
+            - --auto-approve
+            - all
+            - /workspace
+          workingDir: /workspace
+          env:
+            - name: VAULT_ADDR
+              value: "https://vault.spotlessbinco.com"
+            - name: VAULT_SKIP_VERIFY
+              value: "1"
+            # VAULT_ROLE triggers native Kubernetes auth in the binary;
+            # no static VAULT_TOKEN or Vault Agent sidecar is required.
+            - name: VAULT_ROLE
+              value: "codetether-worker"
+            - name: VAULT_AUTH_MOUNT
+              value: "kubernetes"
+            # Path to the projected SA token with audience=vault (see volumes below)
+            - name: VAULT_K8S_SA_JWT_PATH
+              value: "/var/run/secrets/vault/token"
+            - name: RUST_LOG
+              value: "info"
+            # Worker runs HTTP server on port 8080 for health probes (/health, /ready) and CloudEvents (/task)
+            - name: KNATIVE_SERVICE
+              value: "true"
+            - name: CODETETHER_WORKER_CAPABILITIES
+              value: "persistent,persistent-workspace,persistent_workspace,git-clone,repo-cache"
+            - name: GIT_CLONE_BASE
+              value: "/workspace/repos"
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          # Liveness probe - just check if HTTP server is running
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          # Readiness probe - check if worker is connected to A2A server
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: vault-sa-token
+              mountPath: /var/run/secrets/vault
+              readOnly: true
+      volumes:
+        - name: workspace
+          persistentVolumeClaim:
+            claimName: codetether-worker-workspace
+        - name: vault-sa-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: vault
+                  expirationSeconds: 3600
+                  path: token
+      # Image pull secret is attached to ServiceAccount
+---
+# Trigger to route task events to the worker
+# Note: This requires the worker to have an HTTP server at /task
+# Currently the worker uses SSE polling, so this trigger is dormant
+# until Phase 2 implements the HTTP endpoint.
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: codetether-worker-trigger
+  namespace: a2a-server
+  labels:
+    codetether.run/component: worker
+spec:
+  broker: task-broker
+  filter:
+    attributes:
+      type: codetether.task.created
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: codetether-worker
+    # This endpoint doesn't exist yet - will be added in Phase 2
+    uri: /task

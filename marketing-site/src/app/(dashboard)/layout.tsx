@@ -555,6 +555,7 @@ export default function DashboardLayout({
       </a>
       {/* Dialog unmounts the closed drawer and manages Escape/focus restoration. */}
       <Dialog
+        id="dashboard-navigation"
         open={sidebarOpen}
         onClose={setSidebarOpen}
         initialFocus={sidebarCloseButton}
@@ -625,6 +626,8 @@ export default function DashboardLayout({
           <button
             type="button"
             aria-label="Open navigation menu"
+            aria-haspopup="dialog"
+            aria-controls="dashboard-navigation"
             aria-expanded={sidebarOpen}
             onClick={() => setSidebarOpen(true)}
             className="-m-2.5 p-2.5 text-gray-700 md:hidden dark:text-gray-200"

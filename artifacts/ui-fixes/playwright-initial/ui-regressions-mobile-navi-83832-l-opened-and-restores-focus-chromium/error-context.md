@@ -1,0 +1,68 @@
+# Page snapshot
+
+```yaml
+- generic:
+  - generic [active]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - navigation [ref=e6]:
+          - button "previous" [disabled] [ref=e7]:
+            - img "previous" [ref=e8]
+          - generic [ref=e10]:
+            - generic [ref=e11]: 1/
+            - text: "1"
+          - button "next" [disabled] [ref=e12]:
+            - img "next" [ref=e13]
+        - link "Next.js 16.1.0 (stale) Webpack" [ref=e16] [cursor=pointer]:
+          - /url: https://nextjs.org/docs/messages/version-staleness
+          - img [ref=e17]
+          - generic "There is a newer version (16.3.4) available, upgrade recommended!" [ref=e19]: Next.js 16.1.0 (stale)
+          - generic [ref=e20]: Webpack
+      - generic [ref=e21]:
+        - dialog "Runtime Error" [ref=e22]:
+          - generic [ref=e25]:
+            - generic [ref=e26]:
+              - generic [ref=e27]:
+                - generic [ref=e29]: Runtime Error
+                - generic [ref=e30]:
+                  - button "Copy Error Info" [ref=e31] [cursor=pointer]:
+                    - img [ref=e32]
+                  - button "No related documentation found" [disabled] [ref=e34]:
+                    - img [ref=e35]
+                  - button "Attach Node.js inspector" [ref=e37] [cursor=pointer]:
+                    - img [ref=e38]
+              - generic [ref=e47]: "The Middleware file \"/middleware\" must export a function named `middleware` or a default function."
+            - generic [ref=e49]:
+              - paragraph [ref=e51]:
+                - text: Call Stack
+                - generic [ref=e52]: "1"
+              - generic [ref=e53]:
+                - generic [ref=e54]:
+                  - text: <unknown>
+                  - button "Sourcemapping failed. Click to log cause of error." [ref=e55] [cursor=pointer]:
+                    - img [ref=e56]
+                - text: file:///home/riley/A2A-Server-MCP/marketing-site/webpack-internal:/(middleware)/node_modules/next/dist/build/webpack/loaders/next-middleware-loader.js (23)
+          - generic [ref=e58]: "1"
+          - generic [ref=e59]: "2"
+        - contentinfo [ref=e60]:
+          - region "Error feedback" [ref=e61]:
+            - paragraph [ref=e62]:
+              - link "Was this helpful?" [ref=e63] [cursor=pointer]:
+                - /url: https://nextjs.org/telemetry#error-feedback
+            - button "Mark as helpful" [ref=e64] [cursor=pointer]:
+              - img [ref=e65]
+            - button "Mark as not helpful" [ref=e68] [cursor=pointer]:
+              - img [ref=e69]
+    - generic [ref=e75] [cursor=pointer]:
+      - button "Open Next.js Dev Tools" [ref=e76]:
+        - img [ref=e77]
+      - generic [ref=e80]:
+        - button "Open issues overlay" [ref=e81]:
+          - generic [ref=e82]:
+            - generic [ref=e83]: "0"
+            - generic [ref=e84]: "1"
+          - generic [ref=e85]: Issue
+        - button "Collapse issues badge" [ref=e86]:
+          - img [ref=e87]
+  - alert [ref=e89]
+```

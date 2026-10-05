@@ -108,6 +108,7 @@ struct LoginView: View {
                     .foregroundColor(.white.opacity(0.6))
                     .frame(width: 20)
                 TextField("email@example.com", text: $username)
+                    .accessibilityIdentifier("auth.email")
                     .foregroundColor(.white)
                     .textContentType(.emailAddress)
                     #if os(iOS)
@@ -140,6 +141,7 @@ struct LoginView: View {
                     .foregroundColor(.white.opacity(0.6))
                     .frame(width: 20)
                 SecureField("Password", text: $password)
+                    .accessibilityIdentifier("auth.password")
                     .foregroundColor(.white)
                     .textContentType(.password)
                     .onSubmit {
@@ -193,6 +195,7 @@ struct LoginView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
         .disabled(username.isEmpty || password.isEmpty || isLoading)
+        .accessibilityIdentifier("auth.signIn")
     }
 
     private var signInButtonBackground: some View {

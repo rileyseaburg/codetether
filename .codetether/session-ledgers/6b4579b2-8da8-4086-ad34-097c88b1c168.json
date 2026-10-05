@@ -1,0 +1,26 @@
+{
+  "session_id": "6b4579b2-8da8-4086-ad34-097c88b1c168",
+  "items": [],
+  "evidence": [
+    {
+      "kind": "youtube",
+      "level": "real platform upload",
+      "value": "`https://www.youtube.com/watch?v=-nsQUCNPIZM`"
+    },
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

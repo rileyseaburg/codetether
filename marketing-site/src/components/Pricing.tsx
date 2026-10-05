@@ -1,11 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { useSession } from 'next-auth/react'
 import clsx from 'clsx'
 
 import { Button } from '@/components/Button'
-import { getApiAuth } from '@/lib/auth-token'
+import {
+  getApiAuth,
+  getStoredApiToken,
+  subscribeToAuthChanges,
+} from '@/lib/auth-token'
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
@@ -243,13 +247,29 @@ function Plan({
 
 export function Pricing() {
   const { data: session, status } = useSession()
+  const clientReady = useSyncExternalStore(
+    subscribeToAuthChanges,
+    () => true,
+    () => false,
+  )
+  const passwordToken = useSyncExternalStore(
+    subscribeToAuthChanges,
+    getStoredApiToken,
+    () => null,
+  )
+  const hasSessionToken = Boolean(session?.accessToken)
+  // Password login is independent of Auth.js session discovery. Keep anonymous
+  // visitors waiting for discovery/hydration, but do not block a usable token.
+  const checkoutLoading =
+    !clientReady ||
+    (status === 'loading' && !hasSessionToken && !passwordToken)
   const [activePeriod] = useState<'monthly' | 'annually'>('monthly')
   const [upgrading, setUpgrading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const handleUpgrade = async (tierId: string) => {
     const { token } = getApiAuth(session)
-    if (status === 'loading' || upgrading) return
+    if ((status === 'loading' && !token) || upgrading) return
     // Password login and NextAuth both provide API bearer credentials.
     if (!token) {
       window.location.href = '/register'
@@ -331,7 +351,7 @@ export function Pricing() {
               activePeriod={activePeriod}
               onUpgrade={handleUpgrade}
               upgrading={upgrading}
-              checkoutDisabled={status === 'loading' || upgrading !== null}
+              checkoutDisabled={checkoutLoading || upgrading !== null}
             />
           ))}
         </div>

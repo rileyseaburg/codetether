@@ -1,0 +1,20 @@
+{
+  "old_token_id": 35,
+  "old_token_absent": true,
+  "outside_repo_public": true,
+  "new_token_id": 36,
+  "new_http": 200,
+  "outside_repo_http": 200,
+  "scopes": [
+    "read:issue",
+    "read:repository"
+  ],
+  "repositories": [
+    {
+      "id": 278,
+      "name": "spotlessbinco",
+      "owner": "riley",
+      "full_name": "riley/spotlessbinco"
+    }
+  ]
+}

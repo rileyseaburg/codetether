@@ -1,0 +1,11 @@
+{
+  "workspaceId": "ios-e2e-ubuntu-dev",
+  "workerId": "wrk_1791203157_35195f4f7b97da0a",
+  "path": "/home/riley/A2A-Server-MCP/artifacts/ios-e2e-web",
+  "userId": "0f3ebd9f-c68a-4b86-97a5-442d4fc62880",
+  "intendedDocumentRoot": "/home/riley/A2A-Server-MCP/artifacts/ios-e2e-web/site",
+  "intendedURL": "http://192.168.50.101:8766/",
+  "htmlCreated": false,
+  "taskSubmitted": false,
+  "association": "POST /v1/auth/user/0f3ebd9f-c68a-4b86-97a5-442d4fc62880/workspaces: HTTP 500"
+}

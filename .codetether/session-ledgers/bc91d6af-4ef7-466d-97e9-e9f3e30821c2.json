@@ -1,0 +1,119 @@
+{
+  "session_id": "bc91d6af-4ef7-466d-97e9-e9f3e30821c2",
+  "items": [
+    {
+      "deliverable": "Namespace: `spotlessbinco`",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "/tmp/vault.zip",
+        "/tmp/vault.zip"
+      ]
+    },
+    {
+      "deliverable": "Release: `spotlessbinco`",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "/tmp/vault.zip",
+        "/tmp/vault.zip"
+      ]
+    },
+    {
+      "deliverable": "Pod: `spotlessbinco-deployment-c9698bfb4-hntw6`",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "/tmp/vault.zip",
+        "/tmp/vault.zip"
+      ]
+    },
+    {
+      "deliverable": "Container: `spotlessbinco-chart`",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "/tmp/vault.zip",
+        "/tmp/vault.zip"
+      ]
+    },
+    {
+      "deliverable": "Severity: `error`",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "/tmp/vault.zip",
+        "/tmp/vault.zip"
+      ]
+    },
+    {
+      "deliverable": "Reason: `LogErrorPattern`",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "/tmp/vault.zip",
+        "/tmp/vault.zip"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "kind": "argo",
+      "level": "live deployment/Argo",
+      "value": "healthy-synced"
+    },
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/tmp/vault.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/tmp/vault.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/tmp/vault.zip"
+    },
+    {
+      "kind": "db-migration",
+      "level": "live DB",
+      "value": "applied"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

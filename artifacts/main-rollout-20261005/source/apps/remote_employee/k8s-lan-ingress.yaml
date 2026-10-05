@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: remote-employee-lan
+  namespace: quantum-forge
+  labels:
+    app.kubernetes.io/name: remote-employee
+    app.kubernetes.io/component: lan-bridge
+spec:
+  ports:
+    - name: http
+      port: 8090
+      protocol: TCP
+      targetPort: 8090
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: remote-employee-lan
+  namespace: quantum-forge
+  labels:
+    app.kubernetes.io/name: remote-employee
+    app.kubernetes.io/component: lan-bridge
+subsets:
+  - addresses:
+      - ip: 192.168.50.101
+    ports:
+      - name: http
+        port: 8090
+        protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: remote-employee-lan
+  namespace: quantum-forge
+  labels:
+    app.kubernetes.io/name: remote-employee
+    app.kubernetes.io/component: lan-bridge
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - live.quantum-forge.net
+      secretName: cloudflare-cert
+  rules:
+    - host: live.quantum-forge.net
+      http:
+        paths:
+          - path: /remote-employee(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: remote-employee-lan
+                port:
+                  number: 8090

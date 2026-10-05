@@ -1,0 +1,48 @@
+{
+  "info" : {
+    "arguments" : [
+      "devicectl",
+      "device",
+      "info",
+      "apps",
+      "--device",
+      "4745B27B-2B68-5164-A053-B869B07EE2CA",
+      "--bundle-id",
+      "com.a2a.monitor",
+      "--timeout",
+      "30",
+      "--json-output",
+      "evidence/final-app.json"
+    ],
+    "commandType" : "devicectl.device.info.apps",
+    "environment" : {
+
+    },
+    "jsonVersion" : 2,
+    "outcome" : "success",
+    "version" : "443.24"
+  },
+  "result" : {
+    "apps" : [
+      {
+        "appClip" : false,
+        "builtByDeveloper" : true,
+        "bundleIdentifier" : "com.a2a.monitor",
+        "bundleVersion" : "1",
+        "defaultApp" : false,
+        "hidden" : false,
+        "internalApp" : false,
+        "name" : "A2A Monitor",
+        "removable" : true,
+        "url" : "file:///private/var/containers/Bundle/Application/7CA03B0A-76B4-4EBB-848B-483AF2A985CC/A2AMonitor.app/",
+        "version" : "1.0.0"
+      }
+    ],
+    "defaultAppsIncluded" : false,
+    "deviceIdentifier" : "4745B27B-2B68-5164-A053-B869B07EE2CA",
+    "hiddenAppsIncluded" : false,
+    "internalAppsIncluded" : false,
+    "matchingBundleIdentifier" : "com.a2a.monitor",
+    "removableAppsIncluded" : true
+  }
+}

@@ -1,0 +1,31 @@
+{{- if and .Values.enabled .Values.ingress.enabled .Values.apiProxy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "marketing.fullname" . }}-api-proxy
+  labels:
+    {{- include "marketing.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-proxy
+  annotations:
+    cert-manager.io/cluster-issuer: "cloudflare-issuer"
+    nginx.ingress.kubernetes.io/rewrite-target: /v1/$1
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /api/v1/(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ .Values.apiProxy.backendService }}
+                port:
+                  number: {{ .Values.apiProxy.backendPort }}
+{{- end }}

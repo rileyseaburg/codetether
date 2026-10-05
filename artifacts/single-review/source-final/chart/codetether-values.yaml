@@ -1,0 +1,291 @@
+# CodeTether deployment values
+imagePullSecrets:
+  - name: gcp-artifact-registry
+
+# Main A2A server image
+image:
+  repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
+  tag: "v3.3.0"
+  pullPolicy: Always
+
+# Disable blue-green deployment (use simple deployment)
+blueGreen:
+  enabled: false
+
+app:
+  name: "CodeTether Server"
+  description: "Production A2A coordination server"
+  docs: "https://docs.codetether.run"
+
+env:
+  A2A_AGENT_NAME: "CodeTether Server"
+  A2A_AGENT_DESCRIPTION: "Production A2A coordination server"
+  A2A_AGENT_ORG: "CodeTether"
+  A2A_AGENT_ORG_URL: "https://codetether.run"
+  A2A_AGENT_URL: "https://api.codetether.run"
+  A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
+  WORKER_INFRA_CACHE_TTL_SECONDS: "30"
+  WORKER_INFRA_NODE_MAP: ""
+
+  # Model Configuration
+  # Default model for task subcalls (provider:model format)
+  # Options: anthropic:claude-sonnet-4-20250514, openai:gpt-4o, google:gemini-2.5-flash, etc.
+  A2A_RLM_DEFAULT_SUBCALL_MODEL_REF: "google:gemini-3-flash-preview"
+
+  # Fallback chain (comma-separated, use 'controller' for final fallback)
+  A2A_RLM_FALLBACK_CHAIN: "google:gemini-3-flash-preview,openai:gpt-4o-mini,controller"
+
+  # Allow controller to execute tasks if no model available
+  A2A_RLM_ALLOW_CONTROLLER_FALLBACK: "1"
+
+  # LiveKit configuration for voice sessions
+  LIVEKIT_URL: "http://livekit-server.quantum-forge.svc.cluster.local:80"
+  LIVEKIT_PUBLIC_URL: "wss://live.quantum-forge.net"
+  LIVEKIT_API_KEY: "devkey"
+  LIVEKIT_API_SECRET: "KoBMhgeMMR5LrI/wE9skEczGkHJaUZfOn1ppM/qc6/4="
+
+# Marketing site
+marketing:
+  enabled: true
+  imagePullSecrets:
+    - name: gcp-artifact-registry
+  image:
+    repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-marketing
+    pullPolicy: Always
+    tag: "v3.3.0"
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "cloudflare-issuer"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: codetether.run
+    tls:
+      secretName: codetether-marketing-tls
+  # Keycloak secret containing KEYCLOAK_CLIENT_SECRET and NEXTAUTH_SECRET
+  keycloak:
+    secretName: "keycloak-client-secret"
+  env:
+    AUTH_URL: "https://codetether.run"
+    AUTH_TRUST_HOST: "true"
+    NEXTAUTH_URL: "https://codetether.run"
+    KEYCLOAK_CLIENT_ID: "a2a-monitor"
+    KEYCLOAK_ISSUER: "https://auth.quantum-forge.io/realms/quantum-forge"
+    # Backend API proxy — nginx ingress routes /api/v1/* → a2a-server /v1/*
+    A2A_API_BACKEND: "http://codetether-a2a-server.a2a-server.svc.cluster.local:8000"
+  # API proxy ingress — routes /api/v1/* on the marketing host to the a2a-server
+  apiProxy:
+    enabled: true
+    backendService: codetether-a2a-server
+    backendPort: 8000
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# Documentation site
+docs:
+  enabled: true
+  imagePullSecrets:
+    - name: gcp-artifact-registry
+  image:
+    repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-docs
+    pullPolicy: Always
+    tag: "v3.3.0"
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "cloudflare-issuer"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: docs.codetether.run
+    tls:
+      secretName: codetether-docs-tls
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# API server ingress
+# NOTE: MCP is now integrated on the same port under /mcp/* paths
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "cloudflare-issuer"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  hosts:
+    - host: api.codetether.run
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 8000
+        # MCP is now served at /mcp/* on the same port (8000)
+  tls:
+    - secretName: codetether-api-tls
+      hosts:
+        - api.codetether.run
+
+# Redis configuration (simple deployment, not bitnami)
+# LiveKit configuration for voice features
+livekit:
+  enabled: true
+  url: "http://livekit-server.quantum-forge.svc.cluster.local:80"
+  publicUrl: "wss://live.quantum-forge.net"
+  apiKey: "devkey"
+  apiSecret: "KoBMhgeMMR5LrI/wE9skEczGkHJaUZfOn1ppM/qc6/4="
+  existingSecret:
+    apiKey:
+      name: ""
+      key: ""
+    apiSecret:
+      name: ""
+      key: ""
+
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      memory: 128Mi
+
+# PostgreSQL for durable persistence (workers, codebases, tasks, sessions)
+# This ensures data survives pod restarts and works across replicas
+postgresql:
+  enabled: false
+
+# External PostgreSQL (use this in production with a managed database)
+externalPostgresql:
+  # PostgreSQL connection URL
+  url: "postgresql://postgres:spike2@192.168.50.70:5432/a2a_server"
+  # Or use existing secret
+  existingSecret: ""
+  secretKey: "DATABASE_URL"
+
+# Row-Level Security (RLS) - Multi-tenant isolation via Keycloak orgs
+rls:
+  enabled: true
+  strictMode: false # When true, requires tenant context for ALL queries
+  auditEnabled: true # Log RLS policy violations
+
+# OPA Policy Engine - centralized authorization
+opa:
+  enabled: true
+
+# Disable local persistence (using MinIO instead)
+persistence:
+  enabled: false
+
+# MinIO/S3 storage configuration
+minio:
+  enabled: true
+  endpoint: "192.168.50.223:9000"
+  bucket: "a2a-monitor"
+  secure: false
+  accessKey: "sccacheadmin"
+  secretKey: "hZz3CXz2EqTTA503mvgsaFWQLGfCucGS"
+
+# Knative per-session worker configuration
+knative:
+  enabled: true
+  broker: task-broker
+  cron:
+    driver: knative
+    # Prefer secret-based token injection from pipeline:
+    # make k8s-prod CRON_INTERNAL_TOKEN_SECRET=cron-internal-token
+    internalToken: ""
+    internalTokenSecret: ""
+    internalTokenSecretKey: "CRON_INTERNAL_TOKEN"
+    triggerBaseUrl: ""
+    jobImage: "curlimages/curl:8.11.1"
+    tenantNamespaceMode: true
+    allowCrossNamespace: true
+    serviceAccountName: ""
+    startingDeadlineSeconds: 300
+    successHistoryLimit: 1
+    failureHistoryLimit: 3
+    jobTtlSeconds: 600
+  worker:
+    image: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-worker:latest
+    # Scale to 0 after 5 minutes of no activity
+    idleTimeoutSeconds: 300
+    # Maximum time for a single task (1200s; Knative config-defaults must allow this)
+    maxTimeoutSeconds: 1200
+    # One task at a time (hardware-bound)
+    containerConcurrency: 1
+    capabilities:
+      - persistent
+      - persistent-workspace
+      - persistent_workspace
+      - git-clone
+      - repo-cache
+    resources:
+      limits:
+        memory: 2Gi
+        cpu: "2"
+      requests:
+        memory: 512Mi
+        cpu: "250m"
+    # Session TTL before garbage collection (24 hours)
+    sessionTTLHours: 24
+    # Persistent per-workspace volumes for Knative workers
+    workspacePersistence:
+      enabled: true
+      size: "20Gi"
+      accessModes:
+        - ReadWriteMany
+      # Cluster StorageClass for RWX workspace volumes
+      storageClass: "nfs-storage"
+      pvcNamePrefix: "codetether-workspace"
+      mountPath: "/workspace"
+      reposSubPath: "repos"
+    # Native Kubernetes Vault auth — no Vault Agent sidecar required
+    vault:
+      enabled: true
+      address: "https://vault.spotlessbinco.com"
+      role: "codetether-worker"
+      authMount: "kubernetes"
+      tlsSkipVerify: true
+
+# VM-backed workspace provisioning (KubeVirt/Harvester CRD path)
+vmWorkspaces:
+  enabled: false
+  namespace: "a2a-server"
+  apiGroup: "kubevirt.io"
+  apiVersion: "v1"
+  plural: "virtualmachines"
+  defaultImage: "quay.io/containerdisks/ubuntu:22.04"
+  defaultCpuCores: 2
+  defaultMemory: "8Gi"
+  defaultDiskSize: "30Gi"
+  storageClass: "nfs-storage"
+  accessModes:
+    - ReadWriteOnce
+  pvcPrefix: "codetether-vm-workspace"
+  createSSHService: true
+  sshServiceType: "ClusterIP"
+  sshUser: "coder"

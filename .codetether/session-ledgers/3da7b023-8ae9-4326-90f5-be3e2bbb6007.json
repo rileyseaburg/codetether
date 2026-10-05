@@ -1,0 +1,226 @@
+{
+  "session_id": "3da7b023-8ae9-4326-90f5-be3e2bbb6007",
+  "items": [],
+  "evidence": [
+    {
+      "kind": "youtube",
+      "level": "real platform upload",
+      "value": "`https://www.youtube.com/watch?v=-nsQUCNPIZM`"
+    },
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/ui-scope-jest.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/ui-scope-jest.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/ui-scope-jest.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/ui-scope-jest.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "--outputFile=test-results/ui-scope-jest.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/ui-scope-jest.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "**`marketing-site/test-results/ui-scope-jest.json`**"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/ui-scope-jest.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/ui-scope-jest.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/ui-scope-jest-status.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "--outputFile=test-results/ui-scope-jest-status.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/ui-scope-jest-status.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/ui-scope-jest-status.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/ui-scope-jest-status.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/ui-scope-jest-status.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/ui-scope-jest-handoff.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/ui-scope-jest-handoff.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/ui-scope-jest-handoff.log"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "--outputFile=test-results/ui-scope-jest-handoff.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/ui-scope-jest-handoff.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "--outputFile=test-results/ui-scope-jest-handoff.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`test-results/ui-scope-jest-handoff.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`test-results/ui-scope-jest-handoff.log`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/ui-scope-jest-handoff.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/home/riley/A2A-Server-MCP/.codetether-worktrees/child-021981c5d19a420394802587776027e3/marketing-site/test-results/ui-scope-jest-handoff.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/home/riley/A2A-Server-MCP/.codetether-worktrees/child-021981c5d19a420394802587776027e3/marketing-site/test-results/ui-scope-jest-handoff.log"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/home/riley/A2A-Server-MCP/.codetether-worktrees/child-021981c5d19a420394802587776027e3/marketing-site/test-results/ui-scope-jest-handoff.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/home/riley/A2A-Server-MCP/.codetether-worktrees/child-021981c5d19a420394802587776027e3/marketing-site/test-results/ui-scope-jest-handoff.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/home/riley/A2A-Server-MCP/.codetether-worktrees/child-021981c5d19a420394802587776027e3/marketing-site/test-results/ui-scope-jest-handoff.log"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/ui-scope-jest-handoff.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/ui-scope-jest-handoff.json/log"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/ui-scope-jest-handoff.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/ui-scope-jest-handoff.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/ui-scope-jest-handoff.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`/home/riley/A2A-Server-MCP/.codetether-worktrees/child-021981c5d19a420394802587776027e3/marketing-site/test-results/`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results/ui-scope-jest-handoff.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/ui-scope-jest-handoff.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/ui-scope-jest-handoff.log`"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "level": "live deployment/Argo",
+  "mode": "production-host canary",
+  "commit": "a1d68a889bd3e752e5a00b6cfba90a0e9888c0c0",
+  "image": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing:ui-a1d68a889bd3",
+  "checks": [
+    {
+      "host": "codetether.run",
+      "requests": [
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/callback/keycloak",
+          "status": 302
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "quantum-forge.codetether.run",
+          "path": "/v1/agent/agents",
+          "status": 200
+        },
+        {
+          "host": "quantum-forge.codetether.run",
+          "path": "/v1/worker/connected",
+          "status": 200
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        }
+      ],
+      "versionStatus": 200,
+      "revision": "a1d68a889bd3e752e5a00b6cfba90a0e9888c0c0",
+      "stage": "dashboard",
+      "callback": "https://codetether.run/api/auth/callback/keycloak",
+      "pkce": "S256",
+      "navigation": [
+        "Workspaces",
+        "Tasks",
+        "Sessions",
+        "Workers",
+        "Activity",
+        "Billing",
+        "Settings",
+        "Setup guide"
+      ],
+      "moreToolsCollapsed": true,
+      "mobileFits": true,
+      "authenticatedDashboard": true
+    }
+  ],
+  "mutations": [],
+  "testUserId": "804ea95a-f689-415c-938e-a2c446185d87",
+  "success": true,
+  "testUserDisabled": true
+}

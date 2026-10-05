@@ -1,0 +1,106 @@
+{
+  "steps": [
+    {
+      "name": "01-logged-in",
+      "url": "https://quantum-forge.codetether.run/dashboard",
+      "at": "2026-09-04T05:52:27.435Z",
+      "loginError": false
+    },
+    {
+      "name": "01b-wizard-dismissed",
+      "url": "https://quantum-forge.codetether.run/dashboard",
+      "at": "2026-09-04T05:52:28.039Z",
+      "overlay": 0
+    },
+    {
+      "name": "02a-after-click",
+      "url": "https://quantum-forge.codetether.run/dashboard",
+      "at": "2026-09-04T05:52:31.211Z"
+    },
+    {
+      "name": "02-workspace-created",
+      "url": "https://quantum-forge.codetether.run/dashboard",
+      "at": "2026-09-04T05:52:37.420Z",
+      "quickMsg": "workspace created and selected. Type your prompt, then click Trigger Agent."
+    },
+    {
+      "name": "03-model-selected",
+      "url": "https://quantum-forge.codetether.run/dashboard",
+      "at": "2026-09-04T05:52:41.646Z",
+      "modelValue": "openai-codex/gpt-5.6-luna"
+    },
+    {
+      "name": "04-prompt-filled",
+      "url": "https://quantum-forge.codetether.run/dashboard",
+      "at": "2026-09-04T05:52:41.936Z"
+    },
+    {
+      "name": "05-triggered",
+      "url": "https://quantum-forge.codetether.run/dashboard",
+      "at": "2026-09-04T05:52:48.983Z",
+      "triggerStatus": 200,
+      "taskId": "e8c46b6d-b586-4cb2-8a57-764d91d30998",
+      "model": "openai-codex:gpt-5.6-luna"
+    },
+    {
+      "name": "06-final",
+      "url": "https://quantum-forge.codetether.run/dashboard",
+      "at": "2026-09-04T05:52:59.173Z",
+      "status": "completed",
+      "pong": false
+    },
+    {
+      "name": "07-tasks-page",
+      "url": "https://quantum-forge.codetether.run/dashboard/tasks",
+      "at": "2026-09-04T05:53:07.928Z",
+      "tasksHit": null
+    }
+  ],
+  "network": [
+    {
+      "method": "POST",
+      "url": "/v1/agent/workspaces",
+      "status": 200,
+      "body": {
+        "success": true,
+        "workspace": {
+          "id": "45658cd4",
+          "name": "workspace-202609040552",
+          "path": "/tmp",
+          "description": "Quick-start workspace",
+          "registered_at": "2026-03-23T14:04:14.979419+00:00",
+          "agent_config": {},
+          "last_triggered": null,
+          "status": "active",
+          "agent_port": null,
+          "session_id": null,
+          "watch_mode": false,
+          "watch_interval": 5,
+          "worker_id": "wrk_1788490166_6baf1dca728998a7",
+          "git_branch": "main"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/v1/agent/workspaces/45658cd4/trigger",
+      "status": 200,
+      "body": {
+        "success": true,
+        "session_id": "e8c46b6d-b586-4cb2-8a57-764d91d30998",
+        "message": "Task dispatched to 1 worker(s)",
+        "task_status": "dispatched",
+        "workers_notified": 1,
+        "workspace_id": "45658cd4",
+        "agent": "build",
+        "routing": {
+          "complexity": "quick",
+          "model_tier": "fast",
+          "model_ref": "openai-codex:gpt-5.6-luna",
+          "target_agent_name": null,
+          "worker_personality": null
+        }
+      }
+    }
+  ]
+}

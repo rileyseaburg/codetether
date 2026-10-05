@@ -1,0 +1,188 @@
+{
+    "project": "benchmark-plugin-system",
+    "feature": "Dynamic Plugin System with Hot Reload",
+    "branch_name": "bench/t3-plugin-system",
+    "version": "1.0",
+    "user_stories": [
+        {
+            "id": "US-001",
+            "title": "Define plugin trait and manifest",
+            "description": "Create a Plugin trait with methods: name() -> &str, version() -> &str, init(&self) -> Result<()>, execute(&self, input: &str) -> Result<String>, shutdown(&self). Define a PluginManifest struct with name, version, author, description, capabilities list.",
+            "acceptance_criteria": [
+                "Plugin trait is defined with all required methods",
+                "PluginManifest struct with serde support",
+                "Default implementations for init() and shutdown()",
+                "Unit test with a mock plugin implementation"
+            ],
+            "passes": false,
+            "priority": 1,
+            "depends_on": [],
+            "complexity": 2
+        },
+        {
+            "id": "US-002",
+            "title": "Build plugin registry",
+            "description": "Create a PluginRegistry that stores registered plugins by name. Support register, unregister, get, and list operations. Prevent duplicate registrations. Thread-safe with RwLock.",
+            "acceptance_criteria": [
+                "register() adds a plugin and returns Ok or error if duplicate",
+                "unregister() removes a plugin by name",
+                "get() returns a reference to a plugin by name",
+                "list() returns all registered plugin manifests",
+                "Thread-safe concurrent access verified in tests"
+            ],
+            "passes": false,
+            "priority": 2,
+            "depends_on": [
+                "US-001"
+            ],
+            "complexity": 3
+        },
+        {
+            "id": "US-003",
+            "title": "Implement plugin loader from directory",
+            "description": "Create a PluginLoader that scans a directory for plugin manifest files (plugin.json), validates them, and registers valid plugins. Support recursive directory scanning.",
+            "acceptance_criteria": [
+                "scan_directory() finds all plugin.json files",
+                "Valid manifests are loaded and plugins registered",
+                "Invalid manifests are skipped with warning logs",
+                "Recursive scanning works for nested directories",
+                "Unit tests with temp directories and fixture manifests"
+            ],
+            "passes": false,
+            "priority": 3,
+            "depends_on": [
+                "US-002"
+            ],
+            "complexity": 3
+        },
+        {
+            "id": "US-004",
+            "title": "Add plugin execution pipeline",
+            "description": "Create a PluginPipeline that chains multiple plugins together. Input flows through plugins in order, each plugin's output becoming the next plugin's input. Support conditional execution based on capabilities.",
+            "acceptance_criteria": [
+                "Pipeline executes plugins in order",
+                "Output from one plugin feeds input to the next",
+                "Plugins can be filtered by required capabilities",
+                "Pipeline returns error if any plugin fails (with plugin name in error)",
+                "Unit tests verify pipeline execution order and error handling"
+            ],
+            "passes": false,
+            "priority": 4,
+            "depends_on": [
+                "US-002"
+            ],
+            "complexity": 4
+        },
+        {
+            "id": "US-005",
+            "title": "Implement plugin lifecycle management",
+            "description": "Add lifecycle management: init all plugins on startup, shutdown all plugins on stop. Track plugin state (Uninitialized, Ready, Running, Error, Stopped). Auto-restart failed plugins up to 3 times.",
+            "acceptance_criteria": [
+                "init_all() initializes all registered plugins",
+                "shutdown_all() cleanly shuts down all plugins",
+                "Plugin state is tracked and queryable",
+                "Failed plugins are retried up to 3 times",
+                "Plugins exceeding retry limit are marked as Error",
+                "Unit tests verify lifecycle transitions and retry behavior"
+            ],
+            "passes": false,
+            "priority": 5,
+            "depends_on": [
+                "US-002",
+                "US-004"
+            ],
+            "complexity": 4
+        },
+        {
+            "id": "US-006",
+            "title": "Add plugin event hooks",
+            "description": "Create an event system for plugin lifecycle events: PluginRegistered, PluginInitialized, PluginExecuted, PluginFailed, PluginUnregistered. Allow plugins to subscribe to events from other plugins.",
+            "acceptance_criteria": [
+                "Events are emitted for all lifecycle transitions",
+                "Plugins can subscribe to specific event types",
+                "Event subscribers receive events asynchronously",
+                "Event history is queryable (last 50 events)",
+                "Unit tests verify event emission and subscription"
+            ],
+            "passes": false,
+            "priority": 6,
+            "depends_on": [
+                "US-005"
+            ],
+            "complexity": 4
+        },
+        {
+            "id": "US-007",
+            "title": "Build plugin API endpoints",
+            "description": "Create REST API: GET /plugins (list), GET /plugins/:name (detail), POST /plugins/:name/execute (run plugin with input body), POST /plugins/pipeline (run pipeline), GET /plugins/:name/status (lifecycle state).",
+            "acceptance_criteria": [
+                "GET /plugins returns all plugin manifests with status",
+                "POST /plugins/:name/execute runs a single plugin",
+                "POST /plugins/pipeline runs the plugin pipeline",
+                "GET /plugins/:name/status returns lifecycle state",
+                "404 for unknown plugin names",
+                "Integration tests verify all endpoints"
+            ],
+            "passes": false,
+            "priority": 7,
+            "depends_on": [
+                "US-004",
+                "US-005"
+            ],
+            "complexity": 3
+        },
+        {
+            "id": "US-008",
+            "title": "Add plugin configuration support",
+            "description": "Allow plugins to define configuration schemas in their manifest. Configuration is loaded from a TOML file and validated against the schema. Plugins access their config via PluginContext.",
+            "acceptance_criteria": [
+                "Plugins can define config schema in manifest",
+                "Config is loaded from plugins/<name>/config.toml",
+                "Invalid config returns descriptive validation errors",
+                "PluginContext provides typed config access",
+                "Unit tests verify config loading and validation"
+            ],
+            "passes": false,
+            "priority": 7,
+            "depends_on": [
+                "US-003"
+            ],
+            "complexity": 3
+        },
+        {
+            "id": "US-009",
+            "title": "End-to-end integration tests",
+            "description": "Write comprehensive integration tests covering: plugin discovery, registration, lifecycle, pipeline execution, event emission, and API access. Test with at least 3 mock plugins.",
+            "acceptance_criteria": [
+                "Test discovers and loads plugins from temp directory",
+                "Test runs full lifecycle (init -> execute -> shutdown)",
+                "Test verifies pipeline execution order with 3 plugins",
+                "Test verifies cleanup on shutdown",
+                "All tests pass with cargo test"
+            ],
+            "passes": false,
+            "priority": 8,
+            "depends_on": [
+                "US-006",
+                "US-007",
+                "US-008"
+            ],
+            "complexity": 4
+        }
+    ],
+    "technical_requirements": [
+        "Use Rust with axum, tokio, serde, toml, walkdir, uuid",
+        "Plugin trait must be object-safe (dyn Plugin)",
+        "Thread-safe with proper synchronization primitives",
+        "Clean separation: core, loader, pipeline, api modules",
+        "All tests must pass with cargo test"
+    ],
+    "quality_checks": {
+        "typecheck": "cargo check",
+        "test": "cargo test",
+        "lint": "cargo clippy -- -D warnings",
+        "build": "cargo build"
+    },
+    "created_at": "2026-02-10T00:00:00Z",
+    "updated_at": "2026-02-10T00:00:00Z"
+}

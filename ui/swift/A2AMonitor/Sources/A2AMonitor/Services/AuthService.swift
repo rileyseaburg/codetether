@@ -148,16 +148,8 @@ class AuthService: ObservableObject {
             throw AuthError.invalidResponse
         }
 
-        if httpResponse.statusCode == 401 {
-            throw AuthError.invalidCredentials
-        }
-
         guard httpResponse.statusCode == 200 else {
-            if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let detail = errorJson["detail"] as? String {
-                throw AuthError.serverError(detail)
-            }
-            throw AuthError.serverError("Login failed with status \(httpResponse.statusCode)")
+            throw AuthError.serverError(LoginFailure.message(status: httpResponse.statusCode, data: data))
         }
 
         let loginResponse = try JSONDecoder().decode(LoginResponse.self, from: data)
@@ -330,7 +322,7 @@ class AuthService: ObservableObject {
             throw AuthError.notAuthenticated
         }
 
-        let url = baseURL.appendingPathComponent("v1/auth/user/\(userId)/codebases")
+        let url = baseURL.appendingPathComponent("v1/auth/user/\(userId)/workspaces")
         var request = URLRequest(url: url)
         if let token = accessToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -346,7 +338,7 @@ class AuthService: ObservableObject {
             throw AuthError.notAuthenticated
         }
 
-        let url = baseURL.appendingPathComponent("v1/auth/user/\(userId)/codebases")
+        let url = baseURL.appendingPathComponent("v1/auth/user/\(userId)/workspaces")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -354,7 +346,7 @@ class AuthService: ObservableObject {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
-        let body = ["codebase_id": codebaseId, "role": role]
+        let body = ["workspace_id": codebaseId, "role": role]
         request.httpBody = try JSONEncoder().encode(body)
 
         let (_, response) = try await session.data(for: request)
@@ -374,7 +366,7 @@ class AuthService: ObservableObject {
 
         var components = URLComponents(url: baseURL.appendingPathComponent("v1/auth/user/\(userId)/agent-sessions"), resolvingAgainstBaseURL: false)!
         components.queryItems = [
-            URLQueryItem(name: "codebase_id", value: codebaseId),
+            URLQueryItem(name: "workspace_id", value: codebaseId),
             URLQueryItem(name: "agent_type", value: agentType),
             URLQueryItem(name: "device_id", value: deviceId)
         ]

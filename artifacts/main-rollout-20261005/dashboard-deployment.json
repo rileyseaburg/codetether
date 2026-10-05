@@ -1,0 +1,218 @@
+{
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "annotations": {
+            "argocd.argoproj.io/tracking-id": "codetether-marketing:apps/Deployment:a2a-server/codetether-marketing",
+            "codetether.run/github-pane-normalize-sha": "1793701",
+            "codetether.run/source-context-sha": "42a046ff3d41db876157098db722281bff87e107aee0a81afd5ddd2136da5d67",
+            "codetether.run/source-repo-sha": "f48b2cfdbe3939af2f5e73509f6682cafc4d653a",
+            "codetether.run/source-state": "clean",
+            "deployment.kubernetes.io/revision": "146",
+            "field.cattle.io/publicEndpoints": "[{\"addresses\":[\"192.168.50.82\"],\"port\":443,\"protocol\":\"HTTPS\",\"serviceName\":\"a2a-server:codetether-marketing\",\"ingressName\":\"a2a-server:codetether-marketing\",\"hostname\":\"codetether.run\",\"path\":\"/\",\"allNodes\":false},{\"addresses\":[\"192.168.50.82\"],\"port\":443,\"protocol\":\"HTTPS\",\"serviceName\":\"a2a-server:codetether-marketing\",\"ingressName\":\"a2a-server:quantum-forge-tenant-marketing\",\"hostname\":\"quantum-forge.codetether.run\",\"path\":\"/\",\"allNodes\":false}]",
+            "meta.helm.sh/release-name": "codetether",
+            "meta.helm.sh/release-namespace": "a2a-server"
+        },
+        "creationTimestamp": "2026-02-10T23:43:49Z",
+        "generation": 162,
+        "labels": {
+            "app.kubernetes.io/component": "marketing",
+            "app.kubernetes.io/instance": "codetether",
+            "app.kubernetes.io/managed-by": "Helm",
+            "app.kubernetes.io/name": "marketing",
+            "app.kubernetes.io/part-of": "codetether",
+            "helm.sh/chart": "marketing-0.1.0"
+        },
+        "name": "codetether-marketing",
+        "namespace": "a2a-server",
+        "resourceVersion": "700721737",
+        "uid": "4785559e-fd54-453f-90c2-14e3a2c616fe"
+    },
+    "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 1,
+        "revisionHistoryLimit": 10,
+        "selector": {
+            "matchLabels": {
+                "app.kubernetes.io/component": "marketing",
+                "app.kubernetes.io/instance": "codetether",
+                "app.kubernetes.io/name": "marketing"
+            }
+        },
+        "strategy": {
+            "rollingUpdate": {
+                "maxSurge": "25%",
+                "maxUnavailable": "25%"
+            },
+            "type": "RollingUpdate"
+        },
+        "template": {
+            "metadata": {
+                "annotations": {
+                    "kubectl.kubernetes.io/restartedAt": "2026-05-30T23:44:37Z",
+                    "rollme": "qf-auth-202605270346"
+                },
+                "creationTimestamp": null,
+                "labels": {
+                    "app.kubernetes.io/component": "marketing",
+                    "app.kubernetes.io/instance": "codetether",
+                    "app.kubernetes.io/name": "marketing"
+                }
+            },
+            "spec": {
+                "containers": [
+                    {
+                        "env": [
+                            {
+                                "name": "HOSTNAME",
+                                "value": "0.0.0.0"
+                            },
+                            {
+                                "name": "A2A_API_BACKEND",
+                                "value": "http://codetether-a2a-server.a2a-server.svc.cluster.local:8000"
+                            },
+                            {
+                                "name": "AUTH_TRUST_HOST",
+                                "value": "true"
+                            },
+                            {
+                                "name": "CONTACT_NOTIFICATION_EMAIL",
+                                "value": "riley@spotlessbinco.com"
+                            },
+                            {
+                                "name": "KEYCLOAK_CLIENT_ID",
+                                "value": "a2a-monitor"
+                            },
+                            {
+                                "name": "KEYCLOAK_ISSUER",
+                                "value": "https://auth.quantum-forge.io/realms/quantum-forge"
+                            },
+                            {
+                                "name": "SENDGRID_API_KEY"
+                            },
+                            {
+                                "name": "SENDGRID_FROM_EMAIL",
+                                "value": "noreply@codetether.run"
+                            },
+                            {
+                                "name": "KEYCLOAK_CLIENT_SECRET",
+                                "valueFrom": {
+                                    "secretKeyRef": {
+                                        "key": "KEYCLOAK_CLIENT_SECRET",
+                                        "name": "keycloak-client-secret"
+                                    }
+                                }
+                            },
+                            {
+                                "name": "AUTH_SECRET",
+                                "valueFrom": {
+                                    "secretKeyRef": {
+                                        "key": "AUTH_SECRET",
+                                        "name": "keycloak-client-secret"
+                                    }
+                                }
+                            },
+                            {
+                                "name": "NEXTAUTH_SECRET",
+                                "valueFrom": {
+                                    "secretKeyRef": {
+                                        "key": "AUTH_SECRET",
+                                        "name": "keycloak-client-secret"
+                                    }
+                                }
+                            }
+                        ],
+                        "image": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing:ui-eb2051a212a2",
+                        "imagePullPolicy": "IfNotPresent",
+                        "livenessProbe": {
+                            "failureThreshold": 3,
+                            "httpGet": {
+                                "path": "/",
+                                "port": "http",
+                                "scheme": "HTTP"
+                            },
+                            "initialDelaySeconds": 10,
+                            "periodSeconds": 10,
+                            "successThreshold": 1,
+                            "timeoutSeconds": 1
+                        },
+                        "name": "marketing",
+                        "ports": [
+                            {
+                                "containerPort": 3000,
+                                "name": "http",
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "readinessProbe": {
+                            "failureThreshold": 3,
+                            "httpGet": {
+                                "path": "/",
+                                "port": "http",
+                                "scheme": "HTTP"
+                            },
+                            "initialDelaySeconds": 5,
+                            "periodSeconds": 5,
+                            "successThreshold": 1,
+                            "timeoutSeconds": 1
+                        },
+                        "resources": {
+                            "limits": {
+                                "cpu": "500m",
+                                "memory": "512Mi"
+                            },
+                            "requests": {
+                                "cpu": "100m",
+                                "memory": "256Mi"
+                            }
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File"
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "imagePullSecrets": [
+                    {
+                        "name": "gcp-artifact-registry"
+                    },
+                    {
+                        "name": "registry-credentials"
+                    }
+                ],
+                "nodeName": "k8s-worker-2",
+                "nodeSelector": {
+                    "kubernetes.io/hostname": "k8s-worker-2"
+                },
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {},
+                "terminationGracePeriodSeconds": 30
+            }
+        }
+    },
+    "status": {
+        "availableReplicas": 1,
+        "conditions": [
+            {
+                "lastTransitionTime": "2026-09-28T18:02:25Z",
+                "lastUpdateTime": "2026-09-28T18:02:25Z",
+                "message": "Deployment has minimum availability.",
+                "reason": "MinimumReplicasAvailable",
+                "status": "True",
+                "type": "Available"
+            },
+            {
+                "lastTransitionTime": "2026-09-04T04:44:55Z",
+                "lastUpdateTime": "2026-10-05T02:47:40Z",
+                "message": "ReplicaSet \"codetether-marketing-64c94bd7f4\" has successfully progressed.",
+                "reason": "NewReplicaSetAvailable",
+                "status": "True",
+                "type": "Progressing"
+            }
+        ],
+        "observedGeneration": 162,
+        "readyReplicas": 1,
+        "replicas": 1,
+        "updatedReplicas": 1
+    }
+}

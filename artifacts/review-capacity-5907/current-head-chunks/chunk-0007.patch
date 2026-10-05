@@ -1,0 +1,3932 @@
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub journey_session_key: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub crm_lead_id: Option<i64>,
+ }
+ 
+ /// Values accepted when partially updating a `video_events` row.
+@@ -58485,11 +72462,11 @@ pub struct PatchVideoEvents {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub ttclid: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub crm_lead_id: Option<Option<i64>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub journey_person_key: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub journey_session_key: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub crm_lead_id: Option<Option<i64>>,
+ }
+ 
+ /// A row from the `video_heatmaps` table.
+@@ -58642,7 +72619,6 @@ pub struct VideoProcessingJobs {
+     pub started_at: Option<chrono::DateTime<chrono::Utc>>,
+     pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
+     pub updated_at: chrono::DateTime<chrono::Utc>,
+-    pub brand_strategy_id: Option<i64>,
+ }
+ 
+ /// Values accepted when creating a `video_processing_jobs` row.
+@@ -58696,8 +72672,6 @@ pub struct NewVideoProcessingJobs {
+     pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub brand_strategy_id: Option<i64>,
+ }
+ 
+ /// Values accepted when partially updating a `video_processing_jobs` row.
+@@ -58753,8 +72727,6 @@ pub struct PatchVideoProcessingJobs {
+     pub completed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub brand_strategy_id: Option<Option<i64>>,
+ }
+ 
+ /// A row from the `video_sequences` table.
+@@ -59382,8 +73354,6 @@ pub struct VisitorSessions {
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+     pub tracker_session_id: Option<String>,
+-    pub journey_person_key: Option<String>,
+-    pub journey_session_key: Option<String>,
+     pub crm_lead_id: Option<i64>,
+     pub crm_contact_id: Option<i64>,
+     pub customer_id: Option<i32>,
+@@ -59392,6 +73362,8 @@ pub struct VisitorSessions {
+     pub checkout_session_id: Option<String>,
+     pub stripe_payment_intent_id: Option<String>,
+     pub funnel_session_token: Option<String>,
++    pub journey_person_key: Option<String>,
++    pub journey_session_key: Option<String>,
+ }
+ 
+ /// Values accepted when creating a `visitor_sessions` row.
+@@ -59414,10 +73386,6 @@ pub struct NewVisitorSessions {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub tracker_session_id: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub journey_person_key: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub journey_session_key: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub crm_lead_id: Option<i64>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub crm_contact_id: Option<i64>,
+@@ -59433,6 +73401,10 @@ pub struct NewVisitorSessions {
+     pub stripe_payment_intent_id: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub funnel_session_token: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_person_key: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_session_key: Option<String>,
+ }
+ 
+ /// Values accepted when partially updating a `visitor_sessions` row.
+@@ -59457,10 +73429,6 @@ pub struct PatchVisitorSessions {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub tracker_session_id: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub journey_person_key: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub journey_session_key: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub crm_lead_id: Option<Option<i64>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub crm_contact_id: Option<Option<i64>>,
+@@ -59476,6 +73444,10 @@ pub struct PatchVisitorSessions {
+     pub stripe_payment_intent_id: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub funnel_session_token: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_person_key: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_session_key: Option<Option<String>>,
+ }
+ 
+ /// A row from the `voice_agent_calls` table.
+@@ -59573,9 +73545,9 @@ pub struct WeatherEvents {
+     pub location: String,
+     pub event_type: String,
+     pub event_date: chrono::NaiveDate,
+-    pub severity: String,
++    pub severity: Option<String>,
+     pub metadata: Option<serde_json::Value>,
+-    pub triggered_campaigns: serde_json::Value,
++    pub triggered_campaigns: Option<serde_json::Value>,
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+@@ -59587,11 +73559,11 @@ pub struct NewWeatherEvents {
+     pub event_type: String,
+     pub event_date: chrono::NaiveDate,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub severity: Option<String>,
++    pub severity: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub metadata: Option<Option<serde_json::Value>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub triggered_campaigns: Option<serde_json::Value>,
++    pub triggered_campaigns: Option<Option<serde_json::Value>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+@@ -59606,11 +73578,11 @@ pub struct PatchWeatherEvents {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub event_date: Option<chrono::NaiveDate>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub severity: Option<String>,
++    pub severity: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub metadata: Option<Option<serde_json::Value>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub triggered_campaigns: Option<serde_json::Value>,
++    pub triggered_campaigns: Option<Option<serde_json::Value>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+@@ -59621,11 +73593,11 @@ pub struct WeatherForecasts {
+     pub id: i32,
+     pub location: String,
+     pub forecast_date: chrono::NaiveDate,
+-    pub temp_high_f: Option<f64>,
+-    pub temp_low_f: Option<f64>,
+-    pub precipitation_chance: Option<f64>,
+-    pub humidity_avg: Option<f64>,
+-    pub wind_speed_avg_mph: Option<f64>,
++    pub temp_high_f: Option<sqlx::types::Decimal>,
++    pub temp_low_f: Option<sqlx::types::Decimal>,
++    pub precipitation_chance: Option<sqlx::types::Decimal>,
++    pub humidity_avg: Option<sqlx::types::Decimal>,
++    pub wind_speed_avg_mph: Option<sqlx::types::Decimal>,
+     pub conditions: Option<String>,
+     pub source: Option<String>,
+     pub fetched_at: Option<chrono::DateTime<chrono::Utc>>,
+@@ -59639,15 +73611,15 @@ pub struct NewWeatherForecasts {
+     pub location: Option<String>,
+     pub forecast_date: chrono::NaiveDate,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub temp_high_f: Option<f64>,
++    pub temp_high_f: Option<sqlx::types::Decimal>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub temp_low_f: Option<f64>,
++    pub temp_low_f: Option<sqlx::types::Decimal>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub precipitation_chance: Option<f64>,
++    pub precipitation_chance: Option<sqlx::types::Decimal>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub humidity_avg: Option<f64>,
++    pub humidity_avg: Option<sqlx::types::Decimal>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub wind_speed_avg_mph: Option<f64>,
++    pub wind_speed_avg_mph: Option<sqlx::types::Decimal>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub conditions: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -59666,15 +73638,15 @@ pub struct PatchWeatherForecasts {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub forecast_date: Option<chrono::NaiveDate>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub temp_high_f: Option<Option<f64>>,
++    pub temp_high_f: Option<Option<sqlx::types::Decimal>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub temp_low_f: Option<Option<f64>>,
++    pub temp_low_f: Option<Option<sqlx::types::Decimal>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub precipitation_chance: Option<Option<f64>>,
++    pub precipitation_chance: Option<Option<sqlx::types::Decimal>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub humidity_avg: Option<Option<f64>>,
++    pub humidity_avg: Option<Option<sqlx::types::Decimal>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub wind_speed_avg_mph: Option<Option<f64>>,
++    pub wind_speed_avg_mph: Option<Option<sqlx::types::Decimal>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub conditions: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -59691,9 +73663,9 @@ pub struct WeatherTriggerLog {
+     pub id: i32,
+     pub trigger_id: Option<i32>,
+     pub event_id: Option<i32>,
+-    pub customers_notified: i32,
+-    pub messages_sent: i32,
+-    pub messages_failed: i32,
++    pub customers_notified: Option<i32>,
++    pub messages_sent: Option<i32>,
++    pub messages_failed: Option<i32>,
+     pub executed_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+@@ -59705,11 +73677,11 @@ pub struct NewWeatherTriggerLog {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub event_id: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub customers_notified: Option<i32>,
++    pub customers_notified: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub messages_sent: Option<i32>,
++    pub messages_sent: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub messages_failed: Option<i32>,
++    pub messages_failed: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub executed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+@@ -59722,11 +73694,11 @@ pub struct PatchWeatherTriggerLog {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub event_id: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub customers_notified: Option<i32>,
++    pub customers_notified: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub messages_sent: Option<i32>,
++    pub messages_sent: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub messages_failed: Option<i32>,
++    pub messages_failed: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub executed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+@@ -59738,10 +73710,10 @@ pub struct WeatherTriggers {
+     pub trigger_type: String,
+     pub conditions: serde_json::Value,
+     pub message_template: String,
+-    pub channel: String,
++    pub channel: Option<String>,
+     pub campaign_slug: Option<String>,
+-    pub is_active: bool,
+-    pub cooldown_hours: i32,
++    pub is_active: Option<bool>,
++    pub cooldown_hours: Option<i32>,
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+@@ -59753,13 +73725,13 @@ pub struct NewWeatherTriggers {
+     pub conditions: serde_json::Value,
+     pub message_template: String,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub channel: Option<String>,
++    pub channel: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub campaign_slug: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub is_active: Option<bool>,
++    pub is_active: Option<Option<bool>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub cooldown_hours: Option<i32>,
++    pub cooldown_hours: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -59776,13 +73748,13 @@ pub struct PatchWeatherTriggers {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub message_template: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub channel: Option<String>,
++    pub channel: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub campaign_slug: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub is_active: Option<bool>,
++    pub is_active: Option<Option<bool>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub cooldown_hours: Option<i32>,
++    pub cooldown_hours: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -60539,10 +74511,10 @@ pub struct WorkflowEmailTemplates {
+     pub preview_text: Option<String>,
+     pub html_content: String,
+     pub text_content: Option<String>,
+-    pub template_type: String,
+-    pub variables: serde_json::Value,
++    pub template_type: Option<String>,
++    pub variables: Option<serde_json::Value>,
+     pub thumbnail_url: Option<String>,
+-    pub status: String,
++    pub status: Option<String>,
+     pub created_by: Option<i32>,
+     pub created_at: chrono::DateTime<chrono::Utc>,
+     pub updated_at: chrono::DateTime<chrono::Utc>,
+@@ -60562,13 +74534,13 @@ pub struct NewWorkflowEmailTemplates {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub text_content: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub template_type: Option<String>,
++    pub template_type: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub variables: Option<serde_json::Value>,
++    pub variables: Option<Option<serde_json::Value>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub thumbnail_url: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub status: Option<String>,
++    pub status: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_by: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -60593,13 +74565,13 @@ pub struct PatchWorkflowEmailTemplates {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub text_content: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub template_type: Option<String>,
++    pub template_type: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub variables: Option<serde_json::Value>,
++    pub variables: Option<Option<serde_json::Value>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub thumbnail_url: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub status: Option<String>,
++    pub status: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_by: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+diff --git a/src/db/procedures.rs b/src/db/procedures.rs
+index 1eee714880..da66288533 100644
+--- a/src/db/procedures.rs
++++ b/src/db/procedures.rs
+@@ -55,42 +55,6 @@ Self::Database(error)
+ }
+ }
+ 
+-/// `GET /api/_rustyroad_history`
+-async fn list_rustyroad_history(pool: web::Data<PgPool>) -> Result<web::Json<Vec<RustyroadHistory>>, ApiError> {
+-Ok(web::Json(repositories::list_rustyroad_history(pool.get_ref()).await?))
+-}
+-
+-/// `GET /api/_rustyroad_history/{id}`
+-async fn get_rustyroad_history(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<web::Json<RustyroadHistory>, ApiError> {
+-repositories::find_rustyroad_history(pool.get_ref(), id.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("RustyroadHistory"))
+-}
+-
+-/// `POST /api/_rustyroad_history`
+-async fn create_rustyroad_history(pool: web::Data<PgPool>, input: web::Json<NewRustyroadHistory>) -> Result<(web::Json<RustyroadHistory>, StatusCode), ApiError> {
+-let row = repositories::create_rustyroad_history(pool.get_ref(), input.into_inner()).await?;
+-Ok((web::Json(row), StatusCode::CREATED))
+-}
+-
+-/// `PATCH /api/_rustyroad_history/{id}`
+-async fn update_rustyroad_history(pool: web::Data<PgPool>, id: web::Path<String>, input: web::Json<PatchRustyroadHistory>) -> Result<web::Json<RustyroadHistory>, ApiError> {
+-repositories::update_rustyroad_history(pool.get_ref(), id.into_inner(), input.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("RustyroadHistory"))
+-}
+-
+-/// `DELETE /api/_rustyroad_history/{id}`
+-async fn delete_rustyroad_history(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<HttpResponse, ApiError> {
+-if repositories::delete_rustyroad_history(pool.get_ref(), id.into_inner()).await? {
+-Ok(HttpResponse::NoContent().finish())
+-} else {
+-Err(ApiError::NotFound("RustyroadHistory"))
+-}
+-}
+-
+ /// `GET /api/_rustyroad_migrations`
+ async fn list_rustyroad_migrations(pool: web::Data<PgPool>) -> Result<web::Json<Vec<RustyroadMigrations>>, ApiError> {
+ Ok(web::Json(repositories::list_rustyroad_migrations(pool.get_ref()).await?))
+@@ -127,6 +91,78 @@ Err(ApiError::NotFound("RustyroadMigrations"))
+ }
+ }
+ 
++/// `GET /api/ab_campaign_actions`
++async fn list_ab_campaign_actions(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AbCampaignActions>>, ApiError> {
++Ok(web::Json(repositories::list_ab_campaign_actions(pool.get_ref()).await?))
++}
++
++/// `GET /api/ab_campaign_actions/{id}`
++async fn get_ab_campaign_actions(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<web::Json<AbCampaignActions>, ApiError> {
++repositories::find_ab_campaign_actions(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AbCampaignActions"))
++}
++
++/// `POST /api/ab_campaign_actions`
++async fn create_ab_campaign_actions(pool: web::Data<PgPool>, input: web::Json<NewAbCampaignActions>) -> Result<(web::Json<AbCampaignActions>, StatusCode), ApiError> {
++let row = repositories::create_ab_campaign_actions(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ab_campaign_actions/{id}`
++async fn update_ab_campaign_actions(pool: web::Data<PgPool>, id: web::Path<String>, input: web::Json<PatchAbCampaignActions>) -> Result<web::Json<AbCampaignActions>, ApiError> {
++repositories::update_ab_campaign_actions(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AbCampaignActions"))
++}
++
++/// `DELETE /api/ab_campaign_actions/{id}`
++async fn delete_ab_campaign_actions(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ab_campaign_actions(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AbCampaignActions"))
++}
++}
++
++/// `GET /api/ab_campaign_links`
++async fn list_ab_campaign_links(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AbCampaignLinks>>, ApiError> {
++Ok(web::Json(repositories::list_ab_campaign_links(pool.get_ref()).await?))
++}
++
++/// `GET /api/ab_campaign_links/{id}`
++async fn get_ab_campaign_links(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AbCampaignLinks>, ApiError> {
++repositories::find_ab_campaign_links(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AbCampaignLinks"))
++}
++
++/// `POST /api/ab_campaign_links`
++async fn create_ab_campaign_links(pool: web::Data<PgPool>, input: web::Json<NewAbCampaignLinks>) -> Result<(web::Json<AbCampaignLinks>, StatusCode), ApiError> {
++let row = repositories::create_ab_campaign_links(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ab_campaign_links/{id}`
++async fn update_ab_campaign_links(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAbCampaignLinks>) -> Result<web::Json<AbCampaignLinks>, ApiError> {
++repositories::update_ab_campaign_links(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AbCampaignLinks"))
++}
++
++/// `DELETE /api/ab_campaign_links/{id}`
++async fn delete_ab_campaign_links(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ab_campaign_links(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AbCampaignLinks"))
++}
++}
++
+ /// `GET /api/ab_events`
+ async fn list_ab_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AbEvents>>, ApiError> {
+ Ok(web::Json(repositories::list_ab_events(pool.get_ref()).await?))
+@@ -595,6 +631,186 @@ Err(ApiError::NotFound("AbandonedCartDripLog"))
+ }
+ }
+ 
++/// `GET /api/acquisition_events`
++async fn list_acquisition_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AcquisitionEvents>>, ApiError> {
++Ok(web::Json(repositories::list_acquisition_events(pool.get_ref()).await?))
++}
++
++/// `GET /api/acquisition_events/{id}`
++async fn get_acquisition_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AcquisitionEvents>, ApiError> {
++repositories::find_acquisition_events(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AcquisitionEvents"))
++}
++
++/// `POST /api/acquisition_events`
++async fn create_acquisition_events(pool: web::Data<PgPool>, input: web::Json<NewAcquisitionEvents>) -> Result<(web::Json<AcquisitionEvents>, StatusCode), ApiError> {
++let row = repositories::create_acquisition_events(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/acquisition_events/{id}`
++async fn update_acquisition_events(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAcquisitionEvents>) -> Result<web::Json<AcquisitionEvents>, ApiError> {
++repositories::update_acquisition_events(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AcquisitionEvents"))
++}
++
++/// `DELETE /api/acquisition_events/{id}`
++async fn delete_acquisition_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_acquisition_events(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AcquisitionEvents"))
++}
++}
++
++/// `GET /api/acquisition_flows`
++async fn list_acquisition_flows(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AcquisitionFlows>>, ApiError> {
++Ok(web::Json(repositories::list_acquisition_flows(pool.get_ref()).await?))
++}
++
++/// `GET /api/acquisition_flows/{id}`
++async fn get_acquisition_flows(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AcquisitionFlows>, ApiError> {
++repositories::find_acquisition_flows(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AcquisitionFlows"))
++}
++
++/// `POST /api/acquisition_flows`
++async fn create_acquisition_flows(pool: web::Data<PgPool>, input: web::Json<NewAcquisitionFlows>) -> Result<(web::Json<AcquisitionFlows>, StatusCode), ApiError> {
++let row = repositories::create_acquisition_flows(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/acquisition_flows/{id}`
++async fn update_acquisition_flows(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAcquisitionFlows>) -> Result<web::Json<AcquisitionFlows>, ApiError> {
++repositories::update_acquisition_flows(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AcquisitionFlows"))
++}
++
++/// `DELETE /api/acquisition_flows/{id}`
++async fn delete_acquisition_flows(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_acquisition_flows(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AcquisitionFlows"))
++}
++}
++
++/// `GET /api/acquisition_journeys`
++async fn list_acquisition_journeys(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AcquisitionJourneys>>, ApiError> {
++Ok(web::Json(repositories::list_acquisition_journeys(pool.get_ref()).await?))
++}
++
++/// `GET /api/acquisition_journeys/{id}`
++async fn get_acquisition_journeys(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AcquisitionJourneys>, ApiError> {
++repositories::find_acquisition_journeys(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AcquisitionJourneys"))
++}
++
++/// `POST /api/acquisition_journeys`
++async fn create_acquisition_journeys(pool: web::Data<PgPool>, input: web::Json<NewAcquisitionJourneys>) -> Result<(web::Json<AcquisitionJourneys>, StatusCode), ApiError> {
++let row = repositories::create_acquisition_journeys(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/acquisition_journeys/{id}`
++async fn update_acquisition_journeys(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAcquisitionJourneys>) -> Result<web::Json<AcquisitionJourneys>, ApiError> {
++repositories::update_acquisition_journeys(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AcquisitionJourneys"))
++}
++
++/// `DELETE /api/acquisition_journeys/{id}`
++async fn delete_acquisition_journeys(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_acquisition_journeys(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AcquisitionJourneys"))
++}
++}
++
++/// `GET /api/acquisition_states`
++async fn list_acquisition_states(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AcquisitionStates>>, ApiError> {
++Ok(web::Json(repositories::list_acquisition_states(pool.get_ref()).await?))
++}
++
++/// `GET /api/acquisition_states/{id}`
++async fn get_acquisition_states(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AcquisitionStates>, ApiError> {
++repositories::find_acquisition_states(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AcquisitionStates"))
++}
++
++/// `POST /api/acquisition_states`
++async fn create_acquisition_states(pool: web::Data<PgPool>, input: web::Json<NewAcquisitionStates>) -> Result<(web::Json<AcquisitionStates>, StatusCode), ApiError> {
++let row = repositories::create_acquisition_states(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/acquisition_states/{id}`
++async fn update_acquisition_states(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAcquisitionStates>) -> Result<web::Json<AcquisitionStates>, ApiError> {
++repositories::update_acquisition_states(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AcquisitionStates"))
++}
++
++/// `DELETE /api/acquisition_states/{id}`
++async fn delete_acquisition_states(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_acquisition_states(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AcquisitionStates"))
++}
++}
++
++/// `GET /api/acquisition_transition_rules`
++async fn list_acquisition_transition_rules(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AcquisitionTransitionRules>>, ApiError> {
++Ok(web::Json(repositories::list_acquisition_transition_rules(pool.get_ref()).await?))
++}
++
++/// `GET /api/acquisition_transition_rules/{id}`
++async fn get_acquisition_transition_rules(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AcquisitionTransitionRules>, ApiError> {
++repositories::find_acquisition_transition_rules(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AcquisitionTransitionRules"))
++}
++
++/// `POST /api/acquisition_transition_rules`
++async fn create_acquisition_transition_rules(pool: web::Data<PgPool>, input: web::Json<NewAcquisitionTransitionRules>) -> Result<(web::Json<AcquisitionTransitionRules>, StatusCode), ApiError> {
++let row = repositories::create_acquisition_transition_rules(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/acquisition_transition_rules/{id}`
++async fn update_acquisition_transition_rules(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAcquisitionTransitionRules>) -> Result<web::Json<AcquisitionTransitionRules>, ApiError> {
++repositories::update_acquisition_transition_rules(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AcquisitionTransitionRules"))
++}
++
++/// `DELETE /api/acquisition_transition_rules/{id}`
++async fn delete_acquisition_transition_rules(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_acquisition_transition_rules(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AcquisitionTransitionRules"))
++}
++}
++
+ /// `GET /api/action_triggers`
+ async fn list_action_triggers(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ActionTriggers>>, ApiError> {
+ Ok(web::Json(repositories::list_action_triggers(pool.get_ref()).await?))
+@@ -703,6 +919,150 @@ Err(ApiError::NotFound("AdCampaignFunnels"))
+ }
+ }
+ 
++/// `GET /api/ad_click_sessions`
++async fn list_ad_click_sessions(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdClickSessions>>, ApiError> {
++Ok(web::Json(repositories::list_ad_click_sessions(pool.get_ref()).await?))
++}
++
++/// `GET /api/ad_click_sessions/{id}`
++async fn get_ad_click_sessions(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AdClickSessions>, ApiError> {
++repositories::find_ad_click_sessions(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdClickSessions"))
++}
++
++/// `POST /api/ad_click_sessions`
++async fn create_ad_click_sessions(pool: web::Data<PgPool>, input: web::Json<NewAdClickSessions>) -> Result<(web::Json<AdClickSessions>, StatusCode), ApiError> {
++let row = repositories::create_ad_click_sessions(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ad_click_sessions/{id}`
++async fn update_ad_click_sessions(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAdClickSessions>) -> Result<web::Json<AdClickSessions>, ApiError> {
++repositories::update_ad_click_sessions(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdClickSessions"))
++}
++
++/// `DELETE /api/ad_click_sessions/{id}`
++async fn delete_ad_click_sessions(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ad_click_sessions(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AdClickSessions"))
++}
++}
++
++/// `GET /api/ad_conversion_events`
++async fn list_ad_conversion_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdConversionEvents>>, ApiError> {
++Ok(web::Json(repositories::list_ad_conversion_events(pool.get_ref()).await?))
++}
++
++/// `GET /api/ad_conversion_events/{id}`
++async fn get_ad_conversion_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AdConversionEvents>, ApiError> {
++repositories::find_ad_conversion_events(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdConversionEvents"))
++}
++
++/// `POST /api/ad_conversion_events`
++async fn create_ad_conversion_events(pool: web::Data<PgPool>, input: web::Json<NewAdConversionEvents>) -> Result<(web::Json<AdConversionEvents>, StatusCode), ApiError> {
++let row = repositories::create_ad_conversion_events(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ad_conversion_events/{id}`
++async fn update_ad_conversion_events(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAdConversionEvents>) -> Result<web::Json<AdConversionEvents>, ApiError> {
++repositories::update_ad_conversion_events(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdConversionEvents"))
++}
++
++/// `DELETE /api/ad_conversion_events/{id}`
++async fn delete_ad_conversion_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ad_conversion_events(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AdConversionEvents"))
++}
++}
++
++/// `GET /api/ad_creative_offer_mappings`
++async fn list_ad_creative_offer_mappings(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdCreativeOfferMappings>>, ApiError> {
++Ok(web::Json(repositories::list_ad_creative_offer_mappings(pool.get_ref()).await?))
++}
++
++/// `GET /api/ad_creative_offer_mappings/{id}`
++async fn get_ad_creative_offer_mappings(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<AdCreativeOfferMappings>, ApiError> {
++repositories::find_ad_creative_offer_mappings(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdCreativeOfferMappings"))
++}
++
++/// `POST /api/ad_creative_offer_mappings`
++async fn create_ad_creative_offer_mappings(pool: web::Data<PgPool>, input: web::Json<NewAdCreativeOfferMappings>) -> Result<(web::Json<AdCreativeOfferMappings>, StatusCode), ApiError> {
++let row = repositories::create_ad_creative_offer_mappings(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ad_creative_offer_mappings/{id}`
++async fn update_ad_creative_offer_mappings(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAdCreativeOfferMappings>) -> Result<web::Json<AdCreativeOfferMappings>, ApiError> {
++repositories::update_ad_creative_offer_mappings(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdCreativeOfferMappings"))
++}
++
++/// `DELETE /api/ad_creative_offer_mappings/{id}`
++async fn delete_ad_creative_offer_mappings(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ad_creative_offer_mappings(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AdCreativeOfferMappings"))
++}
++}
++
++/// `GET /api/ad_creative_variant_mappings`
++async fn list_ad_creative_variant_mappings(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdCreativeVariantMappings>>, ApiError> {
++Ok(web::Json(repositories::list_ad_creative_variant_mappings(pool.get_ref()).await?))
++}
++
++/// `GET /api/ad_creative_variant_mappings/{id}`
++async fn get_ad_creative_variant_mappings(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<AdCreativeVariantMappings>, ApiError> {
++repositories::find_ad_creative_variant_mappings(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdCreativeVariantMappings"))
++}
++
++/// `POST /api/ad_creative_variant_mappings`
++async fn create_ad_creative_variant_mappings(pool: web::Data<PgPool>, input: web::Json<NewAdCreativeVariantMappings>) -> Result<(web::Json<AdCreativeVariantMappings>, StatusCode), ApiError> {
++let row = repositories::create_ad_creative_variant_mappings(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ad_creative_variant_mappings/{id}`
++async fn update_ad_creative_variant_mappings(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAdCreativeVariantMappings>) -> Result<web::Json<AdCreativeVariantMappings>, ApiError> {
++repositories::update_ad_creative_variant_mappings(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdCreativeVariantMappings"))
++}
++
++/// `DELETE /api/ad_creative_variant_mappings/{id}`
++async fn delete_ad_creative_variant_mappings(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ad_creative_variant_mappings(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AdCreativeVariantMappings"))
++}
++}
++
+ /// `GET /api/ad_creatives`
+ async fn list_ad_creatives(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdCreatives>>, ApiError> {
+ Ok(web::Json(repositories::list_ad_creatives(pool.get_ref()).await?))
+@@ -775,6 +1135,78 @@ Err(ApiError::NotFound("AdPerformance"))
+ }
+ }
+ 
++/// `GET /api/ad_placement_asset_requirements`
++async fn list_ad_placement_asset_requirements(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdPlacementAssetRequirements>>, ApiError> {
++Ok(web::Json(repositories::list_ad_placement_asset_requirements(pool.get_ref()).await?))
++}
++
++/// `GET /api/ad_placement_asset_requirements/{id}`
++async fn get_ad_placement_asset_requirements(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AdPlacementAssetRequirements>, ApiError> {
++repositories::find_ad_placement_asset_requirements(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdPlacementAssetRequirements"))
++}
++
++/// `POST /api/ad_placement_asset_requirements`
++async fn create_ad_placement_asset_requirements(pool: web::Data<PgPool>, input: web::Json<NewAdPlacementAssetRequirements>) -> Result<(web::Json<AdPlacementAssetRequirements>, StatusCode), ApiError> {
++let row = repositories::create_ad_placement_asset_requirements(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ad_placement_asset_requirements/{id}`
++async fn update_ad_placement_asset_requirements(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAdPlacementAssetRequirements>) -> Result<web::Json<AdPlacementAssetRequirements>, ApiError> {
++repositories::update_ad_placement_asset_requirements(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdPlacementAssetRequirements"))
++}
++
++/// `DELETE /api/ad_placement_asset_requirements/{id}`
++async fn delete_ad_placement_asset_requirements(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ad_placement_asset_requirements(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AdPlacementAssetRequirements"))
++}
++}
++
++/// `GET /api/ad_placement_format_rules`
++async fn list_ad_placement_format_rules(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdPlacementFormatRules>>, ApiError> {
++Ok(web::Json(repositories::list_ad_placement_format_rules(pool.get_ref()).await?))
++}
++
++/// `GET /api/ad_placement_format_rules/{id}`
++async fn get_ad_placement_format_rules(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AdPlacementFormatRules>, ApiError> {
++repositories::find_ad_placement_format_rules(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdPlacementFormatRules"))
++}
++
++/// `POST /api/ad_placement_format_rules`
++async fn create_ad_placement_format_rules(pool: web::Data<PgPool>, input: web::Json<NewAdPlacementFormatRules>) -> Result<(web::Json<AdPlacementFormatRules>, StatusCode), ApiError> {
++let row = repositories::create_ad_placement_format_rules(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ad_placement_format_rules/{id}`
++async fn update_ad_placement_format_rules(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAdPlacementFormatRules>) -> Result<web::Json<AdPlacementFormatRules>, ApiError> {
++repositories::update_ad_placement_format_rules(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdPlacementFormatRules"))
++}
++
++/// `DELETE /api/ad_placement_format_rules/{id}`
++async fn delete_ad_placement_format_rules(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ad_placement_format_rules(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AdPlacementFormatRules"))
++}
++}
++
+ /// `GET /api/ad_platform_conversions`
+ async fn list_ad_platform_conversions(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdPlatformConversions>>, ApiError> {
+ Ok(web::Json(repositories::list_ad_platform_conversions(pool.get_ref()).await?))
+@@ -811,6 +1243,42 @@ Err(ApiError::NotFound("AdPlatformConversions"))
+ }
+ }
+ 
++/// `GET /api/ad_platform_lead_qualification_links`
++async fn list_ad_platform_lead_qualification_links(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdPlatformLeadQualificationLinks>>, ApiError> {
++Ok(web::Json(repositories::list_ad_platform_lead_qualification_links(pool.get_ref()).await?))
++}
++
++/// `GET /api/ad_platform_lead_qualification_links/{id}`
++async fn get_ad_platform_lead_qualification_links(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AdPlatformLeadQualificationLinks>, ApiError> {
++repositories::find_ad_platform_lead_qualification_links(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdPlatformLeadQualificationLinks"))
++}
++
++/// `POST /api/ad_platform_lead_qualification_links`
++async fn create_ad_platform_lead_qualification_links(pool: web::Data<PgPool>, input: web::Json<NewAdPlatformLeadQualificationLinks>) -> Result<(web::Json<AdPlatformLeadQualificationLinks>, StatusCode), ApiError> {
++let row = repositories::create_ad_platform_lead_qualification_links(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ad_platform_lead_qualification_links/{id}`
++async fn update_ad_platform_lead_qualification_links(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAdPlatformLeadQualificationLinks>) -> Result<web::Json<AdPlatformLeadQualificationLinks>, ApiError> {
++repositories::update_ad_platform_lead_qualification_links(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdPlatformLeadQualificationLinks"))
++}
++
++/// `DELETE /api/ad_platform_lead_qualification_links/{id}`
++async fn delete_ad_platform_lead_qualification_links(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ad_platform_lead_qualification_links(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AdPlatformLeadQualificationLinks"))
++}
++}
++
+ /// `GET /api/ad_platform_lead_sms_qualifications`
+ async fn list_ad_platform_lead_sms_qualifications(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdPlatformLeadSmsQualifications>>, ApiError> {
+ Ok(web::Json(repositories::list_ad_platform_lead_sms_qualifications(pool.get_ref()).await?))
+@@ -883,6 +1351,42 @@ Err(ApiError::NotFound("AdPlatformLeads"))
+ }
+ }
+ 
++/// `GET /api/ad_platform_pixels`
++async fn list_ad_platform_pixels(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdPlatformPixels>>, ApiError> {
++Ok(web::Json(repositories::list_ad_platform_pixels(pool.get_ref()).await?))
++}
++
++/// `GET /api/ad_platform_pixels/{id}`
++async fn get_ad_platform_pixels(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<AdPlatformPixels>, ApiError> {
++repositories::find_ad_platform_pixels(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdPlatformPixels"))
++}
++
++/// `POST /api/ad_platform_pixels`
++async fn create_ad_platform_pixels(pool: web::Data<PgPool>, input: web::Json<NewAdPlatformPixels>) -> Result<(web::Json<AdPlatformPixels>, StatusCode), ApiError> {
++let row = repositories::create_ad_platform_pixels(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ad_platform_pixels/{id}`
++async fn update_ad_platform_pixels(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAdPlatformPixels>) -> Result<web::Json<AdPlatformPixels>, ApiError> {
++repositories::update_ad_platform_pixels(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdPlatformPixels"))
++}
++
++/// `DELETE /api/ad_platform_pixels/{id}`
++async fn delete_ad_platform_pixels(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ad_platform_pixels(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AdPlatformPixels"))
++}
++}
++
+ /// `GET /api/ad_rotation_config`
+ async fn list_ad_rotation_config(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdRotationConfig>>, ApiError> {
+ Ok(web::Json(repositories::list_ad_rotation_config(pool.get_ref()).await?))
+@@ -991,6 +1495,114 @@ Err(ApiError::NotFound("AdSetAds"))
+ }
+ }
+ 
++/// `GET /api/ad_source_landing_mappings`
++async fn list_ad_source_landing_mappings(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdSourceLandingMappings>>, ApiError> {
++Ok(web::Json(repositories::list_ad_source_landing_mappings(pool.get_ref()).await?))
++}
++
++/// `GET /api/ad_source_landing_mappings/{id}`
++async fn get_ad_source_landing_mappings(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<AdSourceLandingMappings>, ApiError> {
++repositories::find_ad_source_landing_mappings(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdSourceLandingMappings"))
++}
++
++/// `POST /api/ad_source_landing_mappings`
++async fn create_ad_source_landing_mappings(pool: web::Data<PgPool>, input: web::Json<NewAdSourceLandingMappings>) -> Result<(web::Json<AdSourceLandingMappings>, StatusCode), ApiError> {
++let row = repositories::create_ad_source_landing_mappings(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ad_source_landing_mappings/{id}`
++async fn update_ad_source_landing_mappings(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAdSourceLandingMappings>) -> Result<web::Json<AdSourceLandingMappings>, ApiError> {
++repositories::update_ad_source_landing_mappings(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdSourceLandingMappings"))
++}
++
++/// `DELETE /api/ad_source_landing_mappings/{id}`
++async fn delete_ad_source_landing_mappings(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ad_source_landing_mappings(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AdSourceLandingMappings"))
++}
++}
++
++/// `GET /api/ad_tripwire_automation_log`
++async fn list_ad_tripwire_automation_log(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdTripwireAutomationLog>>, ApiError> {
++Ok(web::Json(repositories::list_ad_tripwire_automation_log(pool.get_ref()).await?))
++}
++
++/// `GET /api/ad_tripwire_automation_log/{id}`
++async fn get_ad_tripwire_automation_log(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AdTripwireAutomationLog>, ApiError> {
++repositories::find_ad_tripwire_automation_log(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdTripwireAutomationLog"))
++}
++
++/// `POST /api/ad_tripwire_automation_log`
++async fn create_ad_tripwire_automation_log(pool: web::Data<PgPool>, input: web::Json<NewAdTripwireAutomationLog>) -> Result<(web::Json<AdTripwireAutomationLog>, StatusCode), ApiError> {
++let row = repositories::create_ad_tripwire_automation_log(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ad_tripwire_automation_log/{id}`
++async fn update_ad_tripwire_automation_log(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAdTripwireAutomationLog>) -> Result<web::Json<AdTripwireAutomationLog>, ApiError> {
++repositories::update_ad_tripwire_automation_log(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdTripwireAutomationLog"))
++}
++
++/// `DELETE /api/ad_tripwire_automation_log/{id}`
++async fn delete_ad_tripwire_automation_log(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ad_tripwire_automation_log(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AdTripwireAutomationLog"))
++}
++}
++
++/// `GET /api/ad_tripwire_config`
++async fn list_ad_tripwire_config(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AdTripwireConfig>>, ApiError> {
++Ok(web::Json(repositories::list_ad_tripwire_config(pool.get_ref()).await?))
++}
++
++/// `GET /api/ad_tripwire_config/{id}`
++async fn get_ad_tripwire_config(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<AdTripwireConfig>, ApiError> {
++repositories::find_ad_tripwire_config(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdTripwireConfig"))
++}
++
++/// `POST /api/ad_tripwire_config`
++async fn create_ad_tripwire_config(pool: web::Data<PgPool>, input: web::Json<NewAdTripwireConfig>) -> Result<(web::Json<AdTripwireConfig>, StatusCode), ApiError> {
++let row = repositories::create_ad_tripwire_config(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ad_tripwire_config/{id}`
++async fn update_ad_tripwire_config(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAdTripwireConfig>) -> Result<web::Json<AdTripwireConfig>, ApiError> {
++repositories::update_ad_tripwire_config(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AdTripwireConfig"))
++}
++
++/// `DELETE /api/ad_tripwire_config/{id}`
++async fn delete_ad_tripwire_config(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ad_tripwire_config(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AdTripwireConfig"))
++}
++}
++
+ /// `GET /api/address_parcels`
+ async fn list_address_parcels(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AddressParcels>>, ApiError> {
+ Ok(web::Json(repositories::list_address_parcels(pool.get_ref()).await?))
+@@ -1603,6 +2215,114 @@ Err(ApiError::NotFound("Alerts"))
+ }
+ }
+ 
++/// `GET /api/ambassador_activities`
++async fn list_ambassador_activities(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AmbassadorActivities>>, ApiError> {
++Ok(web::Json(repositories::list_ambassador_activities(pool.get_ref()).await?))
++}
++
++/// `GET /api/ambassador_activities/{id}`
++async fn get_ambassador_activities(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<AmbassadorActivities>, ApiError> {
++repositories::find_ambassador_activities(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AmbassadorActivities"))
++}
++
++/// `POST /api/ambassador_activities`
++async fn create_ambassador_activities(pool: web::Data<PgPool>, input: web::Json<NewAmbassadorActivities>) -> Result<(web::Json<AmbassadorActivities>, StatusCode), ApiError> {
++let row = repositories::create_ambassador_activities(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ambassador_activities/{id}`
++async fn update_ambassador_activities(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAmbassadorActivities>) -> Result<web::Json<AmbassadorActivities>, ApiError> {
++repositories::update_ambassador_activities(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AmbassadorActivities"))
++}
++
++/// `DELETE /api/ambassador_activities/{id}`
++async fn delete_ambassador_activities(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ambassador_activities(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AmbassadorActivities"))
++}
++}
++
++/// `GET /api/ambassador_referrals`
++async fn list_ambassador_referrals(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AmbassadorReferrals>>, ApiError> {
++Ok(web::Json(repositories::list_ambassador_referrals(pool.get_ref()).await?))
++}
++
++/// `GET /api/ambassador_referrals/{id}`
++async fn get_ambassador_referrals(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<AmbassadorReferrals>, ApiError> {
++repositories::find_ambassador_referrals(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AmbassadorReferrals"))
++}
++
++/// `POST /api/ambassador_referrals`
++async fn create_ambassador_referrals(pool: web::Data<PgPool>, input: web::Json<NewAmbassadorReferrals>) -> Result<(web::Json<AmbassadorReferrals>, StatusCode), ApiError> {
++let row = repositories::create_ambassador_referrals(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ambassador_referrals/{id}`
++async fn update_ambassador_referrals(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAmbassadorReferrals>) -> Result<web::Json<AmbassadorReferrals>, ApiError> {
++repositories::update_ambassador_referrals(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AmbassadorReferrals"))
++}
++
++/// `DELETE /api/ambassador_referrals/{id}`
++async fn delete_ambassador_referrals(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ambassador_referrals(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AmbassadorReferrals"))
++}
++}
++
++/// `GET /api/ambassadors`
++async fn list_ambassadors(pool: web::Data<PgPool>) -> Result<web::Json<Vec<Ambassadors>>, ApiError> {
++Ok(web::Json(repositories::list_ambassadors(pool.get_ref()).await?))
++}
++
++/// `GET /api/ambassadors/{id}`
++async fn get_ambassadors(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<Ambassadors>, ApiError> {
++repositories::find_ambassadors(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("Ambassadors"))
++}
++
++/// `POST /api/ambassadors`
++async fn create_ambassadors(pool: web::Data<PgPool>, input: web::Json<NewAmbassadors>) -> Result<(web::Json<Ambassadors>, StatusCode), ApiError> {
++let row = repositories::create_ambassadors(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/ambassadors/{id}`
++async fn update_ambassadors(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAmbassadors>) -> Result<web::Json<Ambassadors>, ApiError> {
++repositories::update_ambassadors(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("Ambassadors"))
++}
++
++/// `DELETE /api/ambassadors/{id}`
++async fn delete_ambassadors(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_ambassadors(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("Ambassadors"))
++}
++}
++
+ /// `GET /api/analytics_events`
+ async fn list_analytics_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AnalyticsEvents>>, ApiError> {
+ Ok(web::Json(repositories::list_analytics_events(pool.get_ref()).await?))
+@@ -1999,6 +2719,42 @@ Err(ApiError::NotFound("AttributionWeights"))
+ }
+ }
+ 
++/// `GET /api/audience_budget_allocation`
++async fn list_audience_budget_allocation(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AudienceBudgetAllocation>>, ApiError> {
++Ok(web::Json(repositories::list_audience_budget_allocation(pool.get_ref()).await?))
++}
++
++/// `GET /api/audience_budget_allocation/{id}`
++async fn get_audience_budget_allocation(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<AudienceBudgetAllocation>, ApiError> {
++repositories::find_audience_budget_allocation(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AudienceBudgetAllocation"))
++}
++
++/// `POST /api/audience_budget_allocation`
++async fn create_audience_budget_allocation(pool: web::Data<PgPool>, input: web::Json<NewAudienceBudgetAllocation>) -> Result<(web::Json<AudienceBudgetAllocation>, StatusCode), ApiError> {
++let row = repositories::create_audience_budget_allocation(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/audience_budget_allocation/{id}`
++async fn update_audience_budget_allocation(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAudienceBudgetAllocation>) -> Result<web::Json<AudienceBudgetAllocation>, ApiError> {
++repositories::update_audience_budget_allocation(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AudienceBudgetAllocation"))
++}
++
++/// `DELETE /api/audience_budget_allocation/{id}`
++async fn delete_audience_budget_allocation(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_audience_budget_allocation(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AudienceBudgetAllocation"))
++}
++}
++
+ /// `GET /api/audience_budget_recommendations`
+ async fn list_audience_budget_recommendations(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AudienceBudgetRecommendations>>, ApiError> {
+ Ok(web::Json(repositories::list_audience_budget_recommendations(pool.get_ref()).await?))
+@@ -2071,6 +2827,42 @@ Err(ApiError::NotFound("AudienceEventRules"))
+ }
+ }
+ 
++/// `GET /api/audience_exclusion_lists`
++async fn list_audience_exclusion_lists(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AudienceExclusionLists>>, ApiError> {
++Ok(web::Json(repositories::list_audience_exclusion_lists(pool.get_ref()).await?))
++}
++
++/// `GET /api/audience_exclusion_lists/{id}`
++async fn get_audience_exclusion_lists(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<AudienceExclusionLists>, ApiError> {
++repositories::find_audience_exclusion_lists(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AudienceExclusionLists"))
++}
++
++/// `POST /api/audience_exclusion_lists`
++async fn create_audience_exclusion_lists(pool: web::Data<PgPool>, input: web::Json<NewAudienceExclusionLists>) -> Result<(web::Json<AudienceExclusionLists>, StatusCode), ApiError> {
++let row = repositories::create_audience_exclusion_lists(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/audience_exclusion_lists/{id}`
++async fn update_audience_exclusion_lists(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAudienceExclusionLists>) -> Result<web::Json<AudienceExclusionLists>, ApiError> {
++repositories::update_audience_exclusion_lists(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AudienceExclusionLists"))
++}
++
++/// `DELETE /api/audience_exclusion_lists/{id}`
++async fn delete_audience_exclusion_lists(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_audience_exclusion_lists(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AudienceExclusionLists"))
++}
++}
++
+ /// `GET /api/audience_expansion`
+ async fn list_audience_expansion(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AudienceExpansion>>, ApiError> {
+ Ok(web::Json(repositories::list_audience_expansion(pool.get_ref()).await?))
+@@ -2107,6 +2899,42 @@ Err(ApiError::NotFound("AudienceExpansion"))
+ }
+ }
+ 
++/// `GET /api/audience_optimizer_actions`
++async fn list_audience_optimizer_actions(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AudienceOptimizerActions>>, ApiError> {
++Ok(web::Json(repositories::list_audience_optimizer_actions(pool.get_ref()).await?))
++}
++
++/// `GET /api/audience_optimizer_actions/{id}`
++async fn get_audience_optimizer_actions(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<AudienceOptimizerActions>, ApiError> {
++repositories::find_audience_optimizer_actions(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AudienceOptimizerActions"))
++}
++
++/// `POST /api/audience_optimizer_actions`
++async fn create_audience_optimizer_actions(pool: web::Data<PgPool>, input: web::Json<NewAudienceOptimizerActions>) -> Result<(web::Json<AudienceOptimizerActions>, StatusCode), ApiError> {
++let row = repositories::create_audience_optimizer_actions(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/audience_optimizer_actions/{id}`
++async fn update_audience_optimizer_actions(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAudienceOptimizerActions>) -> Result<web::Json<AudienceOptimizerActions>, ApiError> {
++repositories::update_audience_optimizer_actions(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AudienceOptimizerActions"))
++}
++
++/// `DELETE /api/audience_optimizer_actions/{id}`
++async fn delete_audience_optimizer_actions(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_audience_optimizer_actions(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AudienceOptimizerActions"))
++}
++}
++
+ /// `GET /api/audience_performance`
+ async fn list_audience_performance(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AudiencePerformance>>, ApiError> {
+ Ok(web::Json(repositories::list_audience_performance(pool.get_ref()).await?))
+@@ -2287,6 +3115,78 @@ Err(ApiError::NotFound("AutomationExecutionLogs"))
+ }
+ }
+ 
++/// `GET /api/automation_run_logs`
++async fn list_automation_run_logs(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AutomationRunLogs>>, ApiError> {
++Ok(web::Json(repositories::list_automation_run_logs(pool.get_ref()).await?))
++}
++
++/// `GET /api/automation_run_logs/{id}`
++async fn get_automation_run_logs(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AutomationRunLogs>, ApiError> {
++repositories::find_automation_run_logs(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AutomationRunLogs"))
++}
++
++/// `POST /api/automation_run_logs`
++async fn create_automation_run_logs(pool: web::Data<PgPool>, input: web::Json<NewAutomationRunLogs>) -> Result<(web::Json<AutomationRunLogs>, StatusCode), ApiError> {
++let row = repositories::create_automation_run_logs(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/automation_run_logs/{id}`
++async fn update_automation_run_logs(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAutomationRunLogs>) -> Result<web::Json<AutomationRunLogs>, ApiError> {
++repositories::update_automation_run_logs(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AutomationRunLogs"))
++}
++
++/// `DELETE /api/automation_run_logs/{id}`
++async fn delete_automation_run_logs(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_automation_run_logs(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AutomationRunLogs"))
++}
++}
++
++/// `GET /api/automation_run_summaries`
++async fn list_automation_run_summaries(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AutomationRunSummaries>>, ApiError> {
++Ok(web::Json(repositories::list_automation_run_summaries(pool.get_ref()).await?))
++}
++
++/// `GET /api/automation_run_summaries/{id}`
++async fn get_automation_run_summaries(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AutomationRunSummaries>, ApiError> {
++repositories::find_automation_run_summaries(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AutomationRunSummaries"))
++}
++
++/// `POST /api/automation_run_summaries`
++async fn create_automation_run_summaries(pool: web::Data<PgPool>, input: web::Json<NewAutomationRunSummaries>) -> Result<(web::Json<AutomationRunSummaries>, StatusCode), ApiError> {
++let row = repositories::create_automation_run_summaries(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/automation_run_summaries/{id}`
++async fn update_automation_run_summaries(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAutomationRunSummaries>) -> Result<web::Json<AutomationRunSummaries>, ApiError> {
++repositories::update_automation_run_summaries(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AutomationRunSummaries"))
++}
++
++/// `DELETE /api/automation_run_summaries/{id}`
++async fn delete_automation_run_summaries(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_automation_run_summaries(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AutomationRunSummaries"))
++}
++}
++
+ /// `GET /api/automation_runs`
+ async fn list_automation_runs(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AutomationRuns>>, ApiError> {
+ Ok(web::Json(repositories::list_automation_runs(pool.get_ref()).await?))
+@@ -2359,6 +3259,78 @@ Err(ApiError::NotFound("AutomationScheduledSteps"))
+ }
+ }
+ 
++/// `GET /api/automation_success_log`
++async fn list_automation_success_log(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AutomationSuccessLog>>, ApiError> {
++Ok(web::Json(repositories::list_automation_success_log(pool.get_ref()).await?))
++}
++
++/// `GET /api/automation_success_log/{id}`
++async fn get_automation_success_log(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<AutomationSuccessLog>, ApiError> {
++repositories::find_automation_success_log(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AutomationSuccessLog"))
++}
++
++/// `POST /api/automation_success_log`
++async fn create_automation_success_log(pool: web::Data<PgPool>, input: web::Json<NewAutomationSuccessLog>) -> Result<(web::Json<AutomationSuccessLog>, StatusCode), ApiError> {
++let row = repositories::create_automation_success_log(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/automation_success_log/{id}`
++async fn update_automation_success_log(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchAutomationSuccessLog>) -> Result<web::Json<AutomationSuccessLog>, ApiError> {
++repositories::update_automation_success_log(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AutomationSuccessLog"))
++}
++
++/// `DELETE /api/automation_success_log/{id}`
++async fn delete_automation_success_log(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_automation_success_log(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AutomationSuccessLog"))
++}
++}
++
++/// `GET /api/automation_targets`
++async fn list_automation_targets(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AutomationTargets>>, ApiError> {
++Ok(web::Json(repositories::list_automation_targets(pool.get_ref()).await?))
++}
++
++/// `GET /api/automation_targets/{id}`
++async fn get_automation_targets(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<AutomationTargets>, ApiError> {
++repositories::find_automation_targets(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AutomationTargets"))
++}
++
++/// `POST /api/automation_targets`
++async fn create_automation_targets(pool: web::Data<PgPool>, input: web::Json<NewAutomationTargets>) -> Result<(web::Json<AutomationTargets>, StatusCode), ApiError> {
++let row = repositories::create_automation_targets(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/automation_targets/{id}`
++async fn update_automation_targets(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAutomationTargets>) -> Result<web::Json<AutomationTargets>, ApiError> {
++repositories::update_automation_targets(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AutomationTargets"))
++}
++
++/// `DELETE /api/automation_targets/{id}`
++async fn delete_automation_targets(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_automation_targets(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AutomationTargets"))
++}
++}
++
+ /// `GET /api/automation_temporal_activity_evidence`
+ async fn list_automation_temporal_activity_evidence(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AutomationTemporalActivityEvidence>>, ApiError> {
+ Ok(web::Json(repositories::list_automation_temporal_activity_evidence(pool.get_ref()).await?))
+@@ -2431,6 +3403,42 @@ Err(ApiError::NotFound("AutomationTemporalOutbox"))
+ }
+ }
+ 
++/// `GET /api/automation_triggers`
++async fn list_automation_triggers(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AutomationTriggers>>, ApiError> {
++Ok(web::Json(repositories::list_automation_triggers(pool.get_ref()).await?))
++}
++
++/// `GET /api/automation_triggers/{id}`
++async fn get_automation_triggers(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<AutomationTriggers>, ApiError> {
++repositories::find_automation_triggers(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AutomationTriggers"))
++}
++
++/// `POST /api/automation_triggers`
++async fn create_automation_triggers(pool: web::Data<PgPool>, input: web::Json<NewAutomationTriggers>) -> Result<(web::Json<AutomationTriggers>, StatusCode), ApiError> {
++let row = repositories::create_automation_triggers(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/automation_triggers/{id}`
++async fn update_automation_triggers(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchAutomationTriggers>) -> Result<web::Json<AutomationTriggers>, ApiError> {
++repositories::update_automation_triggers(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("AutomationTriggers"))
++}
++
++/// `DELETE /api/automation_triggers/{id}`
++async fn delete_automation_triggers(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_automation_triggers(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("AutomationTriggers"))
++}
++}
++
+ /// `GET /api/automation_versions`
+ async fn list_automation_versions(pool: web::Data<PgPool>) -> Result<web::Json<Vec<AutomationVersions>>, ApiError> {
+ Ok(web::Json(repositories::list_automation_versions(pool.get_ref()).await?))
+@@ -2611,6 +3619,42 @@ Err(ApiError::NotFound("AutopilotDecisions"))
+ }
+ }
+ 
++/// `GET /api/bandit_campaign_traces`
++async fn list_bandit_campaign_traces(pool: web::Data<PgPool>) -> Result<web::Json<Vec<BanditCampaignTraces>>, ApiError> {
++Ok(web::Json(repositories::list_bandit_campaign_traces(pool.get_ref()).await?))
++}
++
++/// `GET /api/bandit_campaign_traces/{id}`
++async fn get_bandit_campaign_traces(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<BanditCampaignTraces>, ApiError> {
++repositories::find_bandit_campaign_traces(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("BanditCampaignTraces"))
++}
++
++/// `POST /api/bandit_campaign_traces`
++async fn create_bandit_campaign_traces(pool: web::Data<PgPool>, input: web::Json<NewBanditCampaignTraces>) -> Result<(web::Json<BanditCampaignTraces>, StatusCode), ApiError> {
++let row = repositories::create_bandit_campaign_traces(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/bandit_campaign_traces/{id}`
++async fn update_bandit_campaign_traces(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchBanditCampaignTraces>) -> Result<web::Json<BanditCampaignTraces>, ApiError> {
++repositories::update_bandit_campaign_traces(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("BanditCampaignTraces"))
++}
++
++/// `DELETE /api/bandit_campaign_traces/{id}`
++async fn delete_bandit_campaign_traces(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_bandit_campaign_traces(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("BanditCampaignTraces"))
++}
++}
++
+ /// `GET /api/bandit_decisions`
+ async fn list_bandit_decisions(pool: web::Data<PgPool>) -> Result<web::Json<Vec<BanditDecisions>>, ApiError> {
+ Ok(web::Json(repositories::list_bandit_decisions(pool.get_ref()).await?))
+@@ -2935,42 +3979,6 @@ Err(ApiError::NotFound("BookingOperatingWindows"))
+ }
+ }
+ 
+-/// `GET /api/brand_strategies`
+-async fn list_brand_strategies(pool: web::Data<PgPool>) -> Result<web::Json<Vec<BrandStrategies>>, ApiError> {
+-Ok(web::Json(repositories::list_brand_strategies(pool.get_ref()).await?))
+-}
+-
+-/// `GET /api/brand_strategies/{id}`
+-async fn get_brand_strategies(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<BrandStrategies>, ApiError> {
+-repositories::find_brand_strategies(pool.get_ref(), id.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("BrandStrategies"))
+-}
+-
+-/// `POST /api/brand_strategies`
+-async fn create_brand_strategies(pool: web::Data<PgPool>, input: web::Json<NewBrandStrategies>) -> Result<(web::Json<BrandStrategies>, StatusCode), ApiError> {
+-let row = repositories::create_brand_strategies(pool.get_ref(), input.into_inner()).await?;
+-Ok((web::Json(row), StatusCode::CREATED))
+-}
+-
+-/// `PATCH /api/brand_strategies/{id}`
+-async fn update_brand_strategies(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchBrandStrategies>) -> Result<web::Json<BrandStrategies>, ApiError> {
+-repositories::update_brand_strategies(pool.get_ref(), id.into_inner(), input.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("BrandStrategies"))
+-}
+-
+-/// `DELETE /api/brand_strategies/{id}`
+-async fn delete_brand_strategies(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
+-if repositories::delete_brand_strategies(pool.get_ref(), id.into_inner()).await? {
+-Ok(HttpResponse::NoContent().finish())
+-} else {
+-Err(ApiError::NotFound("BrandStrategies"))
+-}
+-}
+-
+ /// `GET /api/bridge_person_identity`
+ async fn list_bridge_person_identity(pool: web::Data<PgPool>) -> Result<web::Json<Vec<BridgePersonIdentity>>, ApiError> {
+ Ok(web::Json(repositories::list_bridge_person_identity(pool.get_ref()).await?))
+@@ -4483,6 +5491,114 @@ Err(ApiError::NotFound("ChatThreads"))
+ }
+ }
+ 
++/// `GET /api/checkout_email_queue`
++async fn list_checkout_email_queue(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CheckoutEmailQueue>>, ApiError> {
++Ok(web::Json(repositories::list_checkout_email_queue(pool.get_ref()).await?))
++}
++
++/// `GET /api/checkout_email_queue/{id}`
++async fn get_checkout_email_queue(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CheckoutEmailQueue>, ApiError> {
++repositories::find_checkout_email_queue(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CheckoutEmailQueue"))
++}
++
++/// `POST /api/checkout_email_queue`
++async fn create_checkout_email_queue(pool: web::Data<PgPool>, input: web::Json<NewCheckoutEmailQueue>) -> Result<(web::Json<CheckoutEmailQueue>, StatusCode), ApiError> {
++let row = repositories::create_checkout_email_queue(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/checkout_email_queue/{id}`
++async fn update_checkout_email_queue(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCheckoutEmailQueue>) -> Result<web::Json<CheckoutEmailQueue>, ApiError> {
++repositories::update_checkout_email_queue(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CheckoutEmailQueue"))
++}
++
++/// `DELETE /api/checkout_email_queue/{id}`
++async fn delete_checkout_email_queue(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_checkout_email_queue(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CheckoutEmailQueue"))
++}
++}
++
++/// `GET /api/checkout_orders`
++async fn list_checkout_orders(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CheckoutOrders>>, ApiError> {
++Ok(web::Json(repositories::list_checkout_orders(pool.get_ref()).await?))
++}
++
++/// `GET /api/checkout_orders/{id}`
++async fn get_checkout_orders(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CheckoutOrders>, ApiError> {
++repositories::find_checkout_orders(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CheckoutOrders"))
++}
++
++/// `POST /api/checkout_orders`
++async fn create_checkout_orders(pool: web::Data<PgPool>, input: web::Json<NewCheckoutOrders>) -> Result<(web::Json<CheckoutOrders>, StatusCode), ApiError> {
++let row = repositories::create_checkout_orders(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/checkout_orders/{id}`
++async fn update_checkout_orders(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCheckoutOrders>) -> Result<web::Json<CheckoutOrders>, ApiError> {
++repositories::update_checkout_orders(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CheckoutOrders"))
++}
++
++/// `DELETE /api/checkout_orders/{id}`
++async fn delete_checkout_orders(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_checkout_orders(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CheckoutOrders"))
++}
++}
++
++/// `GET /api/checkout_sessions`
++async fn list_checkout_sessions(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CheckoutSessions>>, ApiError> {
++Ok(web::Json(repositories::list_checkout_sessions(pool.get_ref()).await?))
++}
++
++/// `GET /api/checkout_sessions/{id}`
++async fn get_checkout_sessions(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CheckoutSessions>, ApiError> {
++repositories::find_checkout_sessions(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CheckoutSessions"))
++}
++
++/// `POST /api/checkout_sessions`
++async fn create_checkout_sessions(pool: web::Data<PgPool>, input: web::Json<NewCheckoutSessions>) -> Result<(web::Json<CheckoutSessions>, StatusCode), ApiError> {
++let row = repositories::create_checkout_sessions(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/checkout_sessions/{id}`
++async fn update_checkout_sessions(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCheckoutSessions>) -> Result<web::Json<CheckoutSessions>, ApiError> {
++repositories::update_checkout_sessions(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CheckoutSessions"))
++}
++
++/// `DELETE /api/checkout_sessions/{id}`
++async fn delete_checkout_sessions(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_checkout_sessions(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CheckoutSessions"))
++}
++}
++
+ /// `GET /api/churn_events`
+ async fn list_churn_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ChurnEvents>>, ApiError> {
+ Ok(web::Json(repositories::list_churn_events(pool.get_ref()).await?))
+@@ -4699,6 +5815,186 @@ Err(ApiError::NotFound("CloudflareStreamWebhookEvents"))
+ }
+ }
+ 
++/// `GET /api/clustering_metrics`
++async fn list_clustering_metrics(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ClusteringMetrics>>, ApiError> {
++Ok(web::Json(repositories::list_clustering_metrics(pool.get_ref()).await?))
++}
++
++/// `GET /api/clustering_metrics/{id}`
++async fn get_clustering_metrics(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<ClusteringMetrics>, ApiError> {
++repositories::find_clustering_metrics(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ClusteringMetrics"))
++}
++
++/// `POST /api/clustering_metrics`
++async fn create_clustering_metrics(pool: web::Data<PgPool>, input: web::Json<NewClusteringMetrics>) -> Result<(web::Json<ClusteringMetrics>, StatusCode), ApiError> {
++let row = repositories::create_clustering_metrics(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/clustering_metrics/{id}`
++async fn update_clustering_metrics(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchClusteringMetrics>) -> Result<web::Json<ClusteringMetrics>, ApiError> {
++repositories::update_clustering_metrics(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ClusteringMetrics"))
++}
++
++/// `DELETE /api/clustering_metrics/{id}`
++async fn delete_clustering_metrics(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_clustering_metrics(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("ClusteringMetrics"))
++}
++}
++
++/// `GET /api/codetether_automation_run_events`
++async fn list_codetether_automation_run_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CodetetherAutomationRunEvents>>, ApiError> {
++Ok(web::Json(repositories::list_codetether_automation_run_events(pool.get_ref()).await?))
++}
++
++/// `GET /api/codetether_automation_run_events/{id}`
++async fn get_codetether_automation_run_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<CodetetherAutomationRunEvents>, ApiError> {
++repositories::find_codetether_automation_run_events(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CodetetherAutomationRunEvents"))
++}
++
++/// `POST /api/codetether_automation_run_events`
++async fn create_codetether_automation_run_events(pool: web::Data<PgPool>, input: web::Json<NewCodetetherAutomationRunEvents>) -> Result<(web::Json<CodetetherAutomationRunEvents>, StatusCode), ApiError> {
++let row = repositories::create_codetether_automation_run_events(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/codetether_automation_run_events/{id}`
++async fn update_codetether_automation_run_events(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchCodetetherAutomationRunEvents>) -> Result<web::Json<CodetetherAutomationRunEvents>, ApiError> {
++repositories::update_codetether_automation_run_events(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CodetetherAutomationRunEvents"))
++}
++
++/// `DELETE /api/codetether_automation_run_events/{id}`
++async fn delete_codetether_automation_run_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_codetether_automation_run_events(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CodetetherAutomationRunEvents"))
++}
++}
++
++/// `GET /api/codetether_automation_runs`
++async fn list_codetether_automation_runs(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CodetetherAutomationRuns>>, ApiError> {
++Ok(web::Json(repositories::list_codetether_automation_runs(pool.get_ref()).await?))
++}
++
++/// `GET /api/codetether_automation_runs/{id}`
++async fn get_codetether_automation_runs(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<CodetetherAutomationRuns>, ApiError> {
++repositories::find_codetether_automation_runs(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CodetetherAutomationRuns"))
++}
++
++/// `POST /api/codetether_automation_runs`
++async fn create_codetether_automation_runs(pool: web::Data<PgPool>, input: web::Json<NewCodetetherAutomationRuns>) -> Result<(web::Json<CodetetherAutomationRuns>, StatusCode), ApiError> {
++let row = repositories::create_codetether_automation_runs(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/codetether_automation_runs/{id}`
++async fn update_codetether_automation_runs(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchCodetetherAutomationRuns>) -> Result<web::Json<CodetetherAutomationRuns>, ApiError> {
++repositories::update_codetether_automation_runs(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CodetetherAutomationRuns"))
++}
++
++/// `DELETE /api/codetether_automation_runs/{id}`
++async fn delete_codetether_automation_runs(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_codetether_automation_runs(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CodetetherAutomationRuns"))
++}
++}
++
++/// `GET /api/codetether_automation_schedule_events`
++async fn list_codetether_automation_schedule_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CodetetherAutomationScheduleEvents>>, ApiError> {
++Ok(web::Json(repositories::list_codetether_automation_schedule_events(pool.get_ref()).await?))
++}
++
++/// `GET /api/codetether_automation_schedule_events/{id}`
++async fn get_codetether_automation_schedule_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<CodetetherAutomationScheduleEvents>, ApiError> {
++repositories::find_codetether_automation_schedule_events(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CodetetherAutomationScheduleEvents"))
++}
++
++/// `POST /api/codetether_automation_schedule_events`
++async fn create_codetether_automation_schedule_events(pool: web::Data<PgPool>, input: web::Json<NewCodetetherAutomationScheduleEvents>) -> Result<(web::Json<CodetetherAutomationScheduleEvents>, StatusCode), ApiError> {
++let row = repositories::create_codetether_automation_schedule_events(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/codetether_automation_schedule_events/{id}`
++async fn update_codetether_automation_schedule_events(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchCodetetherAutomationScheduleEvents>) -> Result<web::Json<CodetetherAutomationScheduleEvents>, ApiError> {
++repositories::update_codetether_automation_schedule_events(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CodetetherAutomationScheduleEvents"))
++}
++
++/// `DELETE /api/codetether_automation_schedule_events/{id}`
++async fn delete_codetether_automation_schedule_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_codetether_automation_schedule_events(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CodetetherAutomationScheduleEvents"))
++}
++}
++
++/// `GET /api/codetether_automation_schedules`
++async fn list_codetether_automation_schedules(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CodetetherAutomationSchedules>>, ApiError> {
++Ok(web::Json(repositories::list_codetether_automation_schedules(pool.get_ref()).await?))
++}
++
++/// `GET /api/codetether_automation_schedules/{id}`
++async fn get_codetether_automation_schedules(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<CodetetherAutomationSchedules>, ApiError> {
++repositories::find_codetether_automation_schedules(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CodetetherAutomationSchedules"))
++}
++
++/// `POST /api/codetether_automation_schedules`
++async fn create_codetether_automation_schedules(pool: web::Data<PgPool>, input: web::Json<NewCodetetherAutomationSchedules>) -> Result<(web::Json<CodetetherAutomationSchedules>, StatusCode), ApiError> {
++let row = repositories::create_codetether_automation_schedules(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/codetether_automation_schedules/{id}`
++async fn update_codetether_automation_schedules(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchCodetetherAutomationSchedules>) -> Result<web::Json<CodetetherAutomationSchedules>, ApiError> {
++repositories::update_codetether_automation_schedules(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CodetetherAutomationSchedules"))
++}
++
++/// `DELETE /api/codetether_automation_schedules/{id}`
++async fn delete_codetether_automation_schedules(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_codetether_automation_schedules(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CodetetherAutomationSchedules"))
++}
++}
++
+ /// `GET /api/codetether_insights`
+ async fn list_codetether_insights(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CodetetherInsights>>, ApiError> {
+ Ok(web::Json(repositories::list_codetether_insights(pool.get_ref()).await?))
+@@ -4915,6 +6211,42 @@ Err(ApiError::NotFound("CollectionTerritories"))
+ }
+ }
+ 
++/// `GET /api/commercial_outreach_leads`
++async fn list_commercial_outreach_leads(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CommercialOutreachLeads>>, ApiError> {
++Ok(web::Json(repositories::list_commercial_outreach_leads(pool.get_ref()).await?))
++}
++
++/// `GET /api/commercial_outreach_leads/{id}`
++async fn get_commercial_outreach_leads(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CommercialOutreachLeads>, ApiError> {
++repositories::find_commercial_outreach_leads(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CommercialOutreachLeads"))
++}
++
++/// `POST /api/commercial_outreach_leads`
++async fn create_commercial_outreach_leads(pool: web::Data<PgPool>, input: web::Json<NewCommercialOutreachLeads>) -> Result<(web::Json<CommercialOutreachLeads>, StatusCode), ApiError> {
++let row = repositories::create_commercial_outreach_leads(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/commercial_outreach_leads/{id}`
++async fn update_commercial_outreach_leads(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCommercialOutreachLeads>) -> Result<web::Json<CommercialOutreachLeads>, ApiError> {
++repositories::update_commercial_outreach_leads(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CommercialOutreachLeads"))
++}
++
++/// `DELETE /api/commercial_outreach_leads/{id}`
++async fn delete_commercial_outreach_leads(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_commercial_outreach_leads(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CommercialOutreachLeads"))
++}
++}
++
+ /// `GET /api/competitor_ad_spend`
+ async fn list_competitor_ad_spend(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CompetitorAdSpend>>, ApiError> {
+ Ok(web::Json(repositories::list_competitor_ad_spend(pool.get_ref()).await?))
+@@ -5311,42 +6643,6 @@ Err(ApiError::NotFound("ComponentCrossFieldRules"))
+ }
+ }
+ 
+-/// `GET /api/component_definitions`
+-async fn list_component_definitions(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ComponentDefinitions>>, ApiError> {
+-Ok(web::Json(repositories::list_component_definitions(pool.get_ref()).await?))
+-}
+-
+-/// `GET /api/component_definitions/{id}`
+-async fn get_component_definitions(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<web::Json<ComponentDefinitions>, ApiError> {
+-repositories::find_component_definitions(pool.get_ref(), id.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("ComponentDefinitions"))
+-}
+-
+-/// `POST /api/component_definitions`
+-async fn create_component_definitions(pool: web::Data<PgPool>, input: web::Json<NewComponentDefinitions>) -> Result<(web::Json<ComponentDefinitions>, StatusCode), ApiError> {
+-let row = repositories::create_component_definitions(pool.get_ref(), input.into_inner()).await?;
+-Ok((web::Json(row), StatusCode::CREATED))
+-}
+-
+-/// `PATCH /api/component_definitions/{id}`
+-async fn update_component_definitions(pool: web::Data<PgPool>, id: web::Path<String>, input: web::Json<PatchComponentDefinitions>) -> Result<web::Json<ComponentDefinitions>, ApiError> {
+-repositories::update_component_definitions(pool.get_ref(), id.into_inner(), input.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("ComponentDefinitions"))
+-}
+-
+-/// `DELETE /api/component_definitions/{id}`
+-async fn delete_component_definitions(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<HttpResponse, ApiError> {
+-if repositories::delete_component_definitions(pool.get_ref(), id.into_inner()).await? {
+-Ok(HttpResponse::NoContent().finish())
+-} else {
+-Err(ApiError::NotFound("ComponentDefinitions"))
+-}
+-}
+-
+ /// `GET /api/component_examples`
+ async fn list_component_examples(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ComponentExamples>>, ApiError> {
+ Ok(web::Json(repositories::list_component_examples(pool.get_ref()).await?))
+@@ -5383,6 +6679,42 @@ Err(ApiError::NotFound("ComponentExamples"))
+ }
+ }
+ 
++/// `GET /api/component_field_data_dependencies`
++async fn list_component_field_data_dependencies(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ComponentFieldDataDependencies>>, ApiError> {
++Ok(web::Json(repositories::list_component_field_data_dependencies(pool.get_ref()).await?))
++}
++
++/// `GET /api/component_field_data_dependencies/{id}`
++async fn get_component_field_data_dependencies(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<ComponentFieldDataDependencies>, ApiError> {
++repositories::find_component_field_data_dependencies(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ComponentFieldDataDependencies"))
++}
++
++/// `POST /api/component_field_data_dependencies`
++async fn create_component_field_data_dependencies(pool: web::Data<PgPool>, input: web::Json<NewComponentFieldDataDependencies>) -> Result<(web::Json<ComponentFieldDataDependencies>, StatusCode), ApiError> {
++let row = repositories::create_component_field_data_dependencies(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/component_field_data_dependencies/{id}`
++async fn update_component_field_data_dependencies(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchComponentFieldDataDependencies>) -> Result<web::Json<ComponentFieldDataDependencies>, ApiError> {
++repositories::update_component_field_data_dependencies(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ComponentFieldDataDependencies"))
++}
++
++/// `DELETE /api/component_field_data_dependencies/{id}`
++async fn delete_component_field_data_dependencies(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_component_field_data_dependencies(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("ComponentFieldDataDependencies"))
++}
++}
++
+ /// `GET /api/component_json_schema_keywords`
+ async fn list_component_json_schema_keywords(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ComponentJsonSchemaKeywords>>, ApiError> {
+ Ok(web::Json(repositories::list_component_json_schema_keywords(pool.get_ref()).await?))
+@@ -5635,42 +6967,6 @@ Err(ApiError::NotFound("ComponentThemePresets"))
+ }
+ }
+ 
+-/// `GET /api/component_theme_radius_values`
+-async fn list_component_theme_radius_values(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ComponentThemeRadiusValues>>, ApiError> {
+-Ok(web::Json(repositories::list_component_theme_radius_values(pool.get_ref()).await?))
+-}
+-
+-/// `GET /api/component_theme_radius_values/{id}`
+-async fn get_component_theme_radius_values(pool: web::Data<PgPool>, id: web::Path<ComponentThemeRadius>) -> Result<web::Json<ComponentThemeRadiusValues>, ApiError> {
+-repositories::find_component_theme_radius_values(pool.get_ref(), id.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("ComponentThemeRadiusValues"))
+-}
+-
+-/// `POST /api/component_theme_radius_values`
+-async fn create_component_theme_radius_values(pool: web::Data<PgPool>, input: web::Json<NewComponentThemeRadiusValues>) -> Result<(web::Json<ComponentThemeRadiusValues>, StatusCode), ApiError> {
+-let row = repositories::create_component_theme_radius_values(pool.get_ref(), input.into_inner()).await?;
+-Ok((web::Json(row), StatusCode::CREATED))
+-}
+-
+-/// `PATCH /api/component_theme_radius_values/{id}`
+-async fn update_component_theme_radius_values(pool: web::Data<PgPool>, id: web::Path<ComponentThemeRadius>, input: web::Json<PatchComponentThemeRadiusValues>) -> Result<web::Json<ComponentThemeRadiusValues>, ApiError> {
+-repositories::update_component_theme_radius_values(pool.get_ref(), id.into_inner(), input.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("ComponentThemeRadiusValues"))
+-}
+-
+-/// `DELETE /api/component_theme_radius_values/{id}`
+-async fn delete_component_theme_radius_values(pool: web::Data<PgPool>, id: web::Path<ComponentThemeRadius>) -> Result<HttpResponse, ApiError> {
+-if repositories::delete_component_theme_radius_values(pool.get_ref(), id.into_inner()).await? {
+-Ok(HttpResponse::NoContent().finish())
+-} else {
+-Err(ApiError::NotFound("ComponentThemeRadiusValues"))
+-}
+-}
+-
+ /// `GET /api/component_theme_token_variables`
+ async fn list_component_theme_token_variables(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ComponentThemeTokenVariables>>, ApiError> {
+ Ok(web::Json(repositories::list_component_theme_token_variables(pool.get_ref()).await?))
+@@ -5887,6 +7183,42 @@ Err(ApiError::NotFound("ComponentVersionFieldDependencies"))
+ }
+ }
+ 
++/// `GET /api/component_version_field_metadata`
++async fn list_component_version_field_metadata(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ComponentVersionFieldMetadata>>, ApiError> {
++Ok(web::Json(repositories::list_component_version_field_metadata(pool.get_ref()).await?))
++}
++
++/// `GET /api/component_version_field_metadata/{id}`
++async fn get_component_version_field_metadata(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<ComponentVersionFieldMetadata>, ApiError> {
++repositories::find_component_version_field_metadata(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ComponentVersionFieldMetadata"))
++}
++
++/// `POST /api/component_version_field_metadata`
++async fn create_component_version_field_metadata(pool: web::Data<PgPool>, input: web::Json<NewComponentVersionFieldMetadata>) -> Result<(web::Json<ComponentVersionFieldMetadata>, StatusCode), ApiError> {
++let row = repositories::create_component_version_field_metadata(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/component_version_field_metadata/{id}`
++async fn update_component_version_field_metadata(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchComponentVersionFieldMetadata>) -> Result<web::Json<ComponentVersionFieldMetadata>, ApiError> {
++repositories::update_component_version_field_metadata(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ComponentVersionFieldMetadata"))
++}
++
++/// `DELETE /api/component_version_field_metadata/{id}`
++async fn delete_component_version_field_metadata(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_component_version_field_metadata(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("ComponentVersionFieldMetadata"))
++}
++}
++
+ /// `GET /api/component_version_field_relations`
+ async fn list_component_version_field_relations(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ComponentVersionFieldRelations>>, ApiError> {
+ Ok(web::Json(repositories::list_component_version_field_relations(pool.get_ref()).await?))
+@@ -6571,42 +7903,6 @@ Err(ApiError::NotFound("CreateJobLogs"))
+ }
+ }
+ 
+-/// `GET /api/create_media_library`
+-async fn list_create_media_library(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CreateMediaLibrary>>, ApiError> {
+-Ok(web::Json(repositories::list_create_media_library(pool.get_ref()).await?))
+-}
+-
+-/// `GET /api/create_media_library/{id}`
+-async fn get_create_media_library(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CreateMediaLibrary>, ApiError> {
+-repositories::find_create_media_library(pool.get_ref(), id.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("CreateMediaLibrary"))
+-}
+-
+-/// `POST /api/create_media_library`
+-async fn create_create_media_library(pool: web::Data<PgPool>, input: web::Json<NewCreateMediaLibrary>) -> Result<(web::Json<CreateMediaLibrary>, StatusCode), ApiError> {
+-let row = repositories::create_create_media_library(pool.get_ref(), input.into_inner()).await?;
+-Ok((web::Json(row), StatusCode::CREATED))
+-}
+-
+-/// `PATCH /api/create_media_library/{id}`
+-async fn update_create_media_library(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCreateMediaLibrary>) -> Result<web::Json<CreateMediaLibrary>, ApiError> {
+-repositories::update_create_media_library(pool.get_ref(), id.into_inner(), input.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("CreateMediaLibrary"))
+-}
+-
+-/// `DELETE /api/create_media_library/{id}`
+-async fn delete_create_media_library(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
+-if repositories::delete_create_media_library(pool.get_ref(), id.into_inner()).await? {
+-Ok(HttpResponse::NoContent().finish())
+-} else {
+-Err(ApiError::NotFound("CreateMediaLibrary"))
+-}
+-}
+-
+ /// `GET /api/create_personalization_contexts_table`
+ async fn list_create_personalization_contexts_table(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CreatePersonalizationContextsTable>>, ApiError> {
+ Ok(web::Json(repositories::list_create_personalization_contexts_table(pool.get_ref()).await?))
+@@ -7399,6 +8695,42 @@ Err(ApiError::NotFound("CrmTasks"))
+ }
+ }
+ 
++/// `GET /api/cross_sell_offers`
++async fn list_cross_sell_offers(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CrossSellOffers>>, ApiError> {
++Ok(web::Json(repositories::list_cross_sell_offers(pool.get_ref()).await?))
++}
++
++/// `GET /api/cross_sell_offers/{id}`
++async fn get_cross_sell_offers(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CrossSellOffers>, ApiError> {
++repositories::find_cross_sell_offers(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CrossSellOffers"))
++}
++
++/// `POST /api/cross_sell_offers`
++async fn create_cross_sell_offers(pool: web::Data<PgPool>, input: web::Json<NewCrossSellOffers>) -> Result<(web::Json<CrossSellOffers>, StatusCode), ApiError> {
++let row = repositories::create_cross_sell_offers(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/cross_sell_offers/{id}`
++async fn update_cross_sell_offers(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCrossSellOffers>) -> Result<web::Json<CrossSellOffers>, ApiError> {
++repositories::update_cross_sell_offers(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CrossSellOffers"))
++}
++
++/// `DELETE /api/cross_sell_offers/{id}`
++async fn delete_cross_sell_offers(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_cross_sell_offers(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CrossSellOffers"))
++}
++}
++
+ /// `GET /api/customer`
+ async fn list_customer(pool: web::Data<PgPool>) -> Result<web::Json<Vec<Customer>>, ApiError> {
+ Ok(web::Json(repositories::list_customer(pool.get_ref()).await?))
+@@ -7543,6 +8875,42 @@ Err(ApiError::NotFound("CustomerContactLists"))
+ }
+ }
+ 
++/// `GET /api/customer_features`
++async fn list_customer_features(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerFeatures>>, ApiError> {
++Ok(web::Json(repositories::list_customer_features(pool.get_ref()).await?))
++}
++
++/// `GET /api/customer_features/{id}`
++async fn get_customer_features(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CustomerFeatures>, ApiError> {
++repositories::find_customer_features(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerFeatures"))
++}
++
++/// `POST /api/customer_features`
++async fn create_customer_features(pool: web::Data<PgPool>, input: web::Json<NewCustomerFeatures>) -> Result<(web::Json<CustomerFeatures>, StatusCode), ApiError> {
++let row = repositories::create_customer_features(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/customer_features/{id}`
++async fn update_customer_features(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCustomerFeatures>) -> Result<web::Json<CustomerFeatures>, ApiError> {
++repositories::update_customer_features(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerFeatures"))
++}
++
++/// `DELETE /api/customer_features/{id}`
++async fn delete_customer_features(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_customer_features(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CustomerFeatures"))
++}
++}
++
+ /// `GET /api/customer_funnel_states`
+ async fn list_customer_funnel_states(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerFunnelStates>>, ApiError> {
+ Ok(web::Json(repositories::list_customer_funnel_states(pool.get_ref()).await?))
+@@ -7615,6 +8983,78 @@ Err(ApiError::NotFound("CustomerNeighborhoods"))
+ }
+ }
+ 
++/// `GET /api/customer_onboarding`
++async fn list_customer_onboarding(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerOnboarding>>, ApiError> {
++Ok(web::Json(repositories::list_customer_onboarding(pool.get_ref()).await?))
++}
++
++/// `GET /api/customer_onboarding/{id}`
++async fn get_customer_onboarding(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CustomerOnboarding>, ApiError> {
++repositories::find_customer_onboarding(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerOnboarding"))
++}
++
++/// `POST /api/customer_onboarding`
++async fn create_customer_onboarding(pool: web::Data<PgPool>, input: web::Json<NewCustomerOnboarding>) -> Result<(web::Json<CustomerOnboarding>, StatusCode), ApiError> {
++let row = repositories::create_customer_onboarding(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/customer_onboarding/{id}`
++async fn update_customer_onboarding(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCustomerOnboarding>) -> Result<web::Json<CustomerOnboarding>, ApiError> {
++repositories::update_customer_onboarding(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerOnboarding"))
++}
++
++/// `DELETE /api/customer_onboarding/{id}`
++async fn delete_customer_onboarding(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_customer_onboarding(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CustomerOnboarding"))
++}
++}
++
++/// `GET /api/customer_onboarding_progress`
++async fn list_customer_onboarding_progress(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerOnboardingProgress>>, ApiError> {
++Ok(web::Json(repositories::list_customer_onboarding_progress(pool.get_ref()).await?))
++}
++
++/// `GET /api/customer_onboarding_progress/{id}`
++async fn get_customer_onboarding_progress(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CustomerOnboardingProgress>, ApiError> {
++repositories::find_customer_onboarding_progress(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerOnboardingProgress"))
++}
++
++/// `POST /api/customer_onboarding_progress`
++async fn create_customer_onboarding_progress(pool: web::Data<PgPool>, input: web::Json<NewCustomerOnboardingProgress>) -> Result<(web::Json<CustomerOnboardingProgress>, StatusCode), ApiError> {
++let row = repositories::create_customer_onboarding_progress(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/customer_onboarding_progress/{id}`
++async fn update_customer_onboarding_progress(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCustomerOnboardingProgress>) -> Result<web::Json<CustomerOnboardingProgress>, ApiError> {
++repositories::update_customer_onboarding_progress(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerOnboardingProgress"))
++}
++
++/// `DELETE /api/customer_onboarding_progress/{id}`
++async fn delete_customer_onboarding_progress(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_customer_onboarding_progress(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CustomerOnboardingProgress"))
++}
++}
++
+ /// `GET /api/customer_plan_preferences`
+ async fn list_customer_plan_preferences(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerPlanPreferences>>, ApiError> {
+ Ok(web::Json(repositories::list_customer_plan_preferences(pool.get_ref()).await?))
+@@ -7651,6 +9091,42 @@ Err(ApiError::NotFound("CustomerPlanPreferences"))
+ }
+ }
+ 
++/// `GET /api/customer_preferences`
++async fn list_customer_preferences(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerPreferences>>, ApiError> {
++Ok(web::Json(repositories::list_customer_preferences(pool.get_ref()).await?))
++}
++
++/// `GET /api/customer_preferences/{id}`
++async fn get_customer_preferences(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CustomerPreferences>, ApiError> {
++repositories::find_customer_preferences(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerPreferences"))
++}
++
++/// `POST /api/customer_preferences`
++async fn create_customer_preferences(pool: web::Data<PgPool>, input: web::Json<NewCustomerPreferences>) -> Result<(web::Json<CustomerPreferences>, StatusCode), ApiError> {
++let row = repositories::create_customer_preferences(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/customer_preferences/{id}`
++async fn update_customer_preferences(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCustomerPreferences>) -> Result<web::Json<CustomerPreferences>, ApiError> {
++repositories::update_customer_preferences(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerPreferences"))
++}
++
++/// `DELETE /api/customer_preferences/{id}`
++async fn delete_customer_preferences(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_customer_preferences(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CustomerPreferences"))
++}
++}
++
+ /// `GET /api/customer_routes`
+ async fn list_customer_routes(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerRoutes>>, ApiError> {
+ Ok(web::Json(repositories::list_customer_routes(pool.get_ref()).await?))
+@@ -7687,6 +9163,42 @@ Err(ApiError::NotFound("CustomerRoutes"))
+ }
+ }
+ 
++/// `GET /api/customer_service_dates`
++async fn list_customer_service_dates(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerServiceDates>>, ApiError> {
++Ok(web::Json(repositories::list_customer_service_dates(pool.get_ref()).await?))
++}
++
++/// `GET /api/customer_service_dates/{id}`
++async fn get_customer_service_dates(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CustomerServiceDates>, ApiError> {
++repositories::find_customer_service_dates(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerServiceDates"))
++}
++
++/// `POST /api/customer_service_dates`
++async fn create_customer_service_dates(pool: web::Data<PgPool>, input: web::Json<NewCustomerServiceDates>) -> Result<(web::Json<CustomerServiceDates>, StatusCode), ApiError> {
++let row = repositories::create_customer_service_dates(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/customer_service_dates/{id}`
++async fn update_customer_service_dates(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCustomerServiceDates>) -> Result<web::Json<CustomerServiceDates>, ApiError> {
++repositories::update_customer_service_dates(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerServiceDates"))
++}
++
++/// `DELETE /api/customer_service_dates/{id}`
++async fn delete_customer_service_dates(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_customer_service_dates(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CustomerServiceDates"))
++}
++}
++
+ /// `GET /api/customer_streets`
+ async fn list_customer_streets(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerStreets>>, ApiError> {
+ Ok(web::Json(repositories::list_customer_streets(pool.get_ref()).await?))
+@@ -7759,6 +9271,78 @@ Err(ApiError::NotFound("CustomerSubscriptions"))
+ }
+ }
+ 
++/// `GET /api/customer_support_tickets`
++async fn list_customer_support_tickets(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerSupportTickets>>, ApiError> {
++Ok(web::Json(repositories::list_customer_support_tickets(pool.get_ref()).await?))
++}
++
++/// `GET /api/customer_support_tickets/{id}`
++async fn get_customer_support_tickets(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CustomerSupportTickets>, ApiError> {
++repositories::find_customer_support_tickets(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerSupportTickets"))
++}
++
++/// `POST /api/customer_support_tickets`
++async fn create_customer_support_tickets(pool: web::Data<PgPool>, input: web::Json<NewCustomerSupportTickets>) -> Result<(web::Json<CustomerSupportTickets>, StatusCode), ApiError> {
++let row = repositories::create_customer_support_tickets(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/customer_support_tickets/{id}`
++async fn update_customer_support_tickets(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCustomerSupportTickets>) -> Result<web::Json<CustomerSupportTickets>, ApiError> {
++repositories::update_customer_support_tickets(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerSupportTickets"))
++}
++
++/// `DELETE /api/customer_support_tickets/{id}`
++async fn delete_customer_support_tickets(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_customer_support_tickets(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CustomerSupportTickets"))
++}
++}
++
++/// `GET /api/customer_upsell_events`
++async fn list_customer_upsell_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerUpsellEvents>>, ApiError> {
++Ok(web::Json(repositories::list_customer_upsell_events(pool.get_ref()).await?))
++}
++
++/// `GET /api/customer_upsell_events/{id}`
++async fn get_customer_upsell_events(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<CustomerUpsellEvents>, ApiError> {
++repositories::find_customer_upsell_events(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerUpsellEvents"))
++}
++
++/// `POST /api/customer_upsell_events`
++async fn create_customer_upsell_events(pool: web::Data<PgPool>, input: web::Json<NewCustomerUpsellEvents>) -> Result<(web::Json<CustomerUpsellEvents>, StatusCode), ApiError> {
++let row = repositories::create_customer_upsell_events(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/customer_upsell_events/{id}`
++async fn update_customer_upsell_events(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchCustomerUpsellEvents>) -> Result<web::Json<CustomerUpsellEvents>, ApiError> {
++repositories::update_customer_upsell_events(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerUpsellEvents"))
++}
++
++/// `DELETE /api/customer_upsell_events/{id}`
++async fn delete_customer_upsell_events(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_customer_upsell_events(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CustomerUpsellEvents"))
++}
++}
++
+ /// `GET /api/customer_upsell_history`
+ async fn list_customer_upsell_history(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerUpsellHistory>>, ApiError> {
+ Ok(web::Json(repositories::list_customer_upsell_history(pool.get_ref()).await?))
+@@ -7795,6 +9379,42 @@ Err(ApiError::NotFound("CustomerUpsellHistory"))
+ }
+ }
+ 
++/// `GET /api/customer_upsell_status`
++async fn list_customer_upsell_status(pool: web::Data<PgPool>) -> Result<web::Json<Vec<CustomerUpsellStatus>>, ApiError> {
++Ok(web::Json(repositories::list_customer_upsell_status(pool.get_ref()).await?))
++}
++
++/// `GET /api/customer_upsell_status/{id}`
++async fn get_customer_upsell_status(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<CustomerUpsellStatus>, ApiError> {
++repositories::find_customer_upsell_status(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerUpsellStatus"))
++}
++
++/// `POST /api/customer_upsell_status`
++async fn create_customer_upsell_status(pool: web::Data<PgPool>, input: web::Json<NewCustomerUpsellStatus>) -> Result<(web::Json<CustomerUpsellStatus>, StatusCode), ApiError> {
++let row = repositories::create_customer_upsell_status(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/customer_upsell_status/{id}`
++async fn update_customer_upsell_status(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchCustomerUpsellStatus>) -> Result<web::Json<CustomerUpsellStatus>, ApiError> {
++repositories::update_customer_upsell_status(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("CustomerUpsellStatus"))
++}
++
++/// `DELETE /api/customer_upsell_status/{id}`
++async fn delete_customer_upsell_status(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_customer_upsell_status(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("CustomerUpsellStatus"))
++}
++}
++
+ /// `GET /api/daily_summaries`
+ async fn list_daily_summaries(pool: web::Data<PgPool>) -> Result<web::Json<Vec<DailySummaries>>, ApiError> {
+ Ok(web::Json(repositories::list_daily_summaries(pool.get_ref()).await?))
+@@ -8731,6 +10351,42 @@ Err(ApiError::NotFound("DriverCapacityWindows"))
+ }
+ }
+ 
++/// `GET /api/driver_devices`
++async fn list_driver_devices(pool: web::Data<PgPool>) -> Result<web::Json<Vec<DriverDevices>>, ApiError> {
++Ok(web::Json(repositories::list_driver_devices(pool.get_ref()).await?))
++}
++
++/// `GET /api/driver_devices/{id}`
++async fn get_driver_devices(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<DriverDevices>, ApiError> {
++repositories::find_driver_devices(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("DriverDevices"))
++}
++
++/// `POST /api/driver_devices`
++async fn create_driver_devices(pool: web::Data<PgPool>, input: web::Json<NewDriverDevices>) -> Result<(web::Json<DriverDevices>, StatusCode), ApiError> {
++let row = repositories::create_driver_devices(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/driver_devices/{id}`
++async fn update_driver_devices(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchDriverDevices>) -> Result<web::Json<DriverDevices>, ApiError> {
++repositories::update_driver_devices(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("DriverDevices"))
++}
++
++/// `DELETE /api/driver_devices/{id}`
++async fn delete_driver_devices(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_driver_devices(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("DriverDevices"))
++}
++}
++
+ /// `GET /api/driver_locations`
+ async fn list_driver_locations(pool: web::Data<PgPool>) -> Result<web::Json<Vec<DriverLocations>>, ApiError> {
+ Ok(web::Json(repositories::list_driver_locations(pool.get_ref()).await?))
+@@ -8773,7 +10429,7 @@ Ok(web::Json(repositories::list_driver_performance_metrics(pool.get_ref()).await
+ }
+ 
+ /// `GET /api/driver_performance_metrics/{id}`
+-async fn get_driver_performance_metrics(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<DriverPerformanceMetrics>, ApiError> {
++async fn get_driver_performance_metrics(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<DriverPerformanceMetrics>, ApiError> {
+ repositories::find_driver_performance_metrics(pool.get_ref(), id.into_inner())
+ .await?
+ .map(web::Json)
+@@ -8787,7 +10443,7 @@ Ok((web::Json(row), StatusCode::CREATED))
+ }
+ 
+ /// `PATCH /api/driver_performance_metrics/{id}`
+-async fn update_driver_performance_metrics(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchDriverPerformanceMetrics>) -> Result<web::Json<DriverPerformanceMetrics>, ApiError> {
++async fn update_driver_performance_metrics(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchDriverPerformanceMetrics>) -> Result<web::Json<DriverPerformanceMetrics>, ApiError> {
+ repositories::update_driver_performance_metrics(pool.get_ref(), id.into_inner(), input.into_inner())
+ .await?
+ .map(web::Json)
+@@ -8795,7 +10451,7 @@ repositories::update_driver_performance_metrics(pool.get_ref(), id.into_inner(),
+ }
+ 
+ /// `DELETE /api/driver_performance_metrics/{id}`
+-async fn delete_driver_performance_metrics(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++async fn delete_driver_performance_metrics(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
+ if repositories::delete_driver_performance_metrics(pool.get_ref(), id.into_inner()).await? {
+ Ok(HttpResponse::NoContent().finish())
+ } else {
+@@ -8809,7 +10465,7 @@ Ok(web::Json(repositories::list_driver_performance_ratings(pool.get_ref()).await
+ }
+ 
+ /// `GET /api/driver_performance_ratings/{id}`
+-async fn get_driver_performance_ratings(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<DriverPerformanceRatings>, ApiError> {
++async fn get_driver_performance_ratings(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<DriverPerformanceRatings>, ApiError> {
+ repositories::find_driver_performance_ratings(pool.get_ref(), id.into_inner())
+ .await?
+ .map(web::Json)
+@@ -8823,7 +10479,7 @@ Ok((web::Json(row), StatusCode::CREATED))
+ }
+ 
+ /// `PATCH /api/driver_performance_ratings/{id}`
+-async fn update_driver_performance_ratings(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchDriverPerformanceRatings>) -> Result<web::Json<DriverPerformanceRatings>, ApiError> {
++async fn update_driver_performance_ratings(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchDriverPerformanceRatings>) -> Result<web::Json<DriverPerformanceRatings>, ApiError> {
+ repositories::update_driver_performance_ratings(pool.get_ref(), id.into_inner(), input.into_inner())
+ .await?
+ .map(web::Json)
+@@ -8831,7 +10487,7 @@ repositories::update_driver_performance_ratings(pool.get_ref(), id.into_inner(),
+ }
+ 
+ /// `DELETE /api/driver_performance_ratings/{id}`
+-async fn delete_driver_performance_ratings(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++async fn delete_driver_performance_ratings(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
+ if repositories::delete_driver_performance_ratings(pool.get_ref(), id.into_inner()).await? {
+ Ok(HttpResponse::NoContent().finish())
+ } else {
+@@ -8911,6 +10567,42 @@ Err(ApiError::NotFound("DriverShifts"))
+ }
+ }
+ 
++/// `GET /api/driver_tasks`
++async fn list_driver_tasks(pool: web::Data<PgPool>) -> Result<web::Json<Vec<DriverTasks>>, ApiError> {
++Ok(web::Json(repositories::list_driver_tasks(pool.get_ref()).await?))
++}
++
++/// `GET /api/driver_tasks/{id}`
++async fn get_driver_tasks(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<DriverTasks>, ApiError> {
++repositories::find_driver_tasks(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("DriverTasks"))
++}
++
++/// `POST /api/driver_tasks`
++async fn create_driver_tasks(pool: web::Data<PgPool>, input: web::Json<NewDriverTasks>) -> Result<(web::Json<DriverTasks>, StatusCode), ApiError> {
++let row = repositories::create_driver_tasks(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/driver_tasks/{id}`
++async fn update_driver_tasks(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchDriverTasks>) -> Result<web::Json<DriverTasks>, ApiError> {
++repositories::update_driver_tasks(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("DriverTasks"))
++}
++
++/// `DELETE /api/driver_tasks/{id}`
++async fn delete_driver_tasks(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_driver_tasks(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("DriverTasks"))
++}
++}
++
+ /// `GET /api/driver_zone_assignments`
+ async fn list_driver_zone_assignments(pool: web::Data<PgPool>) -> Result<web::Json<Vec<DriverZoneAssignments>>, ApiError> {
+ Ok(web::Json(repositories::list_driver_zone_assignments(pool.get_ref()).await?))
+@@ -8983,6 +10675,42 @@ Err(ApiError::NotFound("DunningEmailLog"))
+ }
+ }
+ 
++/// `GET /api/dunning_emails`
++async fn list_dunning_emails(pool: web::Data<PgPool>) -> Result<web::Json<Vec<DunningEmails>>, ApiError> {
++Ok(web::Json(repositories::list_dunning_emails(pool.get_ref()).await?))
++}
++
++/// `GET /api/dunning_emails/{id}`
++async fn get_dunning_emails(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<DunningEmails>, ApiError> {
++repositories::find_dunning_emails(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("DunningEmails"))
++}
++
++/// `POST /api/dunning_emails`
++async fn create_dunning_emails(pool: web::Data<PgPool>, input: web::Json<NewDunningEmails>) -> Result<(web::Json<DunningEmails>, StatusCode), ApiError> {
++let row = repositories::create_dunning_emails(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/dunning_emails/{id}`
++async fn update_dunning_emails(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchDunningEmails>) -> Result<web::Json<DunningEmails>, ApiError> {
++repositories::update_dunning_emails(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("DunningEmails"))
++}
++
++/// `DELETE /api/dunning_emails/{id}`
++async fn delete_dunning_emails(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_dunning_emails(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("DunningEmails"))
++}
++}
++
+ /// `GET /api/dunning_sequences`
+ async fn list_dunning_sequences(pool: web::Data<PgPool>) -> Result<web::Json<Vec<DunningSequences>>, ApiError> {
+ Ok(web::Json(repositories::list_dunning_sequences(pool.get_ref()).await?))
+@@ -9199,6 +10927,42 @@ Err(ApiError::NotFound("EmailSends"))
+ }
+ }
+ 
++/// `GET /api/email_sequence_jobs`
++async fn list_email_sequence_jobs(pool: web::Data<PgPool>) -> Result<web::Json<Vec<EmailSequenceJobs>>, ApiError> {
++Ok(web::Json(repositories::list_email_sequence_jobs(pool.get_ref()).await?))
++}
++
++/// `GET /api/email_sequence_jobs/{id}`
++async fn get_email_sequence_jobs(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<EmailSequenceJobs>, ApiError> {
++repositories::find_email_sequence_jobs(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("EmailSequenceJobs"))
++}
++
++/// `POST /api/email_sequence_jobs`
++async fn create_email_sequence_jobs(pool: web::Data<PgPool>, input: web::Json<NewEmailSequenceJobs>) -> Result<(web::Json<EmailSequenceJobs>, StatusCode), ApiError> {
++let row = repositories::create_email_sequence_jobs(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/email_sequence_jobs/{id}`
++async fn update_email_sequence_jobs(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchEmailSequenceJobs>) -> Result<web::Json<EmailSequenceJobs>, ApiError> {
++repositories::update_email_sequence_jobs(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("EmailSequenceJobs"))
++}
++
++/// `DELETE /api/email_sequence_jobs/{id}`
++async fn delete_email_sequence_jobs(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_email_sequence_jobs(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("EmailSequenceJobs"))
++}
++}
++
+ /// `GET /api/email_sequences`
+ async fn list_email_sequences(pool: web::Data<PgPool>) -> Result<web::Json<Vec<EmailSequences>>, ApiError> {
+ Ok(web::Json(repositories::list_email_sequences(pool.get_ref()).await?))
+@@ -9343,6 +11107,42 @@ Err(ApiError::NotFound("EmailWorkflowEdges"))
+ }
+ }
+ 
++/// `GET /api/email_workflow_event_waits`
++async fn list_email_workflow_event_waits(pool: web::Data<PgPool>) -> Result<web::Json<Vec<EmailWorkflowEventWaits>>, ApiError> {
++Ok(web::Json(repositories::list_email_workflow_event_waits(pool.get_ref()).await?))
++}
++
++/// `GET /api/email_workflow_event_waits/{id}`
++async fn get_email_workflow_event_waits(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<EmailWorkflowEventWaits>, ApiError> {
++repositories::find_email_workflow_event_waits(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("EmailWorkflowEventWaits"))
++}
++
++/// `POST /api/email_workflow_event_waits`
++async fn create_email_workflow_event_waits(pool: web::Data<PgPool>, input: web::Json<NewEmailWorkflowEventWaits>) -> Result<(web::Json<EmailWorkflowEventWaits>, StatusCode), ApiError> {
++let row = repositories::create_email_workflow_event_waits(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/email_workflow_event_waits/{id}`
++async fn update_email_workflow_event_waits(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchEmailWorkflowEventWaits>) -> Result<web::Json<EmailWorkflowEventWaits>, ApiError> {
++repositories::update_email_workflow_event_waits(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("EmailWorkflowEventWaits"))
++}
++
++/// `DELETE /api/email_workflow_event_waits/{id}`
++async fn delete_email_workflow_event_waits(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_email_workflow_event_waits(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("EmailWorkflowEventWaits"))
++}
++}
++
+ /// `GET /api/email_workflow_folders`
+ async fn list_email_workflow_folders(pool: web::Data<PgPool>) -> Result<web::Json<Vec<EmailWorkflowFolders>>, ApiError> {
+ Ok(web::Json(repositories::list_email_workflow_folders(pool.get_ref()).await?))
+@@ -9595,6 +11395,42 @@ Err(ApiError::NotFound("EmailWorkflowScheduledSteps"))
+ }
+ }
+ 
++/// `GET /api/email_workflow_split_test_results`
++async fn list_email_workflow_split_test_results(pool: web::Data<PgPool>) -> Result<web::Json<Vec<EmailWorkflowSplitTestResults>>, ApiError> {
++Ok(web::Json(repositories::list_email_workflow_split_test_results(pool.get_ref()).await?))
++}
++
++/// `GET /api/email_workflow_split_test_results/{id}`
++async fn get_email_workflow_split_test_results(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<EmailWorkflowSplitTestResults>, ApiError> {
++repositories::find_email_workflow_split_test_results(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("EmailWorkflowSplitTestResults"))
++}
++
++/// `POST /api/email_workflow_split_test_results`
++async fn create_email_workflow_split_test_results(pool: web::Data<PgPool>, input: web::Json<NewEmailWorkflowSplitTestResults>) -> Result<(web::Json<EmailWorkflowSplitTestResults>, StatusCode), ApiError> {
++let row = repositories::create_email_workflow_split_test_results(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/email_workflow_split_test_results/{id}`
++async fn update_email_workflow_split_test_results(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchEmailWorkflowSplitTestResults>) -> Result<web::Json<EmailWorkflowSplitTestResults>, ApiError> {
++repositories::update_email_workflow_split_test_results(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("EmailWorkflowSplitTestResults"))
++}
++
++/// `DELETE /api/email_workflow_split_test_results/{id}`
++async fn delete_email_workflow_split_test_results(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_email_workflow_split_test_results(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("EmailWorkflowSplitTestResults"))
++}
++}
++
+ /// `GET /api/email_workflows`
+ async fn list_email_workflows(pool: web::Data<PgPool>) -> Result<web::Json<Vec<EmailWorkflows>>, ApiError> {
+ Ok(web::Json(repositories::list_email_workflows(pool.get_ref()).await?))
+@@ -10207,6 +12043,186 @@ Err(ApiError::NotFound("FacebookAdSetMetrics"))
+ }
+ }
+ 
++/// `GET /api/facebook_bulk_ad_set_templates`
++async fn list_facebook_bulk_ad_set_templates(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FacebookBulkAdSetTemplates>>, ApiError> {
++Ok(web::Json(repositories::list_facebook_bulk_ad_set_templates(pool.get_ref()).await?))
++}
++
++/// `GET /api/facebook_bulk_ad_set_templates/{id}`
++async fn get_facebook_bulk_ad_set_templates(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<FacebookBulkAdSetTemplates>, ApiError> {
++repositories::find_facebook_bulk_ad_set_templates(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FacebookBulkAdSetTemplates"))
++}
++
++/// `POST /api/facebook_bulk_ad_set_templates`
++async fn create_facebook_bulk_ad_set_templates(pool: web::Data<PgPool>, input: web::Json<NewFacebookBulkAdSetTemplates>) -> Result<(web::Json<FacebookBulkAdSetTemplates>, StatusCode), ApiError> {
++let row = repositories::create_facebook_bulk_ad_set_templates(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/facebook_bulk_ad_set_templates/{id}`
++async fn update_facebook_bulk_ad_set_templates(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchFacebookBulkAdSetTemplates>) -> Result<web::Json<FacebookBulkAdSetTemplates>, ApiError> {
++repositories::update_facebook_bulk_ad_set_templates(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FacebookBulkAdSetTemplates"))
++}
++
++/// `DELETE /api/facebook_bulk_ad_set_templates/{id}`
++async fn delete_facebook_bulk_ad_set_templates(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_facebook_bulk_ad_set_templates(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FacebookBulkAdSetTemplates"))
++}
++}
++
++/// `GET /api/facebook_bulk_creative_assets`
++async fn list_facebook_bulk_creative_assets(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FacebookBulkCreativeAssets>>, ApiError> {
++Ok(web::Json(repositories::list_facebook_bulk_creative_assets(pool.get_ref()).await?))
++}
++
++/// `GET /api/facebook_bulk_creative_assets/{id}`
++async fn get_facebook_bulk_creative_assets(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<FacebookBulkCreativeAssets>, ApiError> {
++repositories::find_facebook_bulk_creative_assets(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FacebookBulkCreativeAssets"))
++}
++
++/// `POST /api/facebook_bulk_creative_assets`
++async fn create_facebook_bulk_creative_assets(pool: web::Data<PgPool>, input: web::Json<NewFacebookBulkCreativeAssets>) -> Result<(web::Json<FacebookBulkCreativeAssets>, StatusCode), ApiError> {
++let row = repositories::create_facebook_bulk_creative_assets(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/facebook_bulk_creative_assets/{id}`
++async fn update_facebook_bulk_creative_assets(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchFacebookBulkCreativeAssets>) -> Result<web::Json<FacebookBulkCreativeAssets>, ApiError> {
++repositories::update_facebook_bulk_creative_assets(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FacebookBulkCreativeAssets"))
++}
++
++/// `DELETE /api/facebook_bulk_creative_assets/{id}`
++async fn delete_facebook_bulk_creative_assets(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_facebook_bulk_creative_assets(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FacebookBulkCreativeAssets"))
++}
++}
++
++/// `GET /api/facebook_bulk_input_sets`
++async fn list_facebook_bulk_input_sets(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FacebookBulkInputSets>>, ApiError> {
++Ok(web::Json(repositories::list_facebook_bulk_input_sets(pool.get_ref()).await?))
++}
++
++/// `GET /api/facebook_bulk_input_sets/{id}`
++async fn get_facebook_bulk_input_sets(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<FacebookBulkInputSets>, ApiError> {
++repositories::find_facebook_bulk_input_sets(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FacebookBulkInputSets"))
++}
++
++/// `POST /api/facebook_bulk_input_sets`
++async fn create_facebook_bulk_input_sets(pool: web::Data<PgPool>, input: web::Json<NewFacebookBulkInputSets>) -> Result<(web::Json<FacebookBulkInputSets>, StatusCode), ApiError> {
++let row = repositories::create_facebook_bulk_input_sets(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/facebook_bulk_input_sets/{id}`
++async fn update_facebook_bulk_input_sets(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchFacebookBulkInputSets>) -> Result<web::Json<FacebookBulkInputSets>, ApiError> {
++repositories::update_facebook_bulk_input_sets(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FacebookBulkInputSets"))
++}
++
++/// `DELETE /api/facebook_bulk_input_sets/{id}`
++async fn delete_facebook_bulk_input_sets(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_facebook_bulk_input_sets(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FacebookBulkInputSets"))
++}
++}
++
++/// `GET /api/facebook_bulk_text_variations`
++async fn list_facebook_bulk_text_variations(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FacebookBulkTextVariations>>, ApiError> {
++Ok(web::Json(repositories::list_facebook_bulk_text_variations(pool.get_ref()).await?))
++}
++
++/// `GET /api/facebook_bulk_text_variations/{id}`
++async fn get_facebook_bulk_text_variations(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<FacebookBulkTextVariations>, ApiError> {
++repositories::find_facebook_bulk_text_variations(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FacebookBulkTextVariations"))
++}
++
++/// `POST /api/facebook_bulk_text_variations`
++async fn create_facebook_bulk_text_variations(pool: web::Data<PgPool>, input: web::Json<NewFacebookBulkTextVariations>) -> Result<(web::Json<FacebookBulkTextVariations>, StatusCode), ApiError> {
++let row = repositories::create_facebook_bulk_text_variations(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/facebook_bulk_text_variations/{id}`
++async fn update_facebook_bulk_text_variations(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchFacebookBulkTextVariations>) -> Result<web::Json<FacebookBulkTextVariations>, ApiError> {
++repositories::update_facebook_bulk_text_variations(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FacebookBulkTextVariations"))
++}
++
++/// `DELETE /api/facebook_bulk_text_variations/{id}`
++async fn delete_facebook_bulk_text_variations(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_facebook_bulk_text_variations(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FacebookBulkTextVariations"))
++}
++}
++
++/// `GET /api/facebook_bulk_upload_requests`
++async fn list_facebook_bulk_upload_requests(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FacebookBulkUploadRequests>>, ApiError> {
++Ok(web::Json(repositories::list_facebook_bulk_upload_requests(pool.get_ref()).await?))
++}
++
++/// `GET /api/facebook_bulk_upload_requests/{id}`
++async fn get_facebook_bulk_upload_requests(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<FacebookBulkUploadRequests>, ApiError> {
++repositories::find_facebook_bulk_upload_requests(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FacebookBulkUploadRequests"))
++}
++
++/// `POST /api/facebook_bulk_upload_requests`
++async fn create_facebook_bulk_upload_requests(pool: web::Data<PgPool>, input: web::Json<NewFacebookBulkUploadRequests>) -> Result<(web::Json<FacebookBulkUploadRequests>, StatusCode), ApiError> {
++let row = repositories::create_facebook_bulk_upload_requests(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/facebook_bulk_upload_requests/{id}`
++async fn update_facebook_bulk_upload_requests(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchFacebookBulkUploadRequests>) -> Result<web::Json<FacebookBulkUploadRequests>, ApiError> {
++repositories::update_facebook_bulk_upload_requests(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FacebookBulkUploadRequests"))
++}
++
++/// `DELETE /api/facebook_bulk_upload_requests/{id}`
++async fn delete_facebook_bulk_upload_requests(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_facebook_bulk_upload_requests(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FacebookBulkUploadRequests"))
++}
++}
++
+ /// `GET /api/facebook_campaign_insights`
+ async fn list_facebook_campaign_insights(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FacebookCampaignInsights>>, ApiError> {
+ Ok(web::Json(repositories::list_facebook_campaign_insights(pool.get_ref()).await?))
+@@ -10243,6 +12259,42 @@ Err(ApiError::NotFound("FacebookCampaignInsights"))
+ }
+ }
+ 
++/// `GET /api/facebook_daily_metrics`
++async fn list_facebook_daily_metrics(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FacebookDailyMetrics>>, ApiError> {
++Ok(web::Json(repositories::list_facebook_daily_metrics(pool.get_ref()).await?))
++}
++
++/// `GET /api/facebook_daily_metrics/{id}`
++async fn get_facebook_daily_metrics(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<FacebookDailyMetrics>, ApiError> {
++repositories::find_facebook_daily_metrics(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FacebookDailyMetrics"))
++}
++
++/// `POST /api/facebook_daily_metrics`
++async fn create_facebook_daily_metrics(pool: web::Data<PgPool>, input: web::Json<NewFacebookDailyMetrics>) -> Result<(web::Json<FacebookDailyMetrics>, StatusCode), ApiError> {
++let row = repositories::create_facebook_daily_metrics(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/facebook_daily_metrics/{id}`
++async fn update_facebook_daily_metrics(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchFacebookDailyMetrics>) -> Result<web::Json<FacebookDailyMetrics>, ApiError> {
++repositories::update_facebook_daily_metrics(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FacebookDailyMetrics"))
++}
++
++/// `DELETE /api/facebook_daily_metrics/{id}`
++async fn delete_facebook_daily_metrics(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_facebook_daily_metrics(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FacebookDailyMetrics"))
++}
++}
++
+ /// `GET /api/facebook_events_log`
+ async fn list_facebook_events_log(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FacebookEventsLog>>, ApiError> {
+ Ok(web::Json(repositories::list_facebook_events_log(pool.get_ref()).await?))
+@@ -10747,6 +12799,42 @@ Err(ApiError::NotFound("Forms"))
+ }
+ }
+ 
++/// `GET /api/funnel_analytics`
++async fn list_funnel_analytics(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FunnelAnalytics>>, ApiError> {
++Ok(web::Json(repositories::list_funnel_analytics(pool.get_ref()).await?))
++}
++
++/// `GET /api/funnel_analytics/{id}`
++async fn get_funnel_analytics(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<FunnelAnalytics>, ApiError> {
++repositories::find_funnel_analytics(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelAnalytics"))
++}
++
++/// `POST /api/funnel_analytics`
++async fn create_funnel_analytics(pool: web::Data<PgPool>, input: web::Json<NewFunnelAnalytics>) -> Result<(web::Json<FunnelAnalytics>, StatusCode), ApiError> {
++let row = repositories::create_funnel_analytics(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/funnel_analytics/{id}`
++async fn update_funnel_analytics(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchFunnelAnalytics>) -> Result<web::Json<FunnelAnalytics>, ApiError> {
++repositories::update_funnel_analytics(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelAnalytics"))
++}
++
++/// `DELETE /api/funnel_analytics/{id}`
++async fn delete_funnel_analytics(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_funnel_analytics(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FunnelAnalytics"))
++}
++}
++
+ /// `GET /api/funnel_builder_layouts`
+ async fn list_funnel_builder_layouts(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FunnelBuilderLayouts>>, ApiError> {
+ Ok(web::Json(repositories::list_funnel_builder_layouts(pool.get_ref()).await?))
+@@ -10783,6 +12871,114 @@ Err(ApiError::NotFound("FunnelBuilderLayouts"))
+ }
+ }
+ 
++/// `GET /api/funnel_circuit_breaker_config`
++async fn list_funnel_circuit_breaker_config(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FunnelCircuitBreakerConfig>>, ApiError> {
++Ok(web::Json(repositories::list_funnel_circuit_breaker_config(pool.get_ref()).await?))
++}
++
++/// `GET /api/funnel_circuit_breaker_config/{id}`
++async fn get_funnel_circuit_breaker_config(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<FunnelCircuitBreakerConfig>, ApiError> {
++repositories::find_funnel_circuit_breaker_config(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelCircuitBreakerConfig"))
++}
++
++/// `POST /api/funnel_circuit_breaker_config`
++async fn create_funnel_circuit_breaker_config(pool: web::Data<PgPool>, input: web::Json<NewFunnelCircuitBreakerConfig>) -> Result<(web::Json<FunnelCircuitBreakerConfig>, StatusCode), ApiError> {
++let row = repositories::create_funnel_circuit_breaker_config(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/funnel_circuit_breaker_config/{id}`
++async fn update_funnel_circuit_breaker_config(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchFunnelCircuitBreakerConfig>) -> Result<web::Json<FunnelCircuitBreakerConfig>, ApiError> {
++repositories::update_funnel_circuit_breaker_config(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelCircuitBreakerConfig"))
++}
++
++/// `DELETE /api/funnel_circuit_breaker_config/{id}`
++async fn delete_funnel_circuit_breaker_config(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_funnel_circuit_breaker_config(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FunnelCircuitBreakerConfig"))
++}
++}
++
++/// `GET /api/funnel_consistency_checks`
++async fn list_funnel_consistency_checks(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FunnelConsistencyChecks>>, ApiError> {
++Ok(web::Json(repositories::list_funnel_consistency_checks(pool.get_ref()).await?))
++}
++
++/// `GET /api/funnel_consistency_checks/{id}`
++async fn get_funnel_consistency_checks(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<FunnelConsistencyChecks>, ApiError> {
++repositories::find_funnel_consistency_checks(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelConsistencyChecks"))
++}
++
++/// `POST /api/funnel_consistency_checks`
++async fn create_funnel_consistency_checks(pool: web::Data<PgPool>, input: web::Json<NewFunnelConsistencyChecks>) -> Result<(web::Json<FunnelConsistencyChecks>, StatusCode), ApiError> {
++let row = repositories::create_funnel_consistency_checks(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/funnel_consistency_checks/{id}`
++async fn update_funnel_consistency_checks(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchFunnelConsistencyChecks>) -> Result<web::Json<FunnelConsistencyChecks>, ApiError> {
++repositories::update_funnel_consistency_checks(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelConsistencyChecks"))
++}
++
++/// `DELETE /api/funnel_consistency_checks/{id}`
++async fn delete_funnel_consistency_checks(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_funnel_consistency_checks(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FunnelConsistencyChecks"))
++}
++}
++
++/// `GET /api/funnel_conversion_events`
++async fn list_funnel_conversion_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FunnelConversionEvents>>, ApiError> {
++Ok(web::Json(repositories::list_funnel_conversion_events(pool.get_ref()).await?))
++}
++
++/// `GET /api/funnel_conversion_events/{id}`
++async fn get_funnel_conversion_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<FunnelConversionEvents>, ApiError> {
++repositories::find_funnel_conversion_events(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelConversionEvents"))
++}
++
++/// `POST /api/funnel_conversion_events`
++async fn create_funnel_conversion_events(pool: web::Data<PgPool>, input: web::Json<NewFunnelConversionEvents>) -> Result<(web::Json<FunnelConversionEvents>, StatusCode), ApiError> {
++let row = repositories::create_funnel_conversion_events(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/funnel_conversion_events/{id}`
++async fn update_funnel_conversion_events(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchFunnelConversionEvents>) -> Result<web::Json<FunnelConversionEvents>, ApiError> {
++repositories::update_funnel_conversion_events(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelConversionEvents"))
++}
++
++/// `DELETE /api/funnel_conversion_events/{id}`
++async fn delete_funnel_conversion_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_funnel_conversion_events(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FunnelConversionEvents"))
++}
++}
++
+ /// `GET /api/funnel_events`
+ async fn list_funnel_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FunnelEvents>>, ApiError> {
+ Ok(web::Json(repositories::list_funnel_events(pool.get_ref()).await?))
+@@ -10855,6 +13051,42 @@ Err(ApiError::NotFound("FunnelLifecycleRevisions"))
+ }
+ }
+ 
++/// `GET /api/funnel_orchestration`
++async fn list_funnel_orchestration(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FunnelOrchestration>>, ApiError> {
++Ok(web::Json(repositories::list_funnel_orchestration(pool.get_ref()).await?))
++}
++
++/// `GET /api/funnel_orchestration/{id}`
++async fn get_funnel_orchestration(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<FunnelOrchestration>, ApiError> {
++repositories::find_funnel_orchestration(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelOrchestration"))
++}
++
++/// `POST /api/funnel_orchestration`
++async fn create_funnel_orchestration(pool: web::Data<PgPool>, input: web::Json<NewFunnelOrchestration>) -> Result<(web::Json<FunnelOrchestration>, StatusCode), ApiError> {
++let row = repositories::create_funnel_orchestration(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/funnel_orchestration/{id}`
++async fn update_funnel_orchestration(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchFunnelOrchestration>) -> Result<web::Json<FunnelOrchestration>, ApiError> {
++repositories::update_funnel_orchestration(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelOrchestration"))
++}
++
++/// `DELETE /api/funnel_orchestration/{id}`
++async fn delete_funnel_orchestration(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_funnel_orchestration(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FunnelOrchestration"))
++}
++}
++
+ /// `GET /api/funnel_payment_state`
+ async fn list_funnel_payment_state(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FunnelPaymentState>>, ApiError> {
+ Ok(web::Json(repositories::list_funnel_payment_state(pool.get_ref()).await?))
+@@ -10891,6 +13123,114 @@ Err(ApiError::NotFound("FunnelPaymentState"))
+ }
+ }
+ 
++/// `GET /api/funnel_retry_policy`
++async fn list_funnel_retry_policy(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FunnelRetryPolicy>>, ApiError> {
++Ok(web::Json(repositories::list_funnel_retry_policy(pool.get_ref()).await?))
++}
++
++/// `GET /api/funnel_retry_policy/{id}`
++async fn get_funnel_retry_policy(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<FunnelRetryPolicy>, ApiError> {
++repositories::find_funnel_retry_policy(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelRetryPolicy"))
++}
++
++/// `POST /api/funnel_retry_policy`
++async fn create_funnel_retry_policy(pool: web::Data<PgPool>, input: web::Json<NewFunnelRetryPolicy>) -> Result<(web::Json<FunnelRetryPolicy>, StatusCode), ApiError> {
++let row = repositories::create_funnel_retry_policy(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/funnel_retry_policy/{id}`
++async fn update_funnel_retry_policy(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchFunnelRetryPolicy>) -> Result<web::Json<FunnelRetryPolicy>, ApiError> {
++repositories::update_funnel_retry_policy(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelRetryPolicy"))
++}
++
++/// `DELETE /api/funnel_retry_policy/{id}`
++async fn delete_funnel_retry_policy(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_funnel_retry_policy(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FunnelRetryPolicy"))
++}
++}
++
++/// `GET /api/funnel_stage_events`
++async fn list_funnel_stage_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FunnelStageEvents>>, ApiError> {
++Ok(web::Json(repositories::list_funnel_stage_events(pool.get_ref()).await?))
++}
++
++/// `GET /api/funnel_stage_events/{id}`
++async fn get_funnel_stage_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<FunnelStageEvents>, ApiError> {
++repositories::find_funnel_stage_events(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelStageEvents"))
++}
++
++/// `POST /api/funnel_stage_events`
++async fn create_funnel_stage_events(pool: web::Data<PgPool>, input: web::Json<NewFunnelStageEvents>) -> Result<(web::Json<FunnelStageEvents>, StatusCode), ApiError> {
++let row = repositories::create_funnel_stage_events(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/funnel_stage_events/{id}`
++async fn update_funnel_stage_events(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchFunnelStageEvents>) -> Result<web::Json<FunnelStageEvents>, ApiError> {
++repositories::update_funnel_stage_events(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelStageEvents"))
++}
++
++/// `DELETE /api/funnel_stage_events/{id}`
++async fn delete_funnel_stage_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_funnel_stage_events(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FunnelStageEvents"))
++}
++}
++
++/// `GET /api/funnel_state_log`
++async fn list_funnel_state_log(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FunnelStateLog>>, ApiError> {
++Ok(web::Json(repositories::list_funnel_state_log(pool.get_ref()).await?))
++}
++
++/// `GET /api/funnel_state_log/{id}`
++async fn get_funnel_state_log(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<FunnelStateLog>, ApiError> {
++repositories::find_funnel_state_log(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelStateLog"))
++}
++
++/// `POST /api/funnel_state_log`
++async fn create_funnel_state_log(pool: web::Data<PgPool>, input: web::Json<NewFunnelStateLog>) -> Result<(web::Json<FunnelStateLog>, StatusCode), ApiError> {
++let row = repositories::create_funnel_state_log(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/funnel_state_log/{id}`
++async fn update_funnel_state_log(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchFunnelStateLog>) -> Result<web::Json<FunnelStateLog>, ApiError> {
++repositories::update_funnel_state_log(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("FunnelStateLog"))
++}
++
++/// `DELETE /api/funnel_state_log/{id}`
++async fn delete_funnel_state_log(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_funnel_state_log(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("FunnelStateLog"))
++}
++}
++
+ /// `GET /api/funnel_step_components`
+ async fn list_funnel_step_components(pool: web::Data<PgPool>) -> Result<web::Json<Vec<FunnelStepComponents>>, ApiError> {
+ Ok(web::Json(repositories::list_funnel_step_components(pool.get_ref()).await?))
+@@ -12187,42 +14527,6 @@ Err(ApiError::NotFound("HourlyConversionRates"))
+ }
+ }
+ 
+-/// `GET /api/hr_application_reviews`
+-async fn list_hr_application_reviews(pool: web::Data<PgPool>) -> Result<web::Json<Vec<HrApplicationReviews>>, ApiError> {
+-Ok(web::Json(repositories::list_hr_application_reviews(pool.get_ref()).await?))
+-}
+-
+-/// `GET /api/hr_application_reviews/{id}`
+-async fn get_hr_application_reviews(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<web::Json<HrApplicationReviews>, ApiError> {
+-repositories::find_hr_application_reviews(pool.get_ref(), id.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("HrApplicationReviews"))
+-}
+-
+-/// `POST /api/hr_application_reviews`
+-async fn create_hr_application_reviews(pool: web::Data<PgPool>, input: web::Json<NewHrApplicationReviews>) -> Result<(web::Json<HrApplicationReviews>, StatusCode), ApiError> {
+-let row = repositories::create_hr_application_reviews(pool.get_ref(), input.into_inner()).await?;
+-Ok((web::Json(row), StatusCode::CREATED))
+-}
+-
+-/// `PATCH /api/hr_application_reviews/{id}`
+-async fn update_hr_application_reviews(pool: web::Data<PgPool>, id: web::Path<String>, input: web::Json<PatchHrApplicationReviews>) -> Result<web::Json<HrApplicationReviews>, ApiError> {
+-repositories::update_hr_application_reviews(pool.get_ref(), id.into_inner(), input.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("HrApplicationReviews"))
+-}
+-
+-/// `DELETE /api/hr_application_reviews/{id}`
+-async fn delete_hr_application_reviews(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<HttpResponse, ApiError> {
+-if repositories::delete_hr_application_reviews(pool.get_ref(), id.into_inner()).await? {
+-Ok(HttpResponse::NoContent().finish())
+-} else {
+-Err(ApiError::NotFound("HrApplicationReviews"))
+-}
+-}
+-
+ /// `GET /api/ibb_campaign_node_rules`
+ async fn list_ibb_campaign_node_rules(pool: web::Data<PgPool>) -> Result<web::Json<Vec<IbbCampaignNodeRules>>, ApiError> {
+ Ok(web::Json(repositories::list_ibb_campaign_node_rules(pool.get_ref()).await?))
+@@ -12943,6 +15247,78 @@ Err(ApiError::NotFound("JobLogs"))
+ }
+ }
+ 
++/// `GET /api/kr_funnel_metrics`
++async fn list_kr_funnel_metrics(pool: web::Data<PgPool>) -> Result<web::Json<Vec<KrFunnelMetrics>>, ApiError> {
++Ok(web::Json(repositories::list_kr_funnel_metrics(pool.get_ref()).await?))
++}
++
++/// `GET /api/kr_funnel_metrics/{id}`
++async fn get_kr_funnel_metrics(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<KrFunnelMetrics>, ApiError> {
++repositories::find_kr_funnel_metrics(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("KrFunnelMetrics"))
++}
++
++/// `POST /api/kr_funnel_metrics`
++async fn create_kr_funnel_metrics(pool: web::Data<PgPool>, input: web::Json<NewKrFunnelMetrics>) -> Result<(web::Json<KrFunnelMetrics>, StatusCode), ApiError> {
++let row = repositories::create_kr_funnel_metrics(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/kr_funnel_metrics/{id}`
++async fn update_kr_funnel_metrics(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchKrFunnelMetrics>) -> Result<web::Json<KrFunnelMetrics>, ApiError> {
++repositories::update_kr_funnel_metrics(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("KrFunnelMetrics"))
++}
++
++/// `DELETE /api/kr_funnel_metrics/{id}`
++async fn delete_kr_funnel_metrics(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_kr_funnel_metrics(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("KrFunnelMetrics"))
++}
++}
++
++/// `GET /api/kr_progress`
++async fn list_kr_progress(pool: web::Data<PgPool>) -> Result<web::Json<Vec<KrProgress>>, ApiError> {
++Ok(web::Json(repositories::list_kr_progress(pool.get_ref()).await?))
++}
++
++/// `GET /api/kr_progress/{id}`
++async fn get_kr_progress(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<KrProgress>, ApiError> {
++repositories::find_kr_progress(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("KrProgress"))
++}
++
++/// `POST /api/kr_progress`
++async fn create_kr_progress(pool: web::Data<PgPool>, input: web::Json<NewKrProgress>) -> Result<(web::Json<KrProgress>, StatusCode), ApiError> {
++let row = repositories::create_kr_progress(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/kr_progress/{id}`
++async fn update_kr_progress(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchKrProgress>) -> Result<web::Json<KrProgress>, ApiError> {
++repositories::update_kr_progress(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("KrProgress"))
++}
++
++/// `DELETE /api/kr_progress/{id}`
++async fn delete_kr_progress(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_kr_progress(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("KrProgress"))
++}
++}
++
+ /// `GET /api/kv_store`
+ async fn list_kv_store(pool: web::Data<PgPool>) -> Result<web::Json<Vec<KvStore>>, ApiError> {
+ Ok(web::Json(repositories::list_kv_store(pool.get_ref()).await?))
+@@ -13051,6 +15427,42 @@ Err(ApiError::NotFound("LeadCustomFields"))
+ }
+ }
+ 
++/// `GET /api/lead_high_value_zips`
++async fn list_lead_high_value_zips(pool: web::Data<PgPool>) -> Result<web::Json<Vec<LeadHighValueZips>>, ApiError> {
++Ok(web::Json(repositories::list_lead_high_value_zips(pool.get_ref()).await?))
++}
++
++/// `GET /api/lead_high_value_zips/{id}`
++async fn get_lead_high_value_zips(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<LeadHighValueZips>, ApiError> {
++repositories::find_lead_high_value_zips(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("LeadHighValueZips"))
++}
++
++/// `POST /api/lead_high_value_zips`
++async fn create_lead_high_value_zips(pool: web::Data<PgPool>, input: web::Json<NewLeadHighValueZips>) -> Result<(web::Json<LeadHighValueZips>, StatusCode), ApiError> {
++let row = repositories::create_lead_high_value_zips(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/lead_high_value_zips/{id}`
++async fn update_lead_high_value_zips(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchLeadHighValueZips>) -> Result<web::Json<LeadHighValueZips>, ApiError> {
++repositories::update_lead_high_value_zips(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("LeadHighValueZips"))
++}
++
++/// `DELETE /api/lead_high_value_zips/{id}`
++async fn delete_lead_high_value_zips(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_lead_high_value_zips(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("LeadHighValueZips"))
++}
++}
++
+ /// `GET /api/lead_ip_addresses`
+ async fn list_lead_ip_addresses(pool: web::Data<PgPool>) -> Result<web::Json<Vec<LeadIpAddresses>>, ApiError> {
+ Ok(web::Json(repositories::list_lead_ip_addresses(pool.get_ref()).await?))
+@@ -13123,6 +15535,42 @@ Err(ApiError::NotFound("LeadMarketingTags"))
+ }
+ }
+ 
++/// `GET /api/lead_qualification_config`
++async fn list_lead_qualification_config(pool: web::Data<PgPool>) -> Result<web::Json<Vec<LeadQualificationConfig>>, ApiError> {
++Ok(web::Json(repositories::list_lead_qualification_config(pool.get_ref()).await?))
++}
++
++/// `GET /api/lead_qualification_config/{id}`
++async fn get_lead_qualification_config(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<LeadQualificationConfig>, ApiError> {
++repositories::find_lead_qualification_config(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("LeadQualificationConfig"))
++}
++
++/// `POST /api/lead_qualification_config`
++async fn create_lead_qualification_config(pool: web::Data<PgPool>, input: web::Json<NewLeadQualificationConfig>) -> Result<(web::Json<LeadQualificationConfig>, StatusCode), ApiError> {
++let row = repositories::create_lead_qualification_config(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/lead_qualification_config/{id}`
++async fn update_lead_qualification_config(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchLeadQualificationConfig>) -> Result<web::Json<LeadQualificationConfig>, ApiError> {
++repositories::update_lead_qualification_config(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("LeadQualificationConfig"))
++}
++
++/// `DELETE /api/lead_qualification_config/{id}`
++async fn delete_lead_qualification_config(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_lead_qualification_config(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("LeadQualificationConfig"))
++}
++}
++
+ /// `GET /api/lead_qualifications`
+ async fn list_lead_qualifications(pool: web::Data<PgPool>) -> Result<web::Json<Vec<LeadQualifications>>, ApiError> {
+ Ok(web::Json(repositories::list_lead_qualifications(pool.get_ref()).await?))
+@@ -13627,6 +16075,42 @@ Err(ApiError::NotFound("ManagerPresence"))
+ }
+ }
+ 
++/// `GET /api/manual_intervention_log`
++async fn list_manual_intervention_log(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ManualInterventionLog>>, ApiError> {
++Ok(web::Json(repositories::list_manual_intervention_log(pool.get_ref()).await?))
++}
++
++/// `GET /api/manual_intervention_log/{id}`
++async fn get_manual_intervention_log(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<ManualInterventionLog>, ApiError> {
++repositories::find_manual_intervention_log(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ManualInterventionLog"))
++}
++
++/// `POST /api/manual_intervention_log`
++async fn create_manual_intervention_log(pool: web::Data<PgPool>, input: web::Json<NewManualInterventionLog>) -> Result<(web::Json<ManualInterventionLog>, StatusCode), ApiError> {
++let row = repositories::create_manual_intervention_log(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/manual_intervention_log/{id}`
++async fn update_manual_intervention_log(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchManualInterventionLog>) -> Result<web::Json<ManualInterventionLog>, ApiError> {
++repositories::update_manual_intervention_log(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ManualInterventionLog"))
++}
++
++/// `DELETE /api/manual_intervention_log/{id}`
++async fn delete_manual_intervention_log(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_manual_intervention_log(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("ManualInterventionLog"))
++}
++}
++
+ /// `GET /api/marketing_campaign_audiences`
+ async fn list_marketing_campaign_audiences(pool: web::Data<PgPool>) -> Result<web::Json<Vec<MarketingCampaignAudiences>>, ApiError> {
+ Ok(web::Json(repositories::list_marketing_campaign_audiences(pool.get_ref()).await?))
+@@ -13987,6 +16471,42 @@ Err(ApiError::NotFound("MarketingMaterials"))
+ }
+ }
+ 
++/// `GET /api/marketing_outcome_events`
++async fn list_marketing_outcome_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<MarketingOutcomeEvents>>, ApiError> {
++Ok(web::Json(repositories::list_marketing_outcome_events(pool.get_ref()).await?))
++}
++
++/// `GET /api/marketing_outcome_events/{id}`
++async fn get_marketing_outcome_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<MarketingOutcomeEvents>, ApiError> {
++repositories::find_marketing_outcome_events(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("MarketingOutcomeEvents"))
++}
++
++/// `POST /api/marketing_outcome_events`
++async fn create_marketing_outcome_events(pool: web::Data<PgPool>, input: web::Json<NewMarketingOutcomeEvents>) -> Result<(web::Json<MarketingOutcomeEvents>, StatusCode), ApiError> {
++let row = repositories::create_marketing_outcome_events(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/marketing_outcome_events/{id}`
++async fn update_marketing_outcome_events(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchMarketingOutcomeEvents>) -> Result<web::Json<MarketingOutcomeEvents>, ApiError> {
++repositories::update_marketing_outcome_events(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("MarketingOutcomeEvents"))
++}
++
++/// `DELETE /api/marketing_outcome_events/{id}`
++async fn delete_marketing_outcome_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_marketing_outcome_events(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("MarketingOutcomeEvents"))
++}
++}
++
+ /// `GET /api/marketing_qr_scan_events`
+ async fn list_marketing_qr_scan_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<MarketingQrScanEvents>>, ApiError> {
+ Ok(web::Json(repositories::list_marketing_qr_scan_events(pool.get_ref()).await?))
+@@ -14419,6 +16939,42 @@ Err(ApiError::NotFound("MessageReadReceipts"))
+ }
+ }
+ 
++/// `GET /api/messenger_ad_launches`
++async fn list_messenger_ad_launches(pool: web::Data<PgPool>) -> Result<web::Json<Vec<MessengerAdLaunches>>, ApiError> {
++Ok(web::Json(repositories::list_messenger_ad_launches(pool.get_ref()).await?))
++}
++
++/// `GET /api/messenger_ad_launches/{id}`
++async fn get_messenger_ad_launches(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<MessengerAdLaunches>, ApiError> {
++repositories::find_messenger_ad_launches(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("MessengerAdLaunches"))
++}
++
++/// `POST /api/messenger_ad_launches`
++async fn create_messenger_ad_launches(pool: web::Data<PgPool>, input: web::Json<NewMessengerAdLaunches>) -> Result<(web::Json<MessengerAdLaunches>, StatusCode), ApiError> {
++let row = repositories::create_messenger_ad_launches(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/messenger_ad_launches/{id}`
++async fn update_messenger_ad_launches(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchMessengerAdLaunches>) -> Result<web::Json<MessengerAdLaunches>, ApiError> {
++repositories::update_messenger_ad_launches(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("MessengerAdLaunches"))
++}
++
++/// `DELETE /api/messenger_ad_launches/{id}`
++async fn delete_messenger_ad_launches(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_messenger_ad_launches(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("MessengerAdLaunches"))
++}
++}
++
+ /// `GET /api/messenger_conversation_replies`
+ async fn list_messenger_conversation_replies(pool: web::Data<PgPool>) -> Result<web::Json<Vec<MessengerConversationReplies>>, ApiError> {
+ Ok(web::Json(repositories::list_messenger_conversation_replies(pool.get_ref()).await?))
+@@ -14707,6 +17263,42 @@ Err(ApiError::NotFound("MetaConversions"))
+ }
+ }
+ 
++/// `GET /api/migration_20260718010500_ownership`
++async fn list_migration_20260718010500_ownership(pool: web::Data<PgPool>) -> Result<web::Json<Vec<Migration20260718010500Ownership>>, ApiError> {
++Ok(web::Json(repositories::list_migration_20260718010500_ownership(pool.get_ref()).await?))
++}
++
++/// `GET /api/migration_20260718010500_ownership/{id}`
++async fn get_migration_20260718010500_ownership(pool: web::Data<PgPool>, id: web::Path<bool>) -> Result<web::Json<Migration20260718010500Ownership>, ApiError> {
++repositories::find_migration_20260718010500_ownership(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("Migration20260718010500Ownership"))
++}
++
++/// `POST /api/migration_20260718010500_ownership`
++async fn create_migration_20260718010500_ownership(pool: web::Data<PgPool>, input: web::Json<NewMigration20260718010500Ownership>) -> Result<(web::Json<Migration20260718010500Ownership>, StatusCode), ApiError> {
++let row = repositories::create_migration_20260718010500_ownership(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/migration_20260718010500_ownership/{id}`
++async fn update_migration_20260718010500_ownership(pool: web::Data<PgPool>, id: web::Path<bool>, input: web::Json<PatchMigration20260718010500Ownership>) -> Result<web::Json<Migration20260718010500Ownership>, ApiError> {
++repositories::update_migration_20260718010500_ownership(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("Migration20260718010500Ownership"))
++}
++
++/// `DELETE /api/migration_20260718010500_ownership/{id}`
++async fn delete_migration_20260718010500_ownership(pool: web::Data<PgPool>, id: web::Path<bool>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_migration_20260718010500_ownership(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("Migration20260718010500Ownership"))
++}
++}
++
+ /// `GET /api/migration_log`
+ async fn list_migration_log(pool: web::Data<PgPool>) -> Result<web::Json<Vec<MigrationLog>>, ApiError> {
+ Ok(web::Json(repositories::list_migration_log(pool.get_ref()).await?))
+@@ -15247,42 +17839,6 @@ Err(ApiError::NotFound("NeighborhoodPriceHistory"))
+ }
+ }
+ 
+-/// `GET /api/neighborhood_pricing`
+-async fn list_neighborhood_pricing(pool: web::Data<PgPool>) -> Result<web::Json<Vec<NeighborhoodPricing>>, ApiError> {
+-Ok(web::Json(repositories::list_neighborhood_pricing(pool.get_ref()).await?))
+-}
+-
+-/// `GET /api/neighborhood_pricing/{id}`
+-async fn get_neighborhood_pricing(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<NeighborhoodPricing>, ApiError> {
+-repositories::find_neighborhood_pricing(pool.get_ref(), id.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("NeighborhoodPricing"))
+-}
+-
+-/// `POST /api/neighborhood_pricing`
+-async fn create_neighborhood_pricing(pool: web::Data<PgPool>, input: web::Json<NewNeighborhoodPricing>) -> Result<(web::Json<NeighborhoodPricing>, StatusCode), ApiError> {
+-let row = repositories::create_neighborhood_pricing(pool.get_ref(), input.into_inner()).await?;
+-Ok((web::Json(row), StatusCode::CREATED))
+-}
+-
+-/// `PATCH /api/neighborhood_pricing/{id}`
+-async fn update_neighborhood_pricing(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchNeighborhoodPricing>) -> Result<web::Json<NeighborhoodPricing>, ApiError> {
+-repositories::update_neighborhood_pricing(pool.get_ref(), id.into_inner(), input.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("NeighborhoodPricing"))
+-}
+-
+-/// `DELETE /api/neighborhood_pricing/{id}`
+-async fn delete_neighborhood_pricing(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
+-if repositories::delete_neighborhood_pricing(pool.get_ref(), id.into_inner()).await? {
+-Ok(HttpResponse::NoContent().finish())
+-} else {
+-Err(ApiError::NotFound("NeighborhoodPricing"))
+-}
+-}
+-
+ /// `GET /api/neighborhood_referrals`
+ async fn list_neighborhood_referrals(pool: web::Data<PgPool>) -> Result<web::Json<Vec<NeighborhoodReferrals>>, ApiError> {
+ Ok(web::Json(repositories::list_neighborhood_referrals(pool.get_ref()).await?))
+@@ -16471,6 +19027,258 @@ Err(ApiError::NotFound("OfflineMarketingDailyStats"))
+ }
+ }
+ 
++/// `GET /api/onboarding_config_queue`
++async fn list_onboarding_config_queue(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OnboardingConfigQueue>>, ApiError> {
++Ok(web::Json(repositories::list_onboarding_config_queue(pool.get_ref()).await?))
++}
++
++/// `GET /api/onboarding_config_queue/{id}`
++async fn get_onboarding_config_queue(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<OnboardingConfigQueue>, ApiError> {
++repositories::find_onboarding_config_queue(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingConfigQueue"))
++}
++
++/// `POST /api/onboarding_config_queue`
++async fn create_onboarding_config_queue(pool: web::Data<PgPool>, input: web::Json<NewOnboardingConfigQueue>) -> Result<(web::Json<OnboardingConfigQueue>, StatusCode), ApiError> {
++let row = repositories::create_onboarding_config_queue(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/onboarding_config_queue/{id}`
++async fn update_onboarding_config_queue(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchOnboardingConfigQueue>) -> Result<web::Json<OnboardingConfigQueue>, ApiError> {
++repositories::update_onboarding_config_queue(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingConfigQueue"))
++}
++
++/// `DELETE /api/onboarding_config_queue/{id}`
++async fn delete_onboarding_config_queue(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_onboarding_config_queue(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("OnboardingConfigQueue"))
++}
++}
++
++/// `GET /api/onboarding_email_logs`
++async fn list_onboarding_email_logs(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OnboardingEmailLogs>>, ApiError> {
++Ok(web::Json(repositories::list_onboarding_email_logs(pool.get_ref()).await?))
++}
++
++/// `GET /api/onboarding_email_logs/{id}`
++async fn get_onboarding_email_logs(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<OnboardingEmailLogs>, ApiError> {
++repositories::find_onboarding_email_logs(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingEmailLogs"))
++}
++
++/// `POST /api/onboarding_email_logs`
++async fn create_onboarding_email_logs(pool: web::Data<PgPool>, input: web::Json<NewOnboardingEmailLogs>) -> Result<(web::Json<OnboardingEmailLogs>, StatusCode), ApiError> {
++let row = repositories::create_onboarding_email_logs(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/onboarding_email_logs/{id}`
++async fn update_onboarding_email_logs(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchOnboardingEmailLogs>) -> Result<web::Json<OnboardingEmailLogs>, ApiError> {
++repositories::update_onboarding_email_logs(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingEmailLogs"))
++}
++
++/// `DELETE /api/onboarding_email_logs/{id}`
++async fn delete_onboarding_email_logs(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_onboarding_email_logs(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("OnboardingEmailLogs"))
++}
++}
++
++/// `GET /api/onboarding_email_queue`
++async fn list_onboarding_email_queue(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OnboardingEmailQueue>>, ApiError> {
++Ok(web::Json(repositories::list_onboarding_email_queue(pool.get_ref()).await?))
++}
++
++/// `GET /api/onboarding_email_queue/{id}`
++async fn get_onboarding_email_queue(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<OnboardingEmailQueue>, ApiError> {
++repositories::find_onboarding_email_queue(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingEmailQueue"))
++}
++
++/// `POST /api/onboarding_email_queue`
++async fn create_onboarding_email_queue(pool: web::Data<PgPool>, input: web::Json<NewOnboardingEmailQueue>) -> Result<(web::Json<OnboardingEmailQueue>, StatusCode), ApiError> {
++let row = repositories::create_onboarding_email_queue(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/onboarding_email_queue/{id}`

@@ -1,0 +1,37 @@
+{
+  "deployed_at": "2026-07-21T01:13:34Z",
+  "host": "forgejo-server",
+  "proxmox_vm_id": 200,
+  "forgejo_revision": "21a6b242f435143b8036d7077e26506a3cbd9756",
+  "forgejo_version": "15.0.5-temporal.21a6b242",
+  "image_digest": "sha256:cda099ff67e8930325dc6e0e0b63254f80a58ca82b39bfe43f193ac9a47888c5",
+  "bridge_account": "codetether-bot",
+  "keycloak": {
+    "realm": "quantum-forge",
+    "client_id": "forgejo",
+    "client_uuid": "b0819b58-ad09-41f3-8a5f-8e2dec97860e",
+    "secret_vault_path": "secret/forgejo/keycloak"
+  },
+  "trust_domain": "codetether.run",
+  "checks": {
+    "public_version_status": 200,
+    "foreign_domain_status": 422,
+    "wrong_caller_status": 403,
+    "oidc_redirect_status": 307,
+    "oidc_redirect_host": "auth.quantum-forge.io",
+    "active_oauth_source": "keycloak",
+    "restart_count": 0,
+    "recent_errors": 0
+  },
+  "backup": {
+    "directory": "/opt/forgejo/backups/pre-spiffe-21a6b242-20260721T010921Z",
+    "database_dump_bytes": 32629874,
+    "database_dump_sha256": "92ec59e79abd87938dc7c3ce5c70d28ad136e743ecaad06c2d2d45938d806693",
+    "database_restore_catalog_verified": true
+  },
+  "rollback": {
+    "container": "forgejo-pre-spiffe-21a6b242",
+    "image_digest": "sha256:10577b637c150b12d1f66bdda82498fb00214b728f7f40e8bca5a780b3f48725"
+  },
+  "security_follow_up": "Rotate the production Forgejo database password exposed during sanitized inventory."
+}

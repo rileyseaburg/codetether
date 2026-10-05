@@ -1,0 +1,12 @@
+{
+  "taskId": "03c33bc6-e970-46b8-a7bf-a14bd3c08e66",
+  "workerId": "wrk_1791203157_35195f4f7b97da0a",
+  "workspaceId": "ios-e2e-ubuntu-dev",
+  "submittedAt": "2026-10-05T13:01:15.814Z",
+  "phoneOrigin": false,
+  "output": "/home/riley/A2A-Server-MCP/artifacts/ios-e2e-web/backend-rehearsal",
+  "url": "http://192.168.50.101:8768/",
+  "marker": "ios-backend-rehearsal-20261005",
+  "requestedModel": "github-copilot/gpt-5-mini",
+  "retryOf": "c46c7d63-6c37-4427-93a7-87141f99ed69"
+}

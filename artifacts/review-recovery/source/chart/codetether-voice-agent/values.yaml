@@ -1,0 +1,122 @@
+replicaCount: 1
+
+image:
+  repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-voice-agent
+  tag: "v1.1.6-alpha-7.3"
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: gcr-pull-secret
+
+serviceAccount:
+  create: true
+  name: codetether-voice-agent
+  annotations:
+    vault.hashicorp.com/agent-role: codetether-voice-agent
+
+pod:
+  annotations:
+    vault.hashicorp.com/agent-inject-secret-google-api-key: "quantum-forge/kv/data/google# GOOGLE_API_KEY"
+    vault.hashicorp.com/agent-inject-secret-livekit-api-key: "quantum-forge/kv/data/livekit# LIVEKIT_API_KEY"
+    vault.hashicorp.com/agent-inject-secret-livekit-api-secret: "quantum-forge/kv/data/livekit# LIVEKIT_API_SECRET"
+    vault.hashicorp.com/agent-inject-template-google-api-key: |
+      {{- with secret "quantum-forge/kv/data/google" -}}
+      GOOGLE_API_KEY={{ .Data.data.GOOGLE_API_KEY }}
+      {{- end }}
+    vault.hashicorp.com/agent-inject-template-livekit-api-key: |
+      {{- with secret "quantum-forge/kv/data/livekit" -}}
+      LIVEKIT_API_KEY={{ .Data.data.LIVEKIT_API_KEY }}
+      {{- end }}
+    vault.hashicorp.com/agent-inject-template-livekit-api-secret: |
+      {{- with secret "quantum-forge/kv/data/livekit" -}}
+      LIVEKIT_API_SECRET={{ .Data.data.LIVEKIT_API_SECRET }}
+      {{- end }}
+
+service:
+  type: ClusterIP
+  port: 8080
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: 2
+    memory: 4Gi
+
+# Secrets configuration - K8s secrets are always used
+secrets:
+  # K8s secrets are always injected (useK8sSecrets flag is deprecated)
+  useK8sSecrets: true
+  googleApiKey:
+    secretName: "google-api-key"
+    key: "GOOGLE_API_KEY"
+  livekitApiKey:
+    secretName: "livekit-api-key"
+    key: "LIVEKIT_API_KEY"
+  livekitApiSecret:
+    secretName: "livekit-api-secret"
+    key: "LIVEKIT_API_SECRET"
+  keycloakClientId:
+    secretName: "voice-agent-keycloak"
+    key: "KEYCLOAK_CLIENT_ID"
+  keycloakClientSecret:
+    secretName: "voice-agent-keycloak"
+    key: "KEYCLOAK_CLIENT_SECRET"
+
+env:
+  - name: LIVEKIT_URL
+    value: "ws://livekit-server.quantum-forge.svc.cluster.local:80"
+  - name: CODETETHER_API_URL
+    value: "https://api.codetether.run"
+  - name: KEYCLOAK_TOKEN_URL
+    value: "https://auth.quantum-forge.io/realms/quantum-forge/protocol/openid-connect/token"
+  - name: VOICE_AGENT_NAME
+    value: "codetether-voice-agent"
+  - name: VOICE_WORKER_INIT_TIMEOUT_SEC
+    value: "45"
+  - name: VOICE_WORKER_SHUTDOWN_TIMEOUT_SEC
+    value: "15"
+  - name: VOICE_WORKER_MAX_RETRY
+    value: "24"
+  - name: VOICE_AGENT_BACKEND
+    value: "google-realtime"
+  - name: VOICE_AGENT_LLM_PROVIDER
+    value: "google"
+  - name: VOICE_AGENT_LLM_MODEL
+    value: "gemini-live-2.5-flash-native-audio"
+  - name: VOICE_AGENT_DEFAULT_VOICE_ID
+    value: "960f89fc"
+  - name: VOICE_AGENT_LLM_BASE_URL
+    value: "https://api.z.ai/api/paas/v4"
+  - name: GOOGLE_CLOUD_PROJECT
+    value: "spotlessbinco"
+  - name: GOOGLE_CLOUD_LOCATION
+    value: "us-central1"
+  - name: FUNCTIONGEMMA_MODEL_PATH
+    value: "google/functiongemma-270m-it"
+
+# LiveKit agents HTTP server runs on port 8081
+livenessProbe:
+  httpGet:
+    path: /
+    port: 8081
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: 8081
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 6
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

@@ -1,0 +1,195 @@
+diff --git a/marketing-site/tests/settings-billing.test.cjs b/marketing-site/tests/settings-billing.test.cjs
+index 379bf792..1e2a4003 100644
+--- a/marketing-site/tests/settings-billing.test.cjs
++++ b/marketing-site/tests/settings-billing.test.cjs
+@@ -85,9 +85,7 @@ async function keyForm(provider = 'openai') {
+ test('tests an entered key without any saved keys and never saves it', async () => {
+   await keyForm()
+   fireEvent.click(screen.getByRole('button', { name: 'Test Key' }))
+-  await waitFor(() =>
+-    expect(screen.getByRole('status')).toHaveTextContent('Key verified'),
+-  )
++  expect(await screen.findByRole('status')).toHaveTextContent('Key verified')
+   expect(api.testApiKeyEndpointV1AgentApiKeysTestPost).toHaveBeenCalledWith(
+     expect.objectContaining({
+       body: { provider_id: 'openai', api_key: 'entered-fixture-key' },
+@@ -267,9 +265,7 @@ test('locks key edits and saving until an in-flight test settles', async () => {
+   expect(screen.getByLabelText('Provider')).toBeDisabled()
+   expect(screen.getByLabelText('API Key')).toBeDisabled()
+   finish({ data: { success: true, tested: true, message: 'Settled' } })
+-  await waitFor(() =>
+-    expect(screen.getByRole('status')).toHaveTextContent('Settled'),
+-  )
++  expect(await screen.findByRole('status')).toHaveTextContent('Settled')
+   expect(screen.getByLabelText('API Key')).not.toBeDisabled()
+ })
+ test('saves a custom URL with the entered key while treating testing separately', async () => {
+@@ -320,166 +316,4 @@ test.each([Settings, Billing])(
+     ).toBeInTheDocument()
+     expect(api.getSubscriptionV1BillingSubscriptionGet).not.toHaveBeenCalled()
+   },
+-)
+-
+-// Rendered-page SDK fixtures only; no live providers or payment actions.
+-const deferred = () => {
+-  let resolve
+-  const promise = new Promise((finish) => {
+-    resolve = finish
+-  })
+-  return { promise, resolve }
+-}
+-
+-test('key testing announces loading and prevents duplicate tests without saving', async () => {
+-  const request = deferred()
+-  api.testApiKeyEndpointV1AgentApiKeysTestPost.mockReturnValueOnce(
+-    request.promise,
+-  )
+-  await keyForm()
+-  fireEvent.click(screen.getByRole('button', { name: 'Test Key' }))
+-  expect(screen.getByRole('status')).toHaveTextContent('Testing API key')
+-  expect(screen.getByRole('button', { name: 'Testing...' })).toBeDisabled()
+-  fireEvent.click(screen.getByRole('button', { name: 'Testing...' }))
+-  expect(api.testApiKeyEndpointV1AgentApiKeysTestPost).toHaveBeenCalledTimes(1)
+-  expect(api.createOrUpdateApiKeyV1AgentApiKeysPost).not.toHaveBeenCalled()
+-  request.resolve({
+-    data: { success: true, tested: true, message: 'Verified' },
+-  })
+-  await waitFor(() =>
+-    expect(screen.getByRole('status')).toHaveTextContent('Verified'),
+-  )
+-  expect(screen.getByLabelText('API Key')).toHaveValue(' entered-fixture-key ')
+-})
+-
+-test.each([
+-  [
+-    {
+-      data: {
+-        success: true,
+-        tested: true,
+-        message: 'Verified entered-fixture-key with fixture',
+-      },
+-    },
+-    'status',
+-  ],
+-  [
+-    {
+-      data: {
+-        success: false,
+-        message: 'Rejected entered-fixture-key with fixture',
+-      },
+-    },
+-    'alert',
+-  ],
+-  [
+-    { error: { detail: 'Unauthorized entered-fixture-key with fixture' } },
+-    'alert',
+-  ],
+-])(
+-  'key-test feedback redacts echoed key and auth token: %j',
+-  async (result, role) => {
+-    api.testApiKeyEndpointV1AgentApiKeysTestPost.mockResolvedValueOnce(result)
+-    await keyForm()
+-    fireEvent.click(screen.getByRole('button', { name: 'Test Key' }))
+-    await waitFor(() =>
+-      expect(screen.getByRole(role)).toHaveTextContent('[redacted]'),
+-    )
+-    expect(screen.getByRole(role).textContent).not.toContain(
+-      'entered-fixture-key',
+-    )
+-    expect(screen.getByRole(role).textContent).not.toContain('fixture')
+-    expect(api.createOrUpdateApiKeyV1AgentApiKeysPost).not.toHaveBeenCalled()
+-  },
+-)
+-
+-test('rejected key tests restore controls and do not log credentials', async () => {
+-  const logger = jest.spyOn(console, 'error').mockImplementation(() => {})
+-  try {
+-    api.testApiKeyEndpointV1AgentApiKeysTestPost.mockRejectedValueOnce({
+-      request: { body: { api_key: 'entered-fixture-key' } },
+-    })
+-    await keyForm()
+-    fireEvent.click(screen.getByRole('button', { name: 'Test Key' }))
+-    expect(await screen.findByRole('alert')).toHaveTextContent(
+-      'Failed to test API key. Please try again.',
+-    )
+-    expect(screen.getByRole('button', { name: 'Test Key' })).not.toBeDisabled()
+-    expect(screen.getByLabelText('API Key')).not.toBeDisabled()
+-    expect(logger).not.toHaveBeenCalled()
+-    expect(api.createOrUpdateApiKeyV1AgentApiKeysPost).not.toHaveBeenCalled()
+-  } finally {
+-    logger.mockRestore()
+-  }
+-})
+-
+-test.each([
+-  { error: { detail: 'Unavailable' } },
+-  { data: undefined },
+-  { data: { tasks_used: null, tasks_limit: 0 } },
+-  { data: { tasks_used: 'bad', tasks_limit: 0 } },
+-  { data: { tasks_used: -1, tasks_limit: 0 } },
+-])(
+-  'settings usage outage preserves quota and explicit feedback: %j',
+-  async (result) => {
+-    api.getUsageV1BillingUsageGet.mockResolvedValueOnce(result)
+-    render(React.createElement(Settings))
+-    expect(await screen.findByText('Unavailable / 1,000')).toBeInTheDocument()
+-    expect(await screen.findByRole('alert')).toHaveTextContent(
+-      'Task usage is unavailable',
+-    )
+-    expect(screen.queryByText('0 / 0')).not.toBeInTheDocument()
+-    expect(screen.getByLabelText('Provider')).toBeInTheDocument()
+-  },
+-)
+-
+-test('settings rejected usage can retry without losing the provider draft', async () => {
+-  api.getUsageV1BillingUsageGet.mockRejectedValueOnce(
+-    new Error('fixture failure'),
+-  )
+-  api.getUsageV1BillingUsageGet.mockResolvedValueOnce({
+-    data: { tasks_used: 0 },
+-  })
+-  await keyForm()
+-  expect(await screen.findByText('Unavailable / 1,000')).toBeInTheDocument()
+-  fireEvent.click(screen.getByRole('button', { name: 'Retry billing summary' }))
+-  expect(await screen.findByText('0 / 1,000')).toBeInTheDocument()
+-  expect(
+-    screen.queryByRole('button', { name: 'Retry billing summary' }),
+-  ).not.toBeInTheDocument()
+-  expect(screen.getByLabelText('API Key')).toHaveValue(' entered-fixture-key ')
+-  expect(screen.getByLabelText('Provider')).toHaveValue('openai')
+-  expect(api.listProvidersV1AgentProvidersGet).toHaveBeenCalledTimes(1)
+-  expect(api.getUsageV1BillingUsageGet).toHaveBeenCalledTimes(2)
+-})
+-
+-test('settings subscription failure is isolated from provider management', async () => {
+-  api.getSubscriptionV1BillingSubscriptionGet.mockRejectedValueOnce(
+-    new Error('fixture failure'),
+-  )
+-  await keyForm()
+-  expect(await screen.findByRole('alert')).toHaveTextContent(
+-    'Billing details are unavailable',
+-  )
+-  expect(api.getUsageV1BillingUsageGet).not.toHaveBeenCalled()
+-  fireEvent.click(screen.getByRole('button', { name: 'Retry billing summary' }))
+-  expect(await screen.findByText('12 / 1,000')).toBeInTheDocument()
+-  expect(screen.getByLabelText('API Key')).toHaveValue(' entered-fixture-key ')
+-})
+-
+-test.each([Settings, Billing])(
+-  'known quota remains visible during slow usage retrieval: %p',
+-  async (Page) => {
+-    const request = deferred()
+-    api.getUsageV1BillingUsageGet.mockReturnValueOnce(request.promise)
+-    render(React.createElement(Page))
+-    expect(await screen.findByText('Unavailable / 1,000')).toBeInTheDocument()
+-    expect(screen.getByRole('status')).toHaveTextContent(
+-      'Loading billing usage',
+-    )
+-    expect(screen.queryByText('0 / 0')).not.toBeInTheDocument()
+-    request.resolve({ data: { tasks_used: 42 } })
+-    expect(await screen.findByText('42 / 1,000')).toBeInTheDocument()
+-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+-  },
+-)
++)
+\ No newline at end of file

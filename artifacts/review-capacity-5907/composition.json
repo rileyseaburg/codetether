@@ -1,0 +1,90 @@
+{
+  "head": "05cd0ef6e6b27c8a669ca00962dd075a9a373428",
+  "base": "7e910518ac6fccf9a923239992d1ba0c55d9dc8c",
+  "bytes": 2920978,
+  "sha256": "d85c6791c87f648f1c6959ed2f79ae81e36a46425afc26fcd3550d128af9269a",
+  "file_count": 84,
+  "largest": [
+    {
+      "header": "a/src/db/repositories.rs b/src/db/repositories.rs",
+      "bytes": 1294327
+    },
+    {
+      "header": "a/src/db/models.rs b/src/db/models.rs",
+      "bytes": 991218
+    },
+    {
+      "header": "a/src/db/procedures.rs b/src/db/procedures.rs",
+      "bytes": 394995
+    },
+    {
+      "header": "a/facebook-business-api-sdk/package-lock.json b/facebook-business-api-sdk/package-lock.json",
+      "bytes": 20898
+    },
+    {
+      "header": "a/tools/spotless-cli/template-payloads/service-calendar.generated.tera b/tools/spotless-cli/template-payloads/service-calendar.generated.tera",
+      "bytes": 13008
+    },
+    {
+      "header": "a/api/src/exterior-quote/bookingChargeProcedure.ts b/api/src/exterior-quote/bookingChargeProcedure.ts",
+      "bytes": 9300
+    },
+    {
+      "header": "a/pnpm-lock.yaml b/pnpm-lock.yaml",
+      "bytes": 8405
+    },
+    {
+      "header": "a/tools/spotless-cli/spotless_cli.tether b/tools/spotless-cli/spotless_cli.tether",
+      "bytes": 7901
+    },
+    {
+      "header": "a/tools/spotless-cli/landing-template-payloads/neighborhood-route-opening-landing.json b/tools/spotless-cli/landing-template-payloads/neighborhood-route-opening-landing.json",
+      "bytes": 7663
+    },
+    {
+      "header": "a/tools/spotless-cli/landing-template-payloads/bin-cleaning-tripwire-landing.json b/tools/spotless-cli/landing-template-payloads/bin-cleaning-tripwire-landing.json",
+      "bytes": 7608
+    },
+    {
+      "header": "a/api/src/exterior-quote/bookingHoldRepository.ts b/api/src/exterior-quote/bookingHoldRepository.ts",
+      "bytes": 7369
+    },
+    {
+      "header": "a/tools/spotless-cli/landing-template-payloads/pressure-washing-quote-landing.json b/tools/spotless-cli/landing-template-payloads/pressure-washing-quote-landing.json",
+      "bytes": 7231
+    },
+    {
+      "header": "a/api/src/exterior-quote/bookingChargeRepository.ts b/api/src/exterior-quote/bookingChargeRepository.ts",
+      "bytes": 4749
+    },
+    {
+      "header": "a/api/src/exterior-quote/bookingContextRepository.ts b/api/src/exterior-quote/bookingContextRepository.ts",
+      "bytes": 4464
+    },
+    {
+      "header": "a/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/components/FacebookAudiences.tsx b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/components/FacebookAudiences.tsx",
+      "bytes": 4035
+    },
+    {
+      "header": "a/api/src/exterior-quote/bookingChargeGuard.ts b/api/src/exterior-quote/bookingChargeGuard.ts",
+      "bytes": 3892
+    },
+    {
+      "header": "a/tools/spotless-cli/component-template-sources/service-calendar-shared.js b/tools/spotless-cli/component-template-sources/service-calendar-shared.js",
+      "bytes": 3755
+    },
+    {
+      "header": "a/tools/spotless-cli/component-template-sources/service-calendar-actions.js b/tools/spotless-cli/component-template-sources/service-calendar-actions.js",
+      "bytes": 3583
+    },
+    {
+      "header": "a/api/src/exterior-quote/bookingChargeCompletion.ts b/api/src/exterior-quote/bookingChargeCompletion.ts",
+      "bytes": 3539
+    },
+    {
+      "header": "a/src/controllers/driver/performance/service.rs b/src/controllers/driver/performance/service.rs",
+      "bytes": 3532
+    }
+  ],
+  "artifact": "/home/riley/A2A-Server-MCP/artifacts/review-capacity-5907/05cd0ef6e6b27c8a669ca00962dd075a9a373428.patch"
+}

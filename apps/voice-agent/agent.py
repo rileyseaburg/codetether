@@ -117,6 +117,17 @@ async def publish_state(
         logger.warning('Cannot publish state: room is None')
         return
 
+    # Persist telemetry for late joiners and the authenticated REST state API.
+    # AgentSession also updates this attribute for its native state changes.
+    if state in (
+        'idle', 'listening', 'thinking', 'speaking', 'tool_calling',
+        'tool_complete', 'error',
+    ):
+        try:
+            await room.local_participant.set_attributes({'lk.agent.state': state})
+        except Exception as e:
+            logger.warning(f'Failed to persist agent state: {e}')
+
     message = json.dumps(
         {'type': 'agent_state', 'state': state, **(data or {})}
     )

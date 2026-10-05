@@ -1,0 +1,1079 @@
+---
+title: "Agent Provenance Framework for Autonomous Multi-Agent Systems"
+abbrev: "Agent Provenance"
+docname: draft-seaburg-agent-provenance-00
+category: std
+ipr: trust200902
+area: Security
+workgroup: WIMSE
+keyword:
+  - agent
+  - provenance
+  - identity
+  - oauth
+  - attestation
+  - a2a
+  - mcp
+  - taint
+
+author:
+  - name: Riley Seaburg
+    organization: (Independent)
+    email: riley@seaburg.dev
+
+normative:
+  RFC2119:
+  RFC6749:
+  RFC7519:
+  RFC7800:
+  RFC8174:
+  RFC8693:
+  RFC8705:
+  RFC8785:
+  RFC9449:
+  RFC9700:
+
+informative:
+  I-D.ietf-wimse-arch:
+  I-D.ietf-wimse-workload-creds:
+  I-D.goswami-agentic-jwt:
+  I-D.klrc-aiagent-auth:
+  I-D.oauth-ai-agents-on-behalf-of-user:
+  I-D.ni-wimse-ai-agent-identity:
+  I-D.messous-eat-ai:
+  I-D.rosenberg-cheq:
+  SPIFFE:
+    title: "SPIFFE: Secure Production Identity Framework for Everyone"
+    target: https://spiffe.io
+  A2A:
+    title: "Agent2Agent (A2A) Protocol Specifications"
+    target: https://a2a-protocol.org
+  MCP:
+    title: "Model Context Protocol Specification"
+    target: https://modelcontextprotocol.io
+
+--- abstract
+
+Autonomous AI agents make authorization-relevant decisions based on a context
+that accumulates across turns, tool invocations, and sub-agent spawns. Current
+identity protocols, including OAuth 2.0 Token Exchange (RFC 8693), authenticate
+who an agent is and on whose behalf it acts, but do not record where its
+decisions came from: what original intent initiated the session, what
+information sources have entered the reasoning context, what delegation
+chain produced the current invocation, what runtime produced each model output,
+and whether the agent's capabilities have been attenuated at each hop. Without
+this record, authorization decisions operate on incomplete information and
+audit is not reconstructable after the fact.
+
+This document defines agent provenance as the verifiable record of these five
+dimensions and specifies a framework for representing and verifying provenance
+across the lifetime of a multi-agent session. The framework composes with
+existing identity protocols rather than replacing them, extending WIMSE and
+OAuth 2.0 Token Exchange with provenance-tracking claims and verification
+procedures. The framework is informed by operational experience with a
+production autonomous multi-agent system; a description of that
+implementation is provided in Appendix A.
+
+--- middle
+
+# Introduction
+
+## The Provenance Problem
+
+An autonomous AI agent differs from a traditional workload in a specific way
+that matters for authorization: its next action is selected by a model whose
+output is a function of the entire reasoning context accumulated up to that
+point. That context includes the original user intent, the results of prior
+tool invocations, the outputs of sub-agents, and any external content ingested
+during execution. Any portion of that context may influence any subsequent
+action.
+
+This property means that authorization decisions about agent actions must
+consider not only who the agent is and what capabilities it holds, but what
+produced the decision to act. A tool invocation that appears legitimate from
+an identity perspective may nevertheless be the result of prompt injection
+from an untrusted web page fetched two turns earlier, or may be a sub-agent
+action whose capability envelope was never properly attenuated from its
+parent, or may come from a model output that no attested runtime ever
+produced.
+
+Existing identity protocols address none of these concerns. {{RFC8693}}
+establishes that A acted on behalf of B, but not what caused A to act.
+{{I-D.ietf-wimse-arch}} establishes workload identity, but does not address
+information-source tracking. {{I-D.goswami-agentic-jwt}} introduces agent
+checksums to bind agent identity to system prompt and tool configuration,
+but does not propagate information provenance across multi-turn sessions.
+
+This document defines agent provenance as a unifying framework that fills
+this gap.
+
+## What Provenance Is
+
+In this document, **agent provenance** is the verifiable record of five
+dimensions of an agent action's causal history:
+
+1. **Origin**: The initial user intent that originated the session, bound
+   cryptographically at session start and immutable for the session's
+   lifetime.
+2. **Inputs**: The set of information sources that have entered the
+   reasoning context, each classified by trust level and accumulated
+   monotonically across turns and sub-agents.
+3. **Delegation**: The chain of principals from the current action back to
+   a root human principal, with capability attenuation recorded at each
+   hop.
+4. **Runtime**: The attested execution environment that produced each
+   model output, binding the output to a specific model, system
+   configuration, and hardware or service attestation.
+5. **Output**: The specific model output that emitted the action request,
+   bound cryptographically so that the request cannot be forged by a
+   compromised orchestrator.
+
+A provenance-complete action is one for which all five dimensions are
+verifiable by the resource server receiving the action request. A
+provenance-incomplete action MAY still be authorized under local policy,
+but the policy decision MUST consider the missing dimensions.
+
+## Relationship to Existing Work
+
+The Agent Provenance Framework composes with rather than replaces:
+
+- {{I-D.ietf-wimse-arch}} for workload identity.
+- {{RFC8693}} for delegation via token exchange.
+- {{I-D.goswami-agentic-jwt}} for agent checksums and intent binding at
+  issuance.
+- {{I-D.klrc-aiagent-auth}} for the composition of WIMSE, SPIFFE, and
+  OAuth into an agent authentication framework.
+- {{I-D.messous-eat-ai}} for runtime attestation primitives.
+
+Each of these specifications addresses a subset of the five provenance
+dimensions. This document unifies them under a single framework and
+specifies the verification procedures that make provenance end-to-end
+auditable.
+
+## Requirements Language
+
+{::boilerplate bcp14-tagged}
+
+# Terminology
+
+This document uses terminology from {{RFC8693}}, {{I-D.ietf-wimse-arch}},
+and {{I-D.goswami-agentic-jwt}}, and adds the following terms.
+
+Agent Provenance:
+: The verifiable record of the five dimensions (origin, inputs, delegation,
+  runtime, output) of an agent action's causal history.
+
+Provenance-Complete:
+: Property of an action request for which all five provenance dimensions
+  are present, cryptographically verifiable, and internally consistent.
+
+Provenance Claim:
+: A JWT claim that carries one or more dimensions of provenance. This
+  document defines a set of such claims in Section 5.
+
+Origin Intent:
+: The initial canonicalized user request that originated a session. Bound
+  by hash at session start; immutable for the session.
+
+Information Source:
+: Any content ingested into the reasoning context during session
+  execution. Classified by trust level and recorded as taint.
+
+Taint:
+: A monotonic set of information-source markers attached to a session,
+  representing the inputs dimension of provenance. Once applied, taint
+  is never removed within a session.
+
+Delegation Chain:
+: The ordered sequence of principals from an immediate caller to a root
+  human principal, with capability envelopes at each hop.
+
+Capability Envelope:
+: The maximum set of operations authorized at a point in the delegation
+  chain. Envelopes attenuate monotonically down the chain.
+
+Runtime Attestation:
+: A signed assertion by a trusted runtime binding a model output to a
+  specific model identifier, system configuration, and execution
+  environment measurement.
+
+Output Binding:
+: A cryptographic binding of an action request to the specific model
+  output that emitted it, such that the request cannot be forged by a
+  party other than the attested runtime.
+
+Provenance Verifier:
+: A component (typically a resource server, policy decision point, or
+  authorization server) that checks the provenance of an action request
+  against local policy.
+
+# Provenance Model
+
+## The Five Dimensions
+
+Agent provenance consists of five orthogonal dimensions. Each dimension
+answers a different question about an action's causal history and is
+represented by distinct mechanisms in the framework.
+
+### Origin
+
+The question: "What was the initial user intent that started this
+session?"
+
+Mechanism: Origin intent hash, computed at session start over the
+canonicalized user request and bound as an immutable claim in every
+token issued for the session. Specified in Section 5.2.
+
+Failure if absent: A compromised turn may redirect later turns toward
+attacker-chosen goals without detection; audit cannot reconstruct what
+the session was originally authorized to do.
+
+### Inputs
+
+The question: "What information sources have influenced this session's
+reasoning?"
+
+Mechanism: Monotonic taint propagation, with taint markers accumulated
+across turns and inherited by sub-agents. Specified in Section 6.
+
+Failure if absent: Prompt injection from untrusted sources cannot be
+distinguished from legitimate user instructions; the "lethal trifecta"
+of private data + untrusted content + external communication cannot
+be defended against.
+
+### Delegation
+
+The question: "What chain of principals produced this action, and with
+what capabilities at each hop?"
+
+Mechanism: Extended RFC 8693 `act` chain with per-hop capability
+envelopes, verified to attenuate monotonically. Specified in Section 7.
+
+Failure if absent: Sub-agents may accumulate capabilities beyond their
+parents' authorization; confused-deputy attacks cannot be reconstructed
+in audit.
+
+### Runtime
+
+The question: "What execution environment produced the model output that
+emitted this action?"
+
+Mechanism: Runtime attestation quotes from the inference provider,
+verified against attestation authority metadata. Specified in Section 8.
+
+Failure if absent: A compromised orchestrator may mint action requests
+that no attested model ever produced; hardware compromise of the
+inference environment is undetectable.
+
+### Output
+
+The question: "Is this action request the specific output of the model
+whose reasoning it claims to represent?"
+
+Mechanism: Output binding via hash of the canonicalized output stream
+position, included in the attestation quote. Specified in Section 8.2.
+
+Failure if absent: A compromised orchestrator that holds valid
+attestations may still forge individual action requests not actually
+emitted by the model.
+
+## Composition Rule
+
+A provenance verifier MUST treat the five dimensions as conjunctive when
+determining provenance completeness. An action request is
+provenance-complete only if all five dimensions are verifiable. Partial
+provenance MAY be accepted under local policy but MUST be recorded as
+such in the policy decision log.
+
+## Provenance Monotonicity
+
+Three of the five dimensions exhibit monotonic behavior across the
+lifetime of a session:
+
+- Origin MUST NOT change after session start.
+- Inputs MUST only grow; taint MUST NOT be removed.
+- Delegation capability envelopes MUST only attenuate down the chain.
+
+Runtime and Output are per-turn dimensions and are not monotonic across
+the session, but each individual action request MUST have runtime and
+output provenance current to its own emission.
+
+# Framework Architecture
+
+The Agent Provenance Framework is realized by five cooperating components:
+
+- An **Authorization Server (AS)** that issues provenance-enriched tokens,
+  typically via extended RFC 8693 token exchange.
+- An **Inference Runtime** that produces model outputs and emits runtime
+  attestation quotes.
+- An **Agent Runtime** that orchestrates sessions, maintains session
+  state, and brokers token exchanges for turns, sub-agents, and tool
+  invocations.
+- A **Policy Decision Point (PDP)** that consumes provenance claims and
+  returns authorization decisions.
+- A **Resource Server / Policy Enforcement Point (PEP)** that receives
+  action requests and consults the PDP.
+
+~~
++---------------+   subject      +------------------+
+| Human IdP     |--token------->| Authorization    |
++---------------+                | Server (AS)      |
+                                 +---+----------+---+
+                                     |          |
+                     agent token w/  |          | attestation
+                     provenance      |          | verification
+                                     v          |
++------------------+            +---------+-----+---+
+| Inference        |<-attest--->| Agent Runtime    |
+| Runtime          | quote      | (session state)  |
++------------------+            +---+----------+---+
+                                    |          |
+                      scoped tool   |          |  policy
+                      token         |          |  query
+                                    v          v
++------------------+            +-------+  +---------+
+| Resource Server  |<---check---| PEP   |  | PDP     |
+| (tool / MCP)     |   policy   +-------+  +---------+
++------------------+
+~~
+{: title="Provenance Framework Component Model"}
+
+# Token Claim Schema
+
+## Core Token Requirements
+
+A provenance-framework token is a JWT ({{RFC7519}}) that MUST contain,
+in addition to standard JWT claims, the claims specified in this section.
+
+## Origin Claim (ap_origin)
+
+The `ap_origin` claim represents the **origin** provenance dimension. It
+MUST be present in every token issued for a session and MUST be identical
+across all tokens in the session.
+
+~~
+"ap_origin": {
+  "intent_hash": "sha384:...",
+  "intent_classification": "urn:ap:intent:document-research",
+  "session_started_at": "2026-04-20T14:00:00Z"
+}
+~~
+
+- `intent_hash`: SHA-384 hex over the JCS-canonicalized ({{RFC8785}})
+  initial user request that originated the session.
+- `intent_classification`: URI identifying the class of intent, used by
+  policy for coarse authorization decisions.
+- `session_started_at`: ISO 8601 timestamp of session start.
+
+Authorization servers MUST verify that `ap_origin` in an issued token
+matches `ap_origin` in the parent token of the same session. Any
+mismatch MUST cause token issuance to fail.
+
+## Inputs Claim (ap_inputs)
+
+The `ap_inputs` claim represents the **inputs** provenance dimension.
+It is specified in detail in Section 6.
+
+## Delegation Claim (ap_delegation)
+
+The `ap_delegation` claim represents the **delegation** provenance
+dimension. It extends the `act` claim from {{RFC8693}} with per-hop
+capability envelopes. It is specified in detail in Section 7.
+
+## Runtime Claim (ap_runtime)
+
+The `ap_runtime` claim represents the **runtime** provenance dimension.
+It is specified in detail in Section 8.
+
+## Output Claim (ap_output)
+
+The `ap_output` claim represents the **output** provenance dimension.
+It is specified in detail in Section 8.2.
+
+## Session Binding (ap_session)
+
+In addition to the five provenance-dimension claims, tokens MUST include
+an `ap_session` claim that ties turns together:
+
+~~
+"ap_session": {
+  "id": "01HX9J...",
+  "turn": 7,
+  "parent_jti": "01HX9J...turn6"
+}
+~~
+
+- `id`: Session identifier (UUIDv7 RECOMMENDED).
+- `turn`: Monotonically increasing turn counter within the session.
+- `parent_jti`: JTI of the prior turn's token in the same session,
+  absent for turn 1.
+
+## Confirmation (cnf)
+
+Tokens MUST include a `cnf` claim per {{RFC7800}}, bound either via
+DPoP {{RFC9449}} or mTLS {{RFC8705}}. Bearer tokens without
+confirmation claims MUST NOT be issued under this framework.
+
+## Canonicalization
+
+All hash claims MUST be computed over JCS-canonicalized
+({{RFC8785}}) JSON. Canonicalization is normative; implementations
+that canonicalize inconsistently will produce incompatible tokens.
+
+# The Inputs Dimension: Taint Propagation
+
+## Model
+
+The inputs dimension of provenance is represented by monotonic taint.
+When a session ingests content from any source, that ingestion MUST be
+recorded as a taint marker on the session if the source's trust level
+is lower than the session's authorized operations would require. Taint
+is monotonic: once applied, it persists for the remainder of the
+session and is inherited by any sub-agent spawned by that session.
+
+The policy significance of taint is that it reduces the effective
+capability envelope at policy-decision time. A capability authorized
+in the initial token MAY be unavailable in a later turn if taint has
+accumulated that, under local policy, incompatibly combines with that
+capability.
+
+## Taint Marker Format
+
+A taint marker is a JSON object:
+
+~~
+{
+  "id": "01HX9K...",
+  "source": "urn:ap:taint:source:web-fetch",
+  "sensitivity": "untrusted-external",
+  "applied_at": "2026-04-20T14:12:00Z",
+  "applied_at_turn": 3,
+  "scope": "session"
+}
+~~
+
+- `id`: Opaque unique identifier.
+- `source`: Source classification URI.
+- `sensitivity`: Sensitivity tier of the tainting content.
+- `applied_at`: ISO 8601 timestamp.
+- `applied_at_turn`: Turn at which taint was applied.
+- `scope`: `"session"` (default, propagates for session lifetime) or
+  `"turn"` (applies only to current turn; reserved for strictly
+  ephemeral content).
+
+## Taint Propagation Rules
+
+An authorization server issuing a token for turn N+1 MUST include in
+`ap_inputs` the union of:
+
+1. All session-scoped taints present in the turn N token.
+2. New taint markers corresponding to information sources ingested
+   during turn N whose classification indicates untrusted origin.
+
+Sub-agents MUST inherit the parent session's session-scoped taints at
+spawn time.
+
+## Taint-Aware Policy Decisions
+
+A policy decision under this framework is a function of:
+
+~~
+decision = allow if:
+    action.operation in token.capability.operations
+  and arguments_valid(action, token.capability.constraints)
+  and not taint_blocks(action, token.ap_inputs)
+  and not budget_exceeded(token.capability.budget, session_state)
+~~
+
+The `taint_blocks` predicate is deployment-specific but MUST be
+monotonic: adding a taint marker MUST NOT cause a previously blocked
+operation to become allowed.
+
+## Canonical Taint Sources
+
+Implementations SHOULD use the following URN namespace for common
+taint sources, registered under the `urn:ap:taint:source:` prefix
+defined in Section 11:
+
+- `urn:ap:taint:source:web-fetch` — content retrieved from arbitrary
+  web URLs.
+- `urn:ap:taint:source:user-upload` — content uploaded by the
+  originating user.
+- `urn:ap:taint:source:external-mcp-server` — content returned from an
+  MCP server outside the local trust domain.
+- `urn:ap:taint:source:third-party-agent` — content received from an
+  agent in a different trust domain.
+- `urn:ap:taint:source:email-body` — content read from email message
+  bodies.
+
+Local registries MAY define additional sources.
+
+# The Delegation Dimension: Capability Attenuation
+
+## Model
+
+The delegation dimension extends {{RFC8693}}'s `act` chain with
+per-hop capability envelopes. Every token records not only who acted
+but what they were authorized to cause.
+
+## Delegation Claim Format
+
+~~
+"ap_delegation": {
+  "chain": [
+    {
+      "principal": "human:riley@agency-a.example",
+      "issuer": "https://idp.agency-a.example/",
+      "capability": { "root": true }
+    },
+    {
+      "principal": "spiffe://domain-a.example/avatar/riley-research-01",
+      "issuer": "https://as.domain-a.example/",
+      "capability": {
+        "operations": ["doc:read", "web:fetch", "agent:spawn"],
+        "constraints": {
+          "doc:read": {"classification": {"max": "CUI"}},
+          "web:fetch": {"domain": {"allowlist": ["*.gov"]}}
+        },
+        "budget": {
+          "max_tool_calls": 50,
+          "max_wall_clock_seconds": 3600
+        },
+        "spawn": {
+          "max_depth": 2,
+          "max_fanout": 4
+        }
+      }
+    }
+  ]
+}
+~~
+
+The chain is ordered from root (first) to immediate caller (last).
+
+## Attenuation Rules
+
+When a token is issued through a token exchange within a delegation
+chain, the authorization server MUST verify that the child capability
+envelope C is an attenuation of the parent envelope P:
+
+- `C.operations` is a subset of `P.operations`.
+- For each operation, `C.constraints` is at least as restrictive as
+  `P.constraints`.
+- `C.budget` values do not exceed `P.budget` remaining after
+  accounting for prior consumption.
+- `C.spawn.max_depth <= P.spawn.max_depth - 1`.
+- `C.spawn.max_fanout <= P.spawn.max_fanout`.
+- `C.spawn.allowed_archetypes` is a subset of
+  `P.spawn.allowed_archetypes`.
+
+A `max_depth` of 0 prohibits further sub-agent spawning from tokens
+carrying that envelope.
+
+## Spawn Exchange
+
+A sub-agent spawn is an RFC 8693 token exchange with:
+
+- `subject_token` = parent token.
+- `actor_token` = spawning agent's archetype credential.
+- `requested_token_type` = the registered agent JWT type.
+- A new parameter `ap_spawn_request` carrying the requested child
+  capability envelope.
+
+The authorization server MUST reject a spawn request whose requested
+envelope violates attenuation rules.
+
+## Revocation Propagation
+
+When a token in a delegation chain is revoked, all tokens derived
+from it in active sessions MUST be revoked within 60 seconds.
+Authorization servers SHOULD publish revocation notifications via a
+mechanism appropriate to their deployment (e.g., token introspection
+with short TTL caches, a pub/sub revocation stream).
+
+# The Runtime and Output Dimensions: Attestation
+
+## Purpose
+
+The runtime and output dimensions bind each action request to the
+specific inference runtime that produced it and to the specific model
+output that emitted it. Without these bindings, a compromised
+orchestrator could mint valid-looking action requests that no attested
+model ever produced.
+
+## Runtime Claim Format (ap_runtime)
+
+The `ap_runtime` claim carries runtime attestation:
+
+~~
+"ap_runtime": {
+  "model": "claude-opus-4-7",
+  "model_provider": "anthropic",
+  "system_prompt_hash": "sha384:...",
+  "tool_manifest_hash": "sha384:...",
+  "config_hash": "sha384:...",
+  "attestation_type": "aws-nitro-enclave",
+  "attestation_measurement": "sha384:...",
+  "attestation_signature": "..."
+}
+~~
+
+The `attestation_signature` MUST be verifiable against a key listed in
+the archetype's attestation authority metadata. The authorization
+server MUST verify this signature before issuing tokens for actions
+with runtime provenance.
+
+## Output Binding Claim Format (ap_output)
+
+The `ap_output` claim binds the action request to a specific position
+in the model's output stream:
+
+~~
+"ap_output": {
+  "input_context_hash": "sha384:...",
+  "output_prefix_hash": "sha384:...",
+  "tool_call_hash": "sha384:...",
+  "attestation_quote": "..."
+}
+~~
+
+- `input_context_hash`: SHA-384 of canonicalized input context at
+  the moment of tool call emission.
+- `output_prefix_hash`: SHA-384 of the model output preceding the
+  tool call.
+- `tool_call_hash`: SHA-384 of the canonicalized tool call.
+- `attestation_quote`: Signed assertion by the inference runtime that
+  it emitted this specific tool call at this position.
+
+## Attestation Quote Verification
+
+A resource server receiving an action request with `ap_runtime` and
+`ap_output` MUST verify:
+
+1. The runtime attestation signature against the attestation authority.
+2. The output attestation quote against the same authority.
+3. Consistency between `ap_runtime.system_prompt_hash` and the
+   archetype binding claimed in the delegation chain.
+4. Freshness: the attestation quote MUST have been issued within a
+   deployment-specified window (RECOMMENDED <= 60 seconds before
+   resource server receipt).
+
+## Attestation Absence
+
+Actions for which runtime or output attestation is not available are
+not provenance-complete. Resource servers MAY still authorize them
+under local policy, but:
+
+- The token MUST indicate missing provenance via an
+  `ap_partial: true` claim.
+- The policy decision MUST record the missing dimensions.
+- Resource servers MAY refuse actions with partial provenance for
+  operations classified as sensitive by local policy.
+
+# Cross-Trust-Domain Provenance
+
+## Problem
+
+When an action's delegation chain crosses trust domain boundaries, no
+single authorization server sees the full chain. Provenance must be
+verifiable across domains.
+
+## Cross-Domain Provenance Token (CDPT)
+
+A CDPT is a JWT issued by the originating domain's authorization
+server carrying the full provenance state of the session at the
+moment of cross-domain invocation. It is signed by the originating
+domain's AS and verified by the receiving domain against federation
+metadata.
+
+A CDPT MUST carry all five provenance-dimension claims (origin, inputs,
+delegation, runtime, output) and a cross-domain-specific claim:
+
+~~
+"ap_cross_domain": {
+  "originating_domain": "https://domain-a.example/",
+  "target_domain": "https://domain-b.example/",
+  "invocation_intent": "urn:ap:intent:query-documents",
+  "attenuation_offer": { ... }
+}
+~~
+
+## Cross-Domain Verification
+
+A receiving domain's authorization server MUST:
+
+1. Verify the CDPT signature against the originating domain's JWKS,
+   retrieved from federation metadata.
+2. Verify that the originating domain is in the receiving domain's
+   trusted-domain list.
+3. Verify runtime attestation against the receiving domain's accepted
+   attestation authorities (which may differ from the originating
+   domain's).
+4. Apply receiving-domain policy to the cross-domain action, using the
+   CDPT's provenance claims as inputs.
+5. If authorized, issue a receiving-domain-local token whose
+   `ap_delegation` chain includes the full originating chain plus a
+   trust-domain-boundary marker.
+
+## Revocation Across Domains
+
+Originating domains SHOULD notify receiving domains of revocations
+affecting active cross-domain sessions. Revocation notifications are
+signed JWTs containing the revoked session identifier and a `cascade`
+flag indicating whether derived sessions are also revoked.
+
+# Provenance Verification Procedure
+
+This section specifies the procedure a resource server or policy
+decision point performs to determine provenance completeness and
+policy applicability for an action request.
+
+## Verification Inputs
+
+The verifier receives:
+
+- The agent's presented token (the "action token").
+- The action request itself (operation, arguments).
+- The session state retrievable from the authorization server or
+  session store.
+
+## Verification Steps
+
+The verifier MUST perform these steps in order. Any step that fails
+causes the action to be marked provenance-incomplete for the failed
+dimension.
+
+### Step 1: Token Integrity
+
+Verify the action token's signature, expiry, audience, and `cnf`
+binding. Failure causes immediate rejection regardless of provenance
+state.
+
+### Step 2: Origin Verification
+
+Verify that `ap_origin.intent_hash` matches the session's recorded
+origin intent hash in the session store. Mismatch causes origin
+provenance failure.
+
+### Step 3: Inputs Verification
+
+Verify that `ap_inputs` contains all taint markers present in the
+session state at the current turn. Missing markers indicate taint
+stripping and cause inputs provenance failure.
+
+### Step 4: Delegation Verification
+
+Walk `ap_delegation.chain` from root to current. For each adjacent
+pair (parent, child), verify that `child.capability` is an attenuation
+of `parent.capability` per Section 7.2. Any violation causes
+delegation provenance failure.
+
+### Step 5: Runtime Verification
+
+Verify `ap_runtime.attestation_signature` against attestation
+authority metadata. Verify that `ap_runtime.system_prompt_hash`,
+`tool_manifest_hash`, and `config_hash` match the archetype referenced
+in the delegation chain. Mismatch causes runtime provenance failure.
+
+### Step 6: Output Verification
+
+Verify `ap_output.attestation_quote` against the same authority.
+Verify that `ap_output.tool_call_hash` matches the hash of the
+canonicalized action request. Mismatch causes output provenance
+failure.
+
+### Step 7: Policy Application
+
+Apply local policy with inputs:
+- The action request.
+- The provenance-complete or -incomplete state from steps 2-6.
+- The specific dimensions that failed, if any.
+- The session state (budget consumption, fan-out count).
+
+Policy MAY authorize actions with partial provenance, but MUST record
+the missing dimensions in the decision log.
+
+## Decision Log Requirements
+
+Every provenance verification MUST produce a decision log entry
+containing:
+
+- Action token JTI.
+- Session ID.
+- Provenance completeness state per dimension.
+- Specific verification failures, if any.
+- Policy decision.
+- Policy rule(s) applied.
+
+Decision logs are the primary audit substrate for provenance
+verification. Their integrity and retention are out of scope for this
+document but are addressed in deployment-specific compliance frameworks.
+
+# Security Considerations
+
+## Prompt Injection
+
+This framework does not prevent prompt injection. It ensures that
+actions triggered by injected content are evaluated against the
+accumulated taint from the ingested untrusted sources. The "lethal
+trifecta" is defended by taint-aware policy at the resource server,
+not by the token itself. Deployments MUST classify tool outputs and
+apply appropriate taint markers; failure to do so renders the taint
+mechanism ineffective.
+
+## Attestation Trust
+
+The value of runtime and output attestation depends on the
+trustworthiness of the attesting authority. A compromised inference
+runtime can mint attestations for actions the model never emitted.
+Deployments requiring high assurance SHOULD combine attestation at
+multiple layers (hardware, hypervisor, inference runtime, orchestrator)
+and treat the weakest layer as the trust ceiling.
+
+## Taint Stripping
+
+An agent runtime that fails to propagate taint markers to the
+authorization server during token exchange commits taint stripping.
+Provenance verification detects this in Step 3 by comparing the
+action token's `ap_inputs` to the session state's recorded taints.
+Session state integrity is therefore a critical component of the
+framework; deployments MUST protect session state against unauthorized
+modification.
+
+## Replay
+
+All tokens MUST carry `cnf` bindings per Section 5.7. Bearer tokens
+are explicitly prohibited by this framework. Replay of attestation
+quotes is bounded by the freshness requirement in Section 8.4.
+
+## Denial of Service via Spawn
+
+The `max_depth` and `max_fanout` controls in Section 7.2 are normative
+defenses against unbounded sub-agent spawning. Authorization servers
+MUST enforce these; policy decision points SHOULD additionally enforce
+them as defense in depth.
+
+## Privacy
+
+Provenance tokens carry substantial information about the originating
+human principal's activity. Tokens MUST be protected in transit (TLS
+mandatory) and at rest. Decision logs contain provenance data subject
+to privacy review under the deploying organization's governance
+framework.
+
+## Provenance Incompleteness as Signal
+
+Partial provenance is not merely a failure state; it is itself a
+signal. Deployments SHOULD treat a sudden increase in partial-provenance
+actions as an indicator of possible compromise (runtime attestation
+failure, attestation authority unavailability, taint-stripping
+orchestrator) and SHOULD alert accordingly.
+
+# IANA Considerations
+
+## JWT Claims Registry
+
+IANA is requested to register the following claims in the JSON Web
+Token Claims registry:
+
+- `ap_origin`
+- `ap_inputs`
+- `ap_delegation`
+- `ap_runtime`
+- `ap_output`
+- `ap_session`
+- `ap_partial`
+- `ap_cross_domain`
+
+## OAuth Parameters Registry
+
+IANA is requested to register:
+
+- `ap_spawn_request`
+
+## OAuth Token Type Registry
+
+IANA is requested to register:
+
+- `urn:ietf:params:oauth:token-type:agent-provenance-jwt`
+
+## URN Namespaces
+
+IANA is requested to register the URN namespace `urn:ap:` for use
+within this framework, with the following sub-namespaces:
+
+- `urn:ap:taint:source:` for taint source classifications.
+- `urn:ap:intent:` for intent classifications.
+
+--- back
+
+# Reference Implementation Notes
+
+This appendix is informative.
+
+The Agent Provenance Framework was informed by operational experience
+with CodeTether, a production autonomous multi-agent development system
+that runs A2A-native Rust workers with Protocol Bus coordination, MCP
+tool integration, and oracle-verified output distillation. Several
+framework design decisions map directly to failure modes observed in
+operating that system.
+
+## Origin Drift
+
+**Failure observed**: Long-running forage-cycle sessions could drift
+from their initial task when intermediate turns ingested content that
+influenced the model toward alternative goals. Without an immutable
+origin binding, audit could not distinguish legitimate task evolution
+from goal hijacking.
+
+**Provenance gap exposed**: The origin dimension was untracked; the
+session had no cryptographic commitment to its initial intent.
+
+**Mechanism that closes the gap**: `ap_origin.intent_hash`, bound at
+session start and verified immutable across turns.
+
+## Mutable Taint
+
+**Failure observed**: Early implementations allowed intermediate
+processing to "cleanse" tainted content, producing policy-decision
+inconsistencies where the same content was alternately blocked and
+permitted depending on which processing stage had most recently
+touched it.
+
+**Provenance gap exposed**: The inputs dimension was non-monotonic,
+violating the principle that provenance is a record of what happened,
+not of what is currently considered relevant.
+
+**Mechanism that closes the gap**: Strict monotonicity in Section 6.3.
+Taint is additive-only within a session.
+
+## Unbounded Sub-Agent Spawning
+
+**Failure observed**: A prompt injection vector caused recursive
+sub-agent spawning beyond intended limits. The authorization server
+issued valid tokens for each spawn because no depth check was enforced
+at the protocol layer.
+
+**Provenance gap exposed**: The delegation dimension lacked enforceable
+attenuation; child tokens did not record a decrementing depth bound.
+
+**Mechanism that closes the gap**: `spawn.max_depth` attenuation rule
+in Section 7.2. A token with `max_depth = 0` cannot be a subject token
+in a spawn exchange.
+
+## Unattested Tool Calls
+
+**Failure observed**: During development, a bug in the orchestrator
+caused tool calls to be emitted that did not correspond to actual model
+outputs. The tool calls carried valid tokens; the resource server had
+no way to detect the fabrication.
+
+**Provenance gap exposed**: The runtime and output dimensions were
+untracked; action requests were not bound to specific model outputs.
+
+**Mechanism that closes the gap**: Runtime and output attestation in
+Section 8, using oracle-verified distillation as the initial
+attestation substrate in environments without hardware attestation.
+
+## Cross-Domain Confusion
+
+**Failure observed**: Multi-tenant shared deployment across distinct
+organizational trust domains produced confusion about which domain's
+policy should apply to cross-domain invocations, and about how to
+verify that the originating domain had performed its own provenance
+checks before emitting the cross-domain request.
+
+**Provenance gap exposed**: No standardized mechanism existed for
+carrying a session's full provenance state across a trust boundary.
+
+**Mechanism that closes the gap**: Cross-Domain Provenance Token in
+Section 9.
+
+# Example Provenance-Complete Token
+
+This appendix is informative.
+
+~~
+{
+  "iss": "https://as.domain-a.example/",
+  "sub": "spiffe://domain-a.example/avatar/riley-research-01",
+  "aud": ["https://tools.domain-a.example/"],
+  "exp": 1734567890,
+  "iat": 1734567590,
+  "jti": "01HX9K...",
+  "cnf": { "jkt": "..." },
+
+  "ap_origin": {
+    "intent_hash": "sha384:abc...",
+    "intent_classification": "urn:ap:intent:document-research",
+    "session_started_at": "2026-04-20T14:00:00Z"
+  },
+
+  "ap_session": {
+    "id": "01HX9J...",
+    "turn": 7,
+    "parent_jti": "01HX9J...turn6"
+  },
+
+  "ap_inputs": [
+    {
+      "id": "01HX9K1...",
+      "source": "urn:ap:taint:source:web-fetch",
+      "sensitivity": "untrusted-external",
+      "applied_at": "2026-04-20T14:12:00Z",
+      "applied_at_turn": 3,
+      "scope": "session"
+    }
+  ],
+
+  "ap_delegation": {
+    "chain": [
+      {
+        "principal": "human:riley@agency-a.example",
+        "issuer": "https://idp.agency-a.example/",
+        "capability": { "root": true }
+      },
+      {
+        "principal": "spiffe://domain-a.example/avatar/riley-research-01",
+        "issuer": "https://as.domain-a.example/",
+        "capability": {
+          "operations": ["doc:read", "web:fetch"],
+          "constraints": {
+            "doc:read": {"classification": {"max": "CUI"}},
+            "web:fetch": {"domain": {"allowlist": ["*.gov"]}}
+          },
+          "budget": {"max_tool_calls": 50},
+          "spawn": {"max_depth": 0}
+        }
+      }
+    ]
+  },
+
+  "ap_runtime": {
+    "model": "claude-opus-4-7",
+    "model_provider": "anthropic",
+    "system_prompt_hash": "sha384:...",
+    "tool_manifest_hash": "sha384:...",
+    "config_hash": "sha384:...",
+    "attestation_type": "service-level",
+    "attestation_signature": "..."
+  },
+
+  "ap_output": {
+    "input_context_hash": "sha384:...",
+    "output_prefix_hash": "sha384:...",
+    "tool_call_hash": "sha384:...",
+    "attestation_quote": "..."
+  }
+}
+~~
+
+# Acknowledgments
+
+This work builds directly on {{I-D.ietf-wimse-arch}},
+{{I-D.goswami-agentic-jwt}}, {{I-D.klrc-aiagent-auth}}, and
+{{I-D.messous-eat-ai}}, and on the broader OAuth, WIMSE, and RATS
+working group efforts. The framework's focus on provenance as a
+unifying concept arose from operational experience deploying
+autonomous multi-agent systems where identity alone proved
+insufficient for accountable authorization.

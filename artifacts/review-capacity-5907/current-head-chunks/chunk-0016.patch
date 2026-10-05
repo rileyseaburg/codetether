@@ -1,0 +1,1298 @@
+index 0000000000..57e7b3ada1
+--- /dev/null
++++ b/src/routes/api/registration/commerce_funnel_authoring.rs
+@@ -0,0 +1,32 @@
++use actix_web::web;
++
++/// Registers the existing funnel automation and authoring routes unchanged.
++///
++/// # Examples
++/// ```no_run
++/// let app = actix_web::App::new().configure(launch_platform::routes::api::register);
++/// ```
++pub(super) fn register(cfg: &mut web::ServiceConfig) {
++    cfg.service(crate::controllers::funnel::get_step_automation)
++        .service(crate::controllers::funnel::set_step_automation)
++        .service(crate::controllers::funnel::remove_step_automation)
++        .service(crate::controllers::funnel::list_available_campaigns)
++        .service(
++            web::scope("/templates")
++                .service(crate::controllers::api::templates::get_templates)
++                .service(crate::controllers::api::templates::get_template)
++                .service(crate::controllers::api::templates::create_template)
++                .service(crate::controllers::api::templates::update_template)
++                .service(crate::controllers::api::templates::get_template_versions)
++                .service(crate::controllers::api::templates::create_template_version)
++                .route("/preview/template/{id}",
++                    web::get().to(crate::controllers::api::template_preview::preview_template)),
++        )
++        .service(
++            web::scope("/components")
++                .service(crate::controllers::api::templates::get_components)
++                .service(crate::controllers::api::templates::create_component),
++        )
++        .configure(crate::controllers::api::components::configure)
++        .service(crate::controllers::api::component_purchases::purchase_component_options);
++}
+\ No newline at end of file
+diff --git a/tools/spotless-cli/assemble-service-calendar.tether b/tools/spotless-cli/assemble-service-calendar.tether
+new file mode 100644
+index 0000000000..b1203bf6b9
+--- /dev/null
++++ b/tools/spotless-cli/assemble-service-calendar.tether
+@@ -0,0 +1,23 @@
++// Assemble the service-window component without publishing or invoking booking APIs.
++// Example: tetherscript run tools/spotless-cli/assemble-service-calendar.tether
++fn main() {
++    let root = "tools/spotless-cli/component-template-sources/"
++    let mut template = fs_read(root + "service-calendar.tera").unwrap()
++    let sources = [
++        ["SHARED", "service-calendar-shared.js"],
++        ["AVAILABILITY", "service-calendar-availability.js"],
++        ["ACTIONS", "service-calendar-actions.js"]
++    ]
++    for source in sources {
++        let marker = "// SERVICE_CALENDAR_" + source[0]
++        let script = fs_read(root + source[1]).unwrap()
++        if !template.contains(marker) { panic("Missing service-calendar assembly marker") }
++        if script.contains("</script") { panic("Inline script contains a closing script tag") }
++        template = template.replace(marker, script)
++    }
++    if template.contains("// SERVICE_CALENDAR_") { panic("Incomplete service-calendar assembly") }
++    let header = "<!-- Generated from component-template-sources/service-calendar*. Do not edit generated output. -->\n"
++    let output = "tools/spotless-cli/template-payloads/service-calendar.generated.tera"
++    fs_write(output, header + template).unwrap()
++    println(output)
++}
+\ No newline at end of file
+diff --git a/tools/spotless-cli/component-template-sources/paid-entry-upsell-action.tera b/tools/spotless-cli/component-template-sources/paid-entry-upsell-action.tera
+new file mode 100644
+index 0000000000..aa252c399c
+--- /dev/null
++++ b/tools/spotless-cli/component-template-sources/paid-entry-upsell-action.tera
+@@ -0,0 +1,22 @@
++{% macro render(cfg) %}
++<section class="bg-slate-50 px-5 py-10 text-slate-950 sm:py-14">
++  <div class="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[.9fr_1.1fr]">
++    <div class="rounded-2xl bg-slate-950 p-6 text-white shadow-xl">
++      <p class="text-sm font-semibold uppercase tracking-normal text-emerald-300">{{ cfg.eyebrow }}</p>
++      <h2 class="mt-3 text-3xl font-bold tracking-tight">{{ cfg.headline }}</h2>
++      <p class="mt-3 text-slate-300">{{ cfg.description }}</p>
++      <a href="{{ cfg.cta_target }}" class="mt-6 inline-flex rounded-md bg-emerald-500 px-5 py-3 font-semibold text-white shadow-sm shadow-emerald-500/25">{{ cfg.cta_text }}</a>
++      <p class="mt-4 text-sm text-slate-400">{{ cfg.note }}</p>
++    </div>
++    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
++      <p class="text-sm font-semibold uppercase tracking-normal text-emerald-600">{{ cfg.faq_eyebrow }}</p>
++      <h3 class="mt-2 text-2xl font-bold">{{ cfg.faq_headline }}</h3>
++      <div class="mt-5 space-y-4">
++        <div><p class="font-bold text-slate-950">{{ cfg.q_one }}</p><p class="mt-1 text-sm leading-6 text-slate-600">{{ cfg.a_one }}</p></div>
++        <div><p class="font-bold text-slate-950">{{ cfg.q_two }}</p><p class="mt-1 text-sm leading-6 text-slate-600">{{ cfg.a_two }}</p></div>
++        <div><p class="font-bold text-slate-950">{{ cfg.q_three }}</p><p class="mt-1 text-sm leading-6 text-slate-600">{{ cfg.a_three }}</p></div>
++      </div>
++    </div>
++  </div>
++</section>
++{% endmacro render %}
+\ No newline at end of file
+diff --git a/tools/spotless-cli/component-template-sources/paid-entry-upsell-offer.tera b/tools/spotless-cli/component-template-sources/paid-entry-upsell-offer.tera
+new file mode 100644
+index 0000000000..5f52713120
+--- /dev/null
++++ b/tools/spotless-cli/component-template-sources/paid-entry-upsell-offer.tera
+@@ -0,0 +1,23 @@
++{% macro render(cfg) %}
++<section id="{{ cfg.section_id | default(value="accept-upsell") }}" class="relative overflow-hidden bg-slate-950 px-5 py-8 text-white sm:py-12 lg:py-16">
++  <div class="absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-emerald-500/20 to-transparent"></div>
++  <div class="relative mx-auto grid max-w-6xl items-center gap-8 lg:grid-cols-2 lg:gap-14">
++    <div>
++      <p class="inline-flex rounded-full border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-normal text-emerald-300">{{ cfg.eyebrow }}</p>
++      <h1 class="mt-5 text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">{{ cfg.headline }}</h1>
++      <p class="mt-4 max-w-xl text-lg leading-7 text-slate-300 sm:text-xl">{{ cfg.description }}</p>
++      <div class="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
++        <a class="inline-flex w-full items-center justify-center rounded-md bg-emerald-500 px-6 py-3 text-base font-semibold text-white shadow-sm shadow-emerald-500/25 transition hover:bg-emerald-400 sm:w-auto" href="{{ cfg.cta_target }}">{{ cfg.cta_text }} <span class="ml-2">→</span></a>
++        <p class="text-center text-sm font-semibold text-slate-300 sm:text-left">{{ cfg.supporting_text }}</p>
++      </div>
++    </div>
++    <div class="rounded-2xl border border-white/10 bg-white p-6 text-slate-950 shadow-2xl shadow-emerald-950/40">
++      <p class="text-sm font-semibold uppercase tracking-normal text-emerald-600">{{ cfg.card_eyebrow }}</p>
++      <div class="mt-3 flex items-end gap-2"><span class="text-5xl font-black tracking-tight">{{ cfg.price }}</span><span class="pb-2 text-sm font-semibold text-slate-500">{{ cfg.price_label }}</span></div>
++      <h2 class="mt-4 text-2xl font-bold text-slate-950">{{ cfg.card_headline }}</h2>
++      <ul class="mt-5 space-y-3 text-sm font-medium text-slate-700"><li>✓ {{ cfg.item_one }}</li><li>✓ {{ cfg.item_two }}</li><li>✓ {{ cfg.item_three }}</li><li>✓ {{ cfg.item_four }}</li></ul>
++      <div class="mt-6 rounded-xl bg-emerald-50 p-4 text-sm text-slate-700"><strong class="text-slate-950">{{ cfg.commitment_title }}</strong><br>{{ cfg.commitment_detail }}</div>
++    </div>
++  </div>
++</section>
++{% endmacro render %}
+\ No newline at end of file
+diff --git a/tools/spotless-cli/component-template-sources/paid-entry-upsell-steps.tera b/tools/spotless-cli/component-template-sources/paid-entry-upsell-steps.tera
+new file mode 100644
+index 0000000000..8687cb143a
+--- /dev/null
++++ b/tools/spotless-cli/component-template-sources/paid-entry-upsell-steps.tera
+@@ -0,0 +1,16 @@
++{% macro render(cfg) %}
++<section class="bg-white px-5 py-10 text-slate-950 sm:py-14">
++  <div class="mx-auto max-w-6xl">
++    <p class="text-sm font-semibold uppercase tracking-normal text-emerald-600">{{ cfg.eyebrow }}</p>
++    <div class="mt-3 grid gap-4 lg:grid-cols-[1.1fr_.9fr] lg:gap-10">
++      <div><h2 class="text-3xl font-bold tracking-tight sm:text-4xl">{{ cfg.headline }}</h2><p class="mt-4 max-w-2xl text-lg leading-7 text-slate-600">{{ cfg.description }}</p></div>
++      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm"><p class="text-sm font-semibold text-slate-500">{{ cfg.panel_label }}</p><h3 class="mt-2 text-xl font-bold text-slate-950">{{ cfg.panel_headline }}</h3></div>
++    </div>
++    <div class="mt-8 grid gap-4 md:grid-cols-3">
++      <article class="rounded-2xl border border-slate-200 p-5"><span class="text-sm font-bold text-emerald-600">01</span><h3 class="mt-3 text-lg font-bold">{{ cfg.step_one_title }}</h3><p class="mt-2 text-sm leading-6 text-slate-600">{{ cfg.step_one_body }}</p></article>
++      <article class="rounded-2xl border border-slate-200 p-5"><span class="text-sm font-bold text-emerald-600">02</span><h3 class="mt-3 text-lg font-bold">{{ cfg.step_two_title }}</h3><p class="mt-2 text-sm leading-6 text-slate-600">{{ cfg.step_two_body }}</p></article>
++      <article class="rounded-2xl border border-slate-200 p-5"><span class="text-sm font-bold text-emerald-600">03</span><h3 class="mt-3 text-lg font-bold">{{ cfg.step_three_title }}</h3><p class="mt-2 text-sm leading-6 text-slate-600">{{ cfg.step_three_body }}</p></article>
++    </div>
++  </div>
++</section>
++{% endmacro render %}
+\ No newline at end of file
+diff --git a/tools/spotless-cli/component-template-sources/service-calendar-actions.js b/tools/spotless-cli/component-template-sources/service-calendar-actions.js
+new file mode 100644
+index 0000000000..247856afb0
+--- /dev/null
++++ b/tools/spotless-cli/component-template-sources/service-calendar-actions.js
+@@ -0,0 +1,54 @@
++/** Serializes customer actions and changes UI state only after server acknowledgment.
++ * @example await handleBookingClick(root, state, event); */
++async function handleBookingClick(root, state, event) {
++  const button = event.target instanceof Element ? event.target.closest('button') : null;
++  if (!button || !root.contains(button) || state.busy || state.terminal) return;
++  bookingControl(root, 'error').classList.add('hidden');
++  setBookingBusy(root, state, true);
++  try {
++    if (button.dataset.bookingDate) return renderBookingTimes(root, state, button.dataset.bookingDate);
++    if (button.matches('[data-booking-retry]')) return await loadBookingAvailability(root, state);
++    if (button.matches('[data-booking-change]')) {
++      bookingControl(root, 'confirmation').classList.add('hidden');
++      bookingControl(root, 'authorization').classList.add('hidden');
++      await loadBookingAvailability(root, state);
++      bookingControl(root, 'confirmation').classList.add('hidden');
++      bookingControl(root, 'authorization').classList.add('hidden');
++      return bookingControl(root, 'picker').classList.remove('hidden');
++    }
++    if (button.dataset.bookingStart) {
++      const response = await bookingRequest(root, `${root.dataset.endpoint}/reserve`, {
++        start: button.dataset.bookingStart,
++      });
++      if (response.status !== 'held' || !response.slot) throw new Error('The service window was not held.');
++      return displayBookingHold(root, state, response.slot);
++    }
++    if (!state.held) throw new Error('Choose a service window first.');
++    if (button.matches('[data-booking-decline]')) {
++      const response = await bookingRequest(root, `${root.dataset.endpoint}/release`, {
++        acknowledgedStart: state.held.start,
++      });
++      if (response.released !== true) throw new Error('The service window has not been released.');
++      state.held = null;
++      bookingControl(root, 'confirmation').classList.add('hidden');
++      bookingControl(root, 'picker').classList.add('hidden');
++      return finishBookingUi(root, state, 'No charge was made. Your pending checkout was cancelled and its service window released.');
++    }
++    if (button.matches('[data-booking-authorize]')) {
++      const response = await bookingRequest(root, '/api/exterior-booking/authorize-charge', {
++        quoteRequestId: Number(root.dataset.quoteId), acknowledgedStart: state.held.start,
++      });
++      if (response.success === true || response.amountChargedCents > 0 || response.paymentStatus === 'processing') {
++        root.dataset.chargeStatus = response.paymentStatus || (response.amountChargedCents > 0 ? 'succeeded' : 'unknown');
++        bookingControl(root, 'confirmation').classList.add('hidden');
++        bookingControl(root, 'picker').classList.add('hidden');
++        return finishBookingUi(root, state, response.message || 'Check your booking confirmation before taking another payment action.');
++      }
++      throw new Error(response.message || 'Payment has not been confirmed.');
++    }
++  } catch (error) {
++    showBookingError(root, error.message || 'The booking action could not be confirmed.');
++  } finally {
++    setBookingBusy(root, state, false);
++  }
++}
+\ No newline at end of file
+diff --git a/tools/spotless-cli/component-template-sources/service-calendar-availability.js b/tools/spotless-cli/component-template-sources/service-calendar-availability.js
+new file mode 100644
+index 0000000000..62581a7502
+--- /dev/null
++++ b/tools/spotless-cli/component-template-sources/service-calendar-availability.js
+@@ -0,0 +1,61 @@
++/** Builds a selectable date from real server slot values. @example renderBookingDates(root, state); */
++function renderBookingDates(root, state) {
++  const dates = bookingControl(root, 'dates');
++  dates.replaceChildren();
++  const unique = [...new Set(state.slots.map(slot => slot.date))];
++  unique.forEach(date => {
++    const button = document.createElement('button');
++    button.type = 'button';
++    button.dataset.bookingDate = date;
++    button.textContent = date;
++    button.className = 'rounded border px-3 py-2';
++    dates.append(button);
++  });
++  if (unique.length) renderBookingTimes(root, state, unique[0]);
++}
++
++/** Uses server labels so displayed windows follow the operations timezone.
++ * @example renderBookingTimes(root, state, selectedDate); */
++function renderBookingTimes(root, state, date) {
++  const times = bookingControl(root, 'times');
++  times.replaceChildren();
++  root.querySelectorAll('[data-booking-date]').forEach(button => {
++    button.setAttribute('aria-pressed', String(button.dataset.bookingDate === date));
++  });
++  state.slots.filter(slot => slot.date === date).forEach(slot => {
++    const button = document.createElement('button');
++    button.type = 'button';
++    button.dataset.bookingStart = slot.start;
++    button.textContent = slot.label;
++    button.className = 'rounded border p-3 text-left';
++    times.append(button);
++  });
++}
++
++/** Loads only live availability with a real quote, credential, and quoted price.
++ * @example await loadBookingAvailability(root, state); */
++async function loadBookingAvailability(root, state) {
++  if (state.terminal) return;
++  bookingControl(root, 'error').classList.add('hidden');
++  bookingControl(root, 'loading').classList.remove('hidden');
++  bookingControl(root, 'confirmation').classList.add('hidden');
++  bookingControl(root, 'authorization').classList.add('hidden');
++  const id = Number(root.dataset.quoteId);
++  if (!Number.isSafeInteger(id) || id <= 0 || root.dataset.preview === 'true') {
++    throw new Error('Live availability requires a real booking quote; preview does not create slots.');
++  }
++  const data = await bookingRequest(root, `${root.dataset.endpoint}/availability`);
++  if (!Array.isArray(data.slots) || !data.timezone || !data.serviceName
++    || !Number.isSafeInteger(data.amountQuotedCents) || data.amountQuotedCents < 0 || !data.currency) {
++    throw new Error('Booking availability or the quoted price is incomplete.');
++  }
++  state.availability = data;
++  state.slots = data.slots;
++  state.held = data.selectedSlot;
++  bookingControl(root, 'timezone').textContent = data.timezone;
++  bookingControl(root, 'loading').classList.add('hidden');
++  renderBookingDates(root, state);
++  if (state.held) displayBookingHold(root, state, state.held);
++  else if (!state.slots.length) showBookingError(root, 'No service windows are currently available.');
++  else bookingControl(root, 'picker').classList.remove('hidden');
++}
+\ No newline at end of file
+diff --git a/tools/spotless-cli/component-template-sources/service-calendar-shared.js b/tools/spotless-cli/component-template-sources/service-calendar-shared.js
+new file mode 100644
+index 0000000000..8e7e1335e7
+--- /dev/null
++++ b/tools/spotless-cli/component-template-sources/service-calendar-shared.js
+@@ -0,0 +1,65 @@
++/** Finds a control within one component instance. @example bookingControl(root, 'error'); */
++function bookingControl(root, name) {
++  return root.querySelector(`[data-booking-${name}]`);
++}
++
++/** Displays a real workflow failure without success or demo-slot substitution.
++ * @example showBookingError(root, message); */
++function showBookingError(root, message) {
++  const error = bookingControl(root, 'error');
++  error.textContent = message;
++  error.classList.remove('hidden');
++  bookingControl(root, 'loading').classList.add('hidden');
++  bookingControl(root, 'retry').classList.remove('hidden');
++}
++
++/** Sends a quote-authorized same-origin request without putting secrets in URLs.
++ * @example const response = await bookingRequest(root, url, payload); */
++async function bookingRequest(root, url, body) {
++  if (!root.dataset.bookingCredential) throw new Error('This secure booking session is unavailable.');
++  const target = new URL(url, location.origin);
++  if (target.origin !== location.origin) throw new Error('Invalid booking endpoint.');
++  const response = await fetch(target.href, {
++    method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin',
++    headers: { 'Content-Type': 'application/json', 'X-Booking-Authorization': root.dataset.bookingCredential },
++    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
++  });
++  let data;
++  try { data = await response.json(); }
++  catch { throw new Error('Booking returned an unreadable response. Your payment status may need review.'); }
++  if (!response.ok) throw new Error(data.message || data.error?.message || data.error || `Booking request failed (${response.status}).`);
++  return data;
++}
++
++/** Prevents double clicks across reserve, confirm, decline, and date selection.
++ * @example setBookingBusy(root, state, true); */
++function setBookingBusy(root, state, busy) {
++  state.busy = busy;
++  root.querySelectorAll('button').forEach(button => { button.disabled = busy || state.terminal; });
++}
++
++/** Shows the exact service/price/window that the customer is authorizing.
++ * @example displayBookingHold(root, state, response.slot); */
++function displayBookingHold(root, state, slot) {
++  state.held = slot;
++  const available = state.availability;
++  const price = new Intl.NumberFormat(undefined, { style: 'currency', currency: available.currency })
++    .format(available.amountQuotedCents / 100);
++  bookingControl(root, 'confirmation-label').textContent = slot.label;
++  bookingControl(root, 'hold-copy').textContent = `Held temporarily, up to ${available.reservationMinutes} minutes. Payment confirms the booking.`;
++  bookingControl(root, 'authorization-detail').textContent = `${available.serviceName}: charge ${price} now for ${slot.label}.`;
++  bookingControl(root, 'picker').classList.add('hidden');
++  bookingControl(root, 'confirmation').classList.remove('hidden');
++  bookingControl(root, 'authorization').classList.remove('hidden');
++}
++
++/** Stops further payment actions once a terminal or processing outcome is known.
++ * @example finishBookingUi(root, state, message); */
++function finishBookingUi(root, state, message) {
++  state.terminal = true;
++  bookingControl(root, 'authorization').classList.add('hidden');
++  const result = bookingControl(root, 'result');
++  result.textContent = message;
++  result.classList.remove('hidden');
++  setBookingBusy(root, state, false);
++}
+\ No newline at end of file
+diff --git a/tools/spotless-cli/component-template-sources/service-calendar.README.md b/tools/spotless-cli/component-template-sources/service-calendar.README.md
+new file mode 100644
+index 0000000000..b775868d14
+--- /dev/null
++++ b/tools/spotless-cli/component-template-sources/service-calendar.README.md
+@@ -0,0 +1,55 @@
++# Service-calendar authoring and release boundary
++
++## Source ownership
++
++- Edit `service-calendar.tera` and its three adjacent `service-calendar-*.js` sources.
++- `tools/spotless-cli/assemble-service-calendar.tether` assembles those sources only.
++- The result is `tools/spotless-cli/template-payloads/service-calendar.generated.tera`.
++  It contains its controller inline; no separately deployed booking JavaScript bundle is needed.
++- **Do not hand-edit `tools/spotless-cli/spotless_cli.tether`.** It remains generated
++  from OpenAPI using the existing CLI generator and templates. New API operations
++  must enter that CLI through normal contract generation, not registry patches.
++- Do not publish the unassembled authoring template: its assembly markers are not
++  executable controller implementations.
++
++Local assembly (does not contact any API):
++
++```sh
++tetherscript run tools/spotless-cli/assemble-service-calendar.tether
++```
++
++## Customer workflow
++
++The component requires a real quote, same-origin endpoint, and quote-bound booking
++credential. It never manufactures preview slots. Availability supplies the actual
++quote price, currency, service name, capacity-backed slots, and operations timezone.
++
++- Availability: Rust `GET /api/exterior-booking/{quote_id}/availability` proxies to
++  Fastify `POST /orpc/exterior-quotes/booking-availability`.
++- Hold: Rust `POST /api/exterior-booking/{quote_id}/reserve` proxies to
++  Fastify `POST /orpc/exterior-quotes/reserve-booking`.
++- Decline: Rust `POST /api/exterior-booking/{quote_id}/release` proxies to
++  Fastify `POST /orpc/exterior-quotes/release-booking`. The exact displayed window
++  must match. Stripe must confirm cancellation before capacity is released.
++- Charge: Rust `POST /api/exterior-booking/authorize-charge` proxies to Fastify
++  `POST /orpc/exterior-quotes/authorize-booking-charge`. Expired or changed holds
++  are rejected; confirmed collection and confirmed scheduling are separate results.
++
++Credentials travel in the customer header and server-side request body, never the URL.
++Do not log them or save them in test artifacts.
++
++## Production gate
++
++Local assembly is **static/local evidence only**. Before customer rollout:
++
++1. Run authorized API/Rust builds and regenerate API/CLI artifacts normally.
++2. Deploy the compatible backend routes before publishing this component.
++3. Resolve the current `service_calendar` registry and placements; never blindly
++   reuse restored numeric component/version IDs from old publication artifacts.
++4. With explicit permission and real operations data, exercise both API surfaces,
++   hold contention/expiry, cancellation retries, payment consent, scheduling,
++   receipt delivery, and the operations-visible booking record.
++
++No production booking, charge, cancellation, deployment, or publication was performed
++by the local assembly script. Until the production gate is satisfied, this is not
++evidence that the customer booking flow is ready to ship.
+\ No newline at end of file
+diff --git a/tools/spotless-cli/component-template-sources/service-calendar.tera b/tools/spotless-cli/component-template-sources/service-calendar.tera
+new file mode 100644
+index 0000000000..1823b2b36a
+--- /dev/null
++++ b/tools/spotless-cli/component-template-sources/service-calendar.tera
+@@ -0,0 +1,55 @@
++{# Authored service_calendar component. @example render with cfg.quote_id and cfg.booking_credential. #}
++{% set quote_id = cfg.quote_id | default(value='') %}
++{% set component_id = cfg.component_id | default(value='exterior-booking') %}
++{% set endpoint = cfg.endpoint | default(value='') %}
++{% if quote_id and endpoint %}
++<section id="{{ component_id }}" data-service-calendar class="my-6 space-y-4 rounded-xl border p-5"
++  data-quote-id="{{ quote_id }}" data-endpoint="{{ endpoint }}"
++  data-preview="{{ cfg.preview | default(value=false) }}"
++  data-booking-credential="{{ cfg.booking_credential | default(value='') }}">
++  <header>
++    <h2 class="text-xl font-bold">Choose your service window</h2>
++    <p>Available windows come from our operations schedule.</p>
++    <p data-booking-timezone class="text-sm"></p>
++  </header>
++  <p data-booking-loading role="status">Loading real service availability…</p>
++  <p data-booking-error role="alert" class="hidden text-red-700"></p>
++  <button data-booking-retry type="button" class="hidden rounded border px-3 py-2">Refresh availability</button>
++  <fieldset data-booking-picker class="space-y-3">
++    <legend class="font-semibold">Select a date and arrival window</legend>
++    <div data-booking-dates class="flex flex-wrap gap-2"></div>
++    <div data-booking-times class="grid gap-2 sm:grid-cols-2"></div>
++  </fieldset>
++  <div data-booking-confirmation class="hidden rounded bg-emerald-50 p-4 text-emerald-950">
++    <p class="font-semibold">Service window held</p>
++    <p data-booking-confirmation-label></p>
++    <p data-booking-hold-copy class="text-sm"></p>
++    <button data-booking-change type="button" class="mt-3 underline">Choose another time</button>
++  </div>
++  <div data-booking-authorization class="hidden space-y-3 rounded border border-amber-300 p-4">
++    <h3 class="font-bold">Payment authorization</h3>
++    <p data-booking-authorization-detail></p>
++    <p>Your saved payment method is charged immediately when you confirm. This is not a card authorization hold.</p>
++    <button data-booking-authorize type="button" class="w-full rounded bg-emerald-700 p-3 font-bold text-white">
++      Yes, charge my card and book this service
++    </button>
++    <button data-booking-decline type="button" class="w-full underline">No thank you—cancel this checkout</button>
++  </div>
++  <p data-booking-result role="status" class="hidden rounded border p-4"></p>
++</section>
++<script>
++(() => {
++  'use strict';
++  // SERVICE_CALENDAR_SHARED
++  // SERVICE_CALENDAR_AVAILABILITY
++  // SERVICE_CALENDAR_ACTIONS
++  document.querySelectorAll('[data-service-calendar]').forEach(root => {
++    if (root.dataset.bookingReady === 'true') return;
++    root.dataset.bookingReady = 'true';
++    const state = { held: null, slots: [], busy: false, terminal: false, availability: null };
++    root.addEventListener('click', event => handleBookingClick(root, state, event));
++    loadBookingAvailability(root, state).catch(error => showBookingError(root, error.message));
++  });
++})();
++</script>
++{% endif %}
+\ No newline at end of file
+diff --git a/tools/spotless-cli/landing-template-payloads/README.md b/tools/spotless-cli/landing-template-payloads/README.md
+index e549a963a6..29e43ffb86 100644
+--- a/tools/spotless-cli/landing-template-payloads/README.md
++++ b/tools/spotless-cli/landing-template-payloads/README.md
+@@ -33,6 +33,12 @@ Current payloads:
+ - `pressure-washing-quote-landing.json` — exterior cleaning interest upsell.
+ - `neighborhood-route-opening-landing.json` — route-opening add-on upsell.
+ 
++Reusable production components created for these upsells:
++
++- `paid_entry_upsell_offer` — component `1266`, version `75`.
++- `paid_entry_upsell_steps` — component `1267`, version `76`.
++- `paid_entry_upsell_action` — component `1268`, version `77`.
++
+ Payloads intentionally avoid `{{variable}}` merge tags because the current v2
+ template validator only accepts tokens published by the database safe-list.
+ These upsells capture accept/interest intent only; detailed pricing and route
+diff --git a/tools/spotless-cli/landing-template-payloads/bin-cleaning-tripwire-landing.json b/tools/spotless-cli/landing-template-payloads/bin-cleaning-tripwire-landing.json
+index 6bb2e10c00..a91a251066 100644
+--- a/tools/spotless-cli/landing-template-payloads/bin-cleaning-tripwire-landing.json
++++ b/tools/spotless-cli/landing-template-payloads/bin-cleaning-tripwire-landing.json
+@@ -1,101 +1,99 @@
+ {
+   "body": {
+     "key": "bin_cleaning_tripwire_landing_v1",
+-    "name": "Upsell — Add a Fresh Bin Clean",
++    "name": "Upsell \u2014 $11 One-Can Add-On",
+     "step_type": "upsell",
+-    "description": "Post-action upsell that adds a fresh-bin clean without asking the customer to build a quote or pick a service window.",
++    "description": "Paid-entry-style upsell for adding one curbside bin clean to the existing route workflow.",
+     "theme": {
+-      "mode": "light",
+       "colors": {
+-        "primary": "#16a34a",
+-        "secondary": "#1f2937",
+-        "accent": "#2563eb",
+-        "background": "#f0fdf4",
+-        "foreground": "#111827",
+-        "muted": "#e0f2fe",
+-        "success": "#22c55e"
++        "primary": "#10b981",
++        "secondary": "#0f172a",
++        "accent": "#10b981",
++        "background": "#ffffff",
++        "foreground": "#0f172a",
++        "muted": "#475569",
++        "danger": "#dc2626",
++        "success": "#059669"
+       },
+-      "radius": "lg"
++      "typography": {
++        "font_family": "Inter, ui-sans-serif, system-ui, sans-serif",
++        "heading_family": "Inter, ui-sans-serif, system-ui, sans-serif",
++        "scale": "comfortable"
++      },
++      "spacing": "comfortable",
++      "radius": "md",
++      "mode": "light"
+     },
+     "nodes": [
+       {
+-        "component_type": "hero",
+-        "component_id": 1,
+-        "component_version_id": 74,
++        "component_type": "paid_entry_upsell_offer",
++        "component_kind": "component",
++        "component_id": 1266,
++        "component_version_id": 75,
+         "schema_version": 1,
+         "config": {
+-          "headline": "Add a fresh-bin clean to this order for $11",
+-          "subhead": "Upgrade now while your stop is already on the route. No quote builder, no schedule picker, just a cleaner bin added to the workflow.",
+-          "cta_label": "Add the $11 clean",
+-          "cta_url": "#accept-upsell",
+-          "brand_color": "spotless",
+-          "background_image": "bin-cleaning-route-opening"
++          "eyebrow": "Limited route add-on",
++          "headline": "Add one fresh-bin clean before we close this order.",
++          "description": "We blast away stuck-on grime and odor while the crew is already nearby.",
++          "cta_text": "Add my $11 clean",
++          "cta_target": "#accept-upsell",
++          "supporting_text": "Secure add-on",
++          "section_id": "accept-upsell",
++          "price": "$11",
++          "price_label": "add-on",
++          "card_eyebrow": "Your add-on includes",
++          "card_headline": "One can, refreshed curbside",
++          "item_one": "Trash or recycling can",
++          "item_two": "High-heat pressure wash",
++          "item_three": "Deodorizing rinse",
++          "item_four": "Route-based follow-up",
++          "commitment_title": "One-time add-on",
++          "commitment_detail": "No subscription required"
+         }
+       },
+       {
+-        "component_type": "trust_badges",
++        "component_type": "paid_entry_upsell_steps",
++        "component_kind": "component",
++        "component_id": 1267,
++        "component_version_id": 76,
+         "schema_version": 1,
+         "config": {
+-          "badges": [
+-            "secure",
+-            "guarantee",
+-            "ssl",
+-            "bbb"
+-          ]
++          "eyebrow": "Simple after yes",
++          "headline": "Three steps to a fresher can",
++          "description": "The same paid-entry pacing, adapted for a post-action upsell.",
++          "panel_label": "Route workflow",
++          "panel_headline": "The team follows up from the existing customer journey.",
++          "step_one_title": "Accept the add-on",
++          "step_one_body": "Tap once to add the clean to the current journey.",
++          "step_two_title": "We confirm route fit",
++          "step_two_body": "The team uses the existing order and route context.",
++          "step_three_title": "Set it at the curb",
++          "step_three_body": "Leave the can accessible and we handle the wash."
+         }
+       },
+       {
+-        "component_type": "scarcity_bar",
++        "component_type": "paid_entry_upsell_action",
++        "component_kind": "component",
++        "component_id": 1268,
++        "component_version_id": 77,
+         "schema_version": 1,
+         "config": {
+-          "current": 7,
+-          "total": 20,
+-          "text": "Route add-on openings remaining today"
++          "eyebrow": "Secure add-on",
++          "headline": "Add the clean to this order.",
++          "description": "Confirm the upsell and the team handles follow-up.",
++          "cta_text": "Add the clean",
++          "cta_target": "#accept-upsell",
++          "note": "Follow-up happens from the existing workflow.",
++          "faq_eyebrow": "Good to know",
++          "faq_headline": "Questions before you accept?",
++          "q_one": "Is this a subscription?",
++          "a_one": "No. This is a one-time add-on.",
++          "q_two": "When does scheduling happen?",
++          "a_two": "The team follows up from the existing route workflow.",
++          "q_three": "Where does service happen?",
++          "a_three": "Service remains curbside when route fit is confirmed."
+         }
+-      },
+-      {
+-        "component_type": "offer_card",
+-        "schema_version": 1,
+-        "config": {
+-          "offer_id": 1,
+-          "headline": "$11 fresh-bin add-on",
+-          "subheading": "Includes wash, sanitize, deodorize, and curbside return while we are already nearby.",
+-          "button_text": "Add it to my order",
+-          "decline_text": "Keep my current order",
+-          "show_badge": true,
+-          "show_price": true,
+-          "theme": "value"
+-        }
+-      },
+-      {
+-        "component_type": "benefit_showcase",
+-        "schema_version": 1,
+-        "config": {
+-          "eyebrow": "Why this add-on works",
+-          "headline": "Turn the existing stop into a cleaner-bin win",
+-          "description": "The crew is already routed nearby, so the upsell stays simple and operationally clean.",
+-          "items": [
+-            { "title": "Kills odor at the source", "description": "Hot water and deodorizer rinse away residue." },
+-            { "title": "Keeps pests away", "description": "Less food waste buildup means fewer flies and maggots." },
+-            { "title": "Zero scheduling friction", "description": "We clean after trash pickup while bins are already curbside." }
+-          ]
+-        }
+-      },
+-      {
+-        "component_type": "google_reviews",
+-        "schema_version": 1,
+-        "config": { "place_id": "spotlessbinco-production-place", "min_rating": 4 }
+-      },
+-      {
+-        "component_type": "guarantee",
+-        "schema_version": 1,
+-        "config": { "text": "If your first clean does not smell fresh, we come back and re-clean it.", "days": 7 }
+-      },
+-      {
+-        "component_type": "sticky_bar",
+-        "schema_version": 1,
+-        "config": { "text": "$11 fresh-bin add-on", "button_text": "Add it", "button_target": "#accept-upsell", "position": "bottom", "background": "#1f2937" }
+       }
+     ]
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/tools/spotless-cli/landing-template-payloads/neighborhood-route-opening-landing.json b/tools/spotless-cli/landing-template-payloads/neighborhood-route-opening-landing.json
+index 95cea56067..2ee246e4fc 100644
+--- a/tools/spotless-cli/landing-template-payloads/neighborhood-route-opening-landing.json
++++ b/tools/spotless-cli/landing-template-payloads/neighborhood-route-opening-landing.json
+@@ -1,95 +1,99 @@
+ {
+   "body": {
+     "key": "neighborhood_route_opening_landing_v1",
+-    "name": "Upsell — Neighborhood Route Add-On",
++    "name": "Upsell \u2014 Neighborhood Route Add-On",
+     "step_type": "upsell",
+-    "description": "Scarcity-led upsell for adding the customer to a nearby route follow-up without exposing a schedule picker.",
++    "description": "Paid-entry-style route add-on upsell that captures interest for later route follow-up.",
+     "theme": {
+-      "mode": "light",
+       "colors": {
+-        "primary": "#16a34a",
+-        "secondary": "#1f2937",
+-        "accent": "#2563eb",
+-        "background": "#f0fdf4",
+-        "foreground": "#111827",
+-        "muted": "#e0f2fe",
+-        "success": "#22c55e"
++        "primary": "#10b981",
++        "secondary": "#0f172a",
++        "accent": "#10b981",
++        "background": "#ffffff",
++        "foreground": "#0f172a",
++        "muted": "#475569",
++        "danger": "#dc2626",
++        "success": "#059669"
+       },
+-      "radius": "lg"
++      "typography": {
++        "font_family": "Inter, ui-sans-serif, system-ui, sans-serif",
++        "heading_family": "Inter, ui-sans-serif, system-ui, sans-serif",
++        "scale": "comfortable"
++      },
++      "spacing": "comfortable",
++      "radius": "md",
++      "mode": "light"
+     },
+     "nodes": [
+       {
+-        "component_type": "hero",
+-        "component_id": 1,
+-        "component_version_id": 74,
++        "component_type": "paid_entry_upsell_offer",
++        "component_kind": "component",
++        "component_id": 1266,
++        "component_version_id": 75,
+         "schema_version": 1,
+         "config": {
+-          "headline": "Add your address to the next neighborhood route follow-up",
+-          "subhead": "If nearby homes are already grouped, we can confirm a route add-on after this step without making you choose a service window now.",
+-          "cta_label": "Yes, check route fit",
+-          "cta_url": "#accept-upsell",
+-          "brand_color": "spotless",
+-          "background_image": "neighborhood-route-opening"
++          "eyebrow": "Neighborhood route add-on",
++          "headline": "Your address may fit the next neighborhood route.",
++          "description": "Use the paid-entry design language to make a route add-on feel immediate, trusted, and operationally simple.",
++          "cta_text": "Check my route fit",
++          "cta_target": "#accept-upsell",
++          "supporting_text": "Team-confirmed route fit",
++          "section_id": "accept-upsell",
++          "price": "Route fit",
++          "price_label": "next step",
++          "card_eyebrow": "Route check includes",
++          "card_headline": "Neighborhood route follow-up",
++          "item_one": "Address fit check",
++          "item_two": "Nearby route review",
++          "item_three": "Crew follow-up",
++          "item_four": "No commitment today",
++          "commitment_title": "Interest only",
++          "commitment_detail": "Team confirms route fit"
+         }
+       },
+       {
+-        "component_type": "scarcity_bar",
+-        "schema_version": 1,
+-        "config": {
+-          "current": 11,
+-          "total": 30,
+-          "text": "Route follow-up spots left before dispatch locks"
+-        }
+-      },
+-      {
+-        "component_type": "trust_badges",
+-        "schema_version": 1,
+-        "config": {
+-          "badges": [
+-            "secure",
+-            "guarantee",
+-            "ssl",
+-            "bbb"
+-          ]
+-        }
+-      },
+-      {
+-        "component_type": "offer_card",
+-        "schema_version": 1,
+-        "config": {
+-          "headline": "Neighborhood route add-on",
+-          "subheading": "Let the crew confirm whether your address fits the current route cluster.",
+-          "offer_id": 1,
+-          "button_text": "Check my route fit",
+-          "show_price": true,
+-          "show_badge": true,
+-          "theme": "value"
+-        }
+-      },
+-      {
+-        "component_type": "benefit_showcase",
++        "component_type": "paid_entry_upsell_steps",
++        "component_kind": "component",
++        "component_id": 1267,
++        "component_version_id": 76,
+         "schema_version": 1,
+         "config": {
+           "eyebrow": "Operationally simple",
+-          "headline": "Make the route denser without adding scheduling friction",
+-          "description": "The upsell captures intent first, then the team confirms whether the current crew path can support the add-on.",
+-          "items": [
+-            { "title": "After-pickup timing", "description": "Bins are already empty and curbside." },
+-            { "title": "Route efficiency", "description": "Grouped stops keep crews close and reliable." },
+-            { "title": "Visible neighborhood proof", "description": "Neighbors see cleaner bins on the same cycle." }
+-          ]
++          "headline": "Make the route denser without adding scheduling friction.",
++          "description": "The upsell captures intent first, then the team confirms whether the crew path can support the add-on.",
++          "panel_label": "Route workflow",
++          "panel_headline": "Scheduling only happens later if the route makes sense.",
++          "step_one_title": "Raise your hand",
++          "step_one_body": "Ask us to check whether your address fits the route.",
++          "step_two_title": "We review the cluster",
++          "step_two_body": "The team compares nearby stops before confirming details.",
++          "step_three_title": "Follow-up comes next",
++          "step_three_body": "Scheduling happens later if the route makes sense."
+         }
+       },
+       {
+-        "component_type": "guarantee",
++        "component_type": "paid_entry_upsell_action",
++        "component_kind": "component",
++        "component_id": 1268,
++        "component_version_id": 77,
+         "schema_version": 1,
+-        "config": { "text": "If the first clean does not make the bin noticeably fresher, we re-clean it on us.", "days": 7 }
+-      },
+-      {
+-        "component_type": "sticky_bar",
+-        "schema_version": 1,
+-        "config": { "text": "Neighborhood route add-on", "button_text": "Check fit", "button_target": "#accept-upsell", "position": "bottom", "background": "#1f2937" }
++        "config": {
++          "eyebrow": "Route interest",
++          "headline": "Ask us to check your route fit.",
++          "description": "Confirm interest now with scheduling handled later.",
++          "cta_text": "Check my route fit",
++          "cta_target": "#accept-upsell",
++          "note": "This step records route interest only; scheduling happens later.",
++          "faq_eyebrow": "Good to know",
++          "faq_headline": "Questions before you check route fit?",
++          "q_one": "Am I scheduling the route now?",
++          "a_one": "No. This captures interest so the team can review route fit.",
++          "q_two": "What happens after I say yes?",
++          "a_two": "The team checks whether your address fits a nearby route cluster.",
++          "q_three": "Do I need to move my bins somewhere special?",
++          "a_three": "No. Service remains curbside if the route is confirmed."
++        }
+       }
+     ]
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/tools/spotless-cli/landing-template-payloads/pressure-washing-quote-landing.json b/tools/spotless-cli/landing-template-payloads/pressure-washing-quote-landing.json
+index e3d9daa3b5..7683add386 100644
+--- a/tools/spotless-cli/landing-template-payloads/pressure-washing-quote-landing.json
++++ b/tools/spotless-cli/landing-template-payloads/pressure-washing-quote-landing.json
+@@ -1,82 +1,99 @@
+ {
+   "body": {
+     "key": "pressure_washing_quote_landing_v1",
+-    "name": "Upsell — Exterior Cleaning Interest",
++    "name": "Upsell \u2014 Exterior Cleaning Interest",
+     "step_type": "upsell",
+-    "description": "Post-action exterior-cleaning upsell that captures interest for crew follow-up without quoting or scheduling on the page.",
++    "description": "Paid-entry-style upsell that captures exterior-cleaning interest for later crew follow-up.",
+     "theme": {
+-      "mode": "light",
+       "colors": {
+-        "primary": "#16a34a",
+-        "secondary": "#1f2937",
+-        "accent": "#2563eb",
+-        "background": "#f0fdf4",
+-        "foreground": "#111827",
+-        "muted": "#e0f2fe",
+-        "success": "#22c55e"
++        "primary": "#10b981",
++        "secondary": "#0f172a",
++        "accent": "#10b981",
++        "background": "#ffffff",
++        "foreground": "#0f172a",
++        "muted": "#475569",
++        "danger": "#dc2626",
++        "success": "#059669"
+       },
+-      "radius": "lg"
++      "typography": {
++        "font_family": "Inter, ui-sans-serif, system-ui, sans-serif",
++        "heading_family": "Inter, ui-sans-serif, system-ui, sans-serif",
++        "scale": "comfortable"
++      },
++      "spacing": "comfortable",
++      "radius": "md",
++      "mode": "light"
+     },
+     "nodes": [
+       {
+-        "component_type": "hero",
+-        "component_id": 1,
+-        "component_version_id": 74,
++        "component_type": "paid_entry_upsell_offer",
++        "component_kind": "component",
++        "component_id": 1266,
++        "component_version_id": 75,
+         "schema_version": 1,
+         "config": {
+-          "headline": "Want the exterior cleaned while we are already earning your trust?",
+-          "subhead": "Raise your hand for driveway, patio, or siding follow-up. The crew reviews fit after this step instead of making you build a quote here.",
+-          "cta_label": "Yes, send exterior details",
+-          "cta_url": "#accept-upsell",
+-          "brand_color": "spotless",
+-          "background_image": "pressure-washing-before-after"
++          "eyebrow": "Next clean-service upgrade",
++          "headline": "Want the driveway, patio, or siding cleaned next?",
++          "description": "Raise your hand now; the crew reviews property fit after this step.",
++          "cta_text": "Send exterior details",
++          "cta_target": "#accept-upsell",
++          "supporting_text": "Crew-reviewed follow-up",
++          "section_id": "accept-upsell",
++          "price": "Interest",
++          "price_label": "today",
++          "card_eyebrow": "Interest includes",
++          "card_headline": "Exterior clean follow-up",
++          "item_one": "Driveway, patio, or siding interest",
++          "item_two": "Crew fit review",
++          "item_three": "Simple follow-up",
++          "item_four": "No commitment today",
++          "commitment_title": "Interest only",
++          "commitment_detail": "Crew confirms fit later"
+         }
+       },
+       {
+-        "component_type": "trust_badges",
+-        "schema_version": 1,
+-        "config": {
+-          "badges": [
+-            "secure",
+-            "guarantee",
+-            "ssl",
+-            "bbb"
+-          ]
+-        }
+-      },
+-      {
+-        "component_type": "benefit_showcase",
++        "component_type": "paid_entry_upsell_steps",
++        "component_kind": "component",
++        "component_id": 1267,
++        "component_version_id": 76,
+         "schema_version": 1,
+         "config": {
+           "eyebrow": "Easy next upgrade",
+-          "headline": "Add curb appeal without another decision tree",
+-          "description": "Package the surfaces that matter and let the crew handle pressure, detergent, and cleanup.",
+-          "items": [
+-            { "title": "Driveway curb appeal", "description": "Remove tire marks, dirt, and organic buildup." },
+-            { "title": "Patio-ready spaces", "description": "Make outdoor areas feel clean before guests arrive." },
+-            { "title": "Bundled savings", "description": "Combine surfaces while the crew is already onsite." }
+-          ]
++          "headline": "Add curb appeal without another decision tree.",
++          "description": "Capture exterior-cleaning interest in the same high-trust paid-entry rhythm.",
++          "panel_label": "Crew review",
++          "panel_headline": "Fit, pricing, and timing come from the team after interest is captured.",
++          "step_one_title": "Tap for follow-up",
++          "step_one_body": "Capture interest without asking the customer to configure the full job.",
++          "step_two_title": "Crew reviews fit",
++          "step_two_body": "The team checks the property and route context.",
++          "step_three_title": "Details come later",
++          "step_three_body": "Crew details come after the upsell is accepted."
+         }
+       },
+       {
+-        "component_type": "value_stack",
++        "component_type": "paid_entry_upsell_action",
++        "component_kind": "component",
++        "component_id": 1268,
++        "component_version_id": 77,
+         "schema_version": 1,
+         "config": {
+-          "items": [
+-            { "label": "Exterior surface inspection", "value": 49, "included": true },
+-            { "label": "Material-matched detergent", "value": 38, "included": true },
+-            { "label": "Pressure wash and rinse", "value": 125, "included": true },
+-            { "label": "Crew review and follow-up", "value": 25, "included": true }
+-          ],
+-          "total_value": 237,
+-          "you_pay": 0
++          "eyebrow": "Interest capture",
++          "headline": "Send exterior-cleaning interest.",
++          "description": "Confirm interest now, then the crew handles fit, pricing, and timing later.",
++          "cta_text": "Send exterior details",
++          "cta_target": "#accept-upsell",
++          "note": "This step records interest so the crew can follow up with the right details.",
++          "faq_eyebrow": "Good to know",
++          "faq_headline": "Questions before you request details?",
++          "q_one": "Am I committing today?",
++          "a_one": "No. This upsell captures interest for crew follow-up.",
++          "q_two": "Do I need to configure the job now?",
++          "a_two": "No. The crew reviews fit after this step.",
++          "q_three": "When does scheduling happen?",
++          "a_three": "Scheduling belongs in the later crew workflow."
+         }
+-      },
+-      {
+-        "component_type": "sticky_bar",
+-        "schema_version": 1,
+-        "config": { "text": "Exterior cleaning add-on interest", "button_text": "Send details", "button_target": "#accept-upsell", "position": "bottom", "background": "#1f2937" }
+       }
+     ]
+   }
+-}
+\ No newline at end of file
++}
+diff --git a/tools/spotless-cli/spotless_cli.tether b/tools/spotless-cli/spotless_cli.tether
+index 9e51561638..75a412b205 100644
+--- a/tools/spotless-cli/spotless_cli.tether
++++ b/tools/spotless-cli/spotless_cli.tether
+@@ -1,4 +1,4 @@
+-// Generated from OpenAPI 3.0.3 with 1599 operations.
++// Generated from OpenAPI 3.0.3 with 1609 operations.
+ 
+ // Generated SpotlessBinCo CLI configuration and secure input handling.
+ // Do not edit generated output; change the Rust generator templates instead.
+@@ -1912,6 +1912,16 @@ fn operation_registry() {
+     registry["live.update"] = operation
+     operation = map(); operation["command"] = "live.updateRtmp"; operation["method"] = "POST"; operation["path"] = "/orpc/live/updateRtmp"; operation["summary"] = ""; operation["parameters"] = []; operation["content_types"] = ["application/json"]; operation["body_required"] = true
+     registry["live.updateRtmp"] = operation
++    operation = map(); operation["command"] = "lookdevBatchCreate"; operation["method"] = "POST"; operation["path"] = "/api/v1/nas-media/video-batches"; operation["summary"] = "Idempotently submit draft or approved final variants"; operation["parameters"] = []; operation["content_types"] = ["application/json"]; operation["body_required"] = true
++    registry["lookdevBatchCreate"] = operation
++    operation = map(); operation["command"] = "lookdevBatchStatus"; operation["method"] = "GET"; operation["path"] = "/api/v1/nas-media/video-batches/:id"; operation["summary"] = "Read owned batch state and fresh signed output URLs"; operation["parameters"] = []; operation["content_types"] = []; operation["body_required"] = false
++    parameter = map(); parameter["name"] = "id"; parameter["location"] = "path"; parameter["required"] = true; operation["parameters"].push(parameter)
++    registry["lookdevBatchStatus"] = operation
++    operation = map(); operation["command"] = "lookdevTemplate"; operation["method"] = "GET"; operation["path"] = "/api/v1/nas-media/video-batches/template"; operation["summary"] = "Supported lookdev template and limits"; operation["parameters"] = []; operation["content_types"] = []; operation["body_required"] = false
++    registry["lookdevTemplate"] = operation
++    operation = map(); operation["command"] = "lookdevVariantRetry"; operation["method"] = "POST"; operation["path"] = "/api/v1/nas-media/video-batches/jobs/:id/retry"; operation["summary"] = "Retry one failed variant"; operation["parameters"] = []; operation["content_types"] = []; operation["body_required"] = false
++    parameter = map(); parameter["name"] = "id"; parameter["location"] = "path"; parameter["required"] = true; operation["parameters"].push(parameter)
++    registry["lookdevVariantRetry"] = operation
+     operation = map(); operation["command"] = "marketCommand.attachMarketingExecution"; operation["method"] = "POST"; operation["path"] = "/orpc/market-command/marketing-campaigns/attach-execution"; operation["summary"] = ""; operation["parameters"] = []; operation["content_types"] = ["application/json"]; operation["body_required"] = true
+     registry["marketCommand.attachMarketingExecution"] = operation
+     operation = map(); operation["command"] = "marketCommand.createMarketingCampaign"; operation["method"] = "POST"; operation["path"] = "/orpc/market-command/marketing-campaigns/create"; operation["summary"] = ""; operation["parameters"] = []; operation["content_types"] = ["application/json"]; operation["body_required"] = true
+@@ -2112,6 +2122,24 @@ fn operation_registry() {
+     operation = map(); operation["command"] = "mvt.startMultivariateTest"; operation["method"] = "POST"; operation["path"] = "/orpc/mvt/tests/:testId/start"; operation["summary"] = ""; operation["parameters"] = []; operation["content_types"] = ["application/json"]; operation["body_required"] = false
+     parameter = map(); parameter["name"] = "testId"; parameter["location"] = "path"; parameter["required"] = true; operation["parameters"].push(parameter)
+     registry["mvt.startMultivariateTest"] = operation
++    operation = map(); operation["command"] = "nasMediaFile"; operation["method"] = "GET"; operation["path"] = "/api/v1/nas-media/file/:path"; operation["summary"] = "Stream signed NAS media with HTTP Range support"; operation["parameters"] = []; operation["content_types"] = []; operation["body_required"] = false
++    parameter = map(); parameter["name"] = "path"; parameter["location"] = "path"; parameter["required"] = true; operation["parameters"].push(parameter)
++    parameter = map(); parameter["name"] = "expires"; parameter["location"] = "query"; parameter["required"] = true; operation["parameters"].push(parameter)
++    parameter = map(); parameter["name"] = "signature"; parameter["location"] = "query"; parameter["required"] = true; operation["parameters"].push(parameter)
++    registry["nasMediaFile"] = operation
++    operation = map(); operation["command"] = "nasMediaList"; operation["method"] = "GET"; operation["path"] = "/api/v1/nas-media/list"; operation["summary"] = "Browse folders under the configured NAS media root"; operation["parameters"] = []; operation["content_types"] = []; operation["body_required"] = false
++    parameter = map(); parameter["name"] = "path"; parameter["location"] = "query"; parameter["required"] = false; operation["parameters"].push(parameter)
++    registry["nasMediaList"] = operation
++    operation = map(); operation["command"] = "nasMediaRender3d"; operation["method"] = "POST"; operation["path"] = "/api/v1/nas-media/render-3d"; operation["summary"] = "Start a Blender render or GLB export for a NAS .blend asset"; operation["parameters"] = []; operation["content_types"] = ["application/json"]; operation["body_required"] = true
++    registry["nasMediaRender3d"] = operation
++    operation = map(); operation["command"] = "nasMediaRender3dStatus"; operation["method"] = "GET"; operation["path"] = "/api/v1/nas-media/render-3d/:jobId"; operation["summary"] = "Read Blender render job status"; operation["parameters"] = []; operation["content_types"] = []; operation["body_required"] = false
++    parameter = map(); parameter["name"] = "jobId"; parameter["location"] = "path"; parameter["required"] = true; operation["parameters"].push(parameter)
++    registry["nasMediaRender3dStatus"] = operation
++    operation = map(); operation["command"] = "nasMediaTts"; operation["method"] = "POST"; operation["path"] = "/api/v1/nas-media/tts"; operation["summary"] = "Generate narration audio from NAS subtitle text using VM-local Kokoro TTS"; operation["parameters"] = []; operation["content_types"] = ["application/json"]; operation["body_required"] = true
++    registry["nasMediaTts"] = operation
++    operation = map(); operation["command"] = "nasMediaUpload"; operation["method"] = "POST"; operation["path"] = "/api/v1/nas-media/upload"; operation["summary"] = "Upload video, image, audio, GLB/GLTF, Blender, or subtitle asset to NAS"; operation["parameters"] = []; operation["content_types"] = ["multipart/form-data"]; operation["body_required"] = true
++    parameter = map(); parameter["name"] = "path"; parameter["location"] = "query"; parameter["required"] = false; operation["parameters"].push(parameter)
++    registry["nasMediaUpload"] = operation
+     operation = map(); operation["command"] = "nextdoor.ads.ads.bulkCreate"; operation["method"] = "POST"; operation["path"] = "/orpc/nextdoor/ads/bulk-create"; operation["summary"] = ""; operation["parameters"] = []; operation["content_types"] = ["application/json"]; operation["body_required"] = true
+     registry["nextdoor.ads.ads.bulkCreate"] = operation
+     operation = map(); operation["command"] = "nextdoor.ads.ads.create"; operation["method"] = "POST"; operation["path"] = "/orpc/nextdoor/ads/create"; operation["summary"] = ""; operation["parameters"] = []; operation["content_types"] = ["application/json"]; operation["body_required"] = true
+diff --git a/tools/spotless-cli/template-payloads/service-calendar.generated.tera b/tools/spotless-cli/template-payloads/service-calendar.generated.tera
+new file mode 100644
+index 0000000000..a029f82289
+--- /dev/null
++++ b/tools/spotless-cli/template-payloads/service-calendar.generated.tera
+@@ -0,0 +1,233 @@
++<!-- Generated from component-template-sources/service-calendar*. Do not edit generated output. -->
++{# Authored service_calendar component. @example render with cfg.quote_id and cfg.booking_credential. #}
++{% set quote_id = cfg.quote_id | default(value='') %}
++{% set component_id = cfg.component_id | default(value='exterior-booking') %}
++{% set endpoint = cfg.endpoint | default(value='') %}
++{% if quote_id and endpoint %}
++<section id="{{ component_id }}" data-service-calendar class="my-6 space-y-4 rounded-xl border p-5"
++  data-quote-id="{{ quote_id }}" data-endpoint="{{ endpoint }}"
++  data-preview="{{ cfg.preview | default(value=false) }}"
++  data-booking-credential="{{ cfg.booking_credential | default(value='') }}">
++  <header>
++    <h2 class="text-xl font-bold">Choose your service window</h2>
++    <p>Available windows come from our operations schedule.</p>
++    <p data-booking-timezone class="text-sm"></p>
++  </header>
++  <p data-booking-loading role="status">Loading real service availability…</p>
++  <p data-booking-error role="alert" class="hidden text-red-700"></p>
++  <button data-booking-retry type="button" class="hidden rounded border px-3 py-2">Refresh availability</button>
++  <fieldset data-booking-picker class="space-y-3">
++    <legend class="font-semibold">Select a date and arrival window</legend>
++    <div data-booking-dates class="flex flex-wrap gap-2"></div>
++    <div data-booking-times class="grid gap-2 sm:grid-cols-2"></div>
++  </fieldset>
++  <div data-booking-confirmation class="hidden rounded bg-emerald-50 p-4 text-emerald-950">
++    <p class="font-semibold">Service window held</p>
++    <p data-booking-confirmation-label></p>
++    <p data-booking-hold-copy class="text-sm"></p>
++    <button data-booking-change type="button" class="mt-3 underline">Choose another time</button>
++  </div>
++  <div data-booking-authorization class="hidden space-y-3 rounded border border-amber-300 p-4">
++    <h3 class="font-bold">Payment authorization</h3>
++    <p data-booking-authorization-detail></p>
++    <p>Your saved payment method is charged immediately when you confirm. This is not a card authorization hold.</p>
++    <button data-booking-authorize type="button" class="w-full rounded bg-emerald-700 p-3 font-bold text-white">
++      Yes, charge my card and book this service
++    </button>
++    <button data-booking-decline type="button" class="w-full underline">No thank you—cancel this checkout</button>
++  </div>
++  <p data-booking-result role="status" class="hidden rounded border p-4"></p>
++</section>
++<script>
++(() => {
++  'use strict';
++  /** Finds a control within one component instance. @example bookingControl(root, 'error'); */
++function bookingControl(root, name) {
++  return root.querySelector(`[data-booking-${name}]`);
++}
++
++/** Displays a real workflow failure without success or demo-slot substitution.
++ * @example showBookingError(root, message); */
++function showBookingError(root, message) {
++  const error = bookingControl(root, 'error');
++  error.textContent = message;
++  error.classList.remove('hidden');
++  bookingControl(root, 'loading').classList.add('hidden');
++  bookingControl(root, 'retry').classList.remove('hidden');
++}
++
++/** Sends a quote-authorized same-origin request without putting secrets in URLs.
++ * @example const response = await bookingRequest(root, url, payload); */
++async function bookingRequest(root, url, body) {
++  if (!root.dataset.bookingCredential) throw new Error('This secure booking session is unavailable.');
++  const target = new URL(url, location.origin);
++  if (target.origin !== location.origin) throw new Error('Invalid booking endpoint.');
++  const response = await fetch(target.href, {
++    method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin',
++    headers: { 'Content-Type': 'application/json', 'X-Booking-Authorization': root.dataset.bookingCredential },
++    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
++  });
++  let data;
++  try { data = await response.json(); }
++  catch { throw new Error('Booking returned an unreadable response. Your payment status may need review.'); }
++  if (!response.ok) throw new Error(data.message || data.error?.message || data.error || `Booking request failed (${response.status}).`);
++  return data;
++}
++
++/** Prevents double clicks across reserve, confirm, decline, and date selection.
++ * @example setBookingBusy(root, state, true); */
++function setBookingBusy(root, state, busy) {
++  state.busy = busy;
++  root.querySelectorAll('button').forEach(button => { button.disabled = busy || state.terminal; });
++}
++
++/** Shows the exact service/price/window that the customer is authorizing.
++ * @example displayBookingHold(root, state, response.slot); */
++function displayBookingHold(root, state, slot) {
++  state.held = slot;
++  const available = state.availability;
++  const price = new Intl.NumberFormat(undefined, { style: 'currency', currency: available.currency })
++    .format(available.amountQuotedCents / 100);
++  bookingControl(root, 'confirmation-label').textContent = slot.label;
++  bookingControl(root, 'hold-copy').textContent = `Held temporarily, up to ${available.reservationMinutes} minutes. Payment confirms the booking.`;
++  bookingControl(root, 'authorization-detail').textContent = `${available.serviceName}: charge ${price} now for ${slot.label}.`;
++  bookingControl(root, 'picker').classList.add('hidden');
++  bookingControl(root, 'confirmation').classList.remove('hidden');
++  bookingControl(root, 'authorization').classList.remove('hidden');
++}
++
++/** Stops further payment actions once a terminal or processing outcome is known.
++ * @example finishBookingUi(root, state, message); */
++function finishBookingUi(root, state, message) {
++  state.terminal = true;
++  bookingControl(root, 'authorization').classList.add('hidden');
++  const result = bookingControl(root, 'result');
++  result.textContent = message;
++  result.classList.remove('hidden');
++  setBookingBusy(root, state, false);
++}
++  /** Builds a selectable date from real server slot values. @example renderBookingDates(root, state); */
++function renderBookingDates(root, state) {
++  const dates = bookingControl(root, 'dates');
++  dates.replaceChildren();
++  const unique = [...new Set(state.slots.map(slot => slot.date))];
++  unique.forEach(date => {
++    const button = document.createElement('button');
++    button.type = 'button';
++    button.dataset.bookingDate = date;
++    button.textContent = date;
++    button.className = 'rounded border px-3 py-2';
++    dates.append(button);
++  });
++  if (unique.length) renderBookingTimes(root, state, unique[0]);
++}
++
++/** Uses server labels so displayed windows follow the operations timezone.
++ * @example renderBookingTimes(root, state, selectedDate); */
++function renderBookingTimes(root, state, date) {
++  const times = bookingControl(root, 'times');
++  times.replaceChildren();
++  root.querySelectorAll('[data-booking-date]').forEach(button => {
++    button.setAttribute('aria-pressed', String(button.dataset.bookingDate === date));
++  });
++  state.slots.filter(slot => slot.date === date).forEach(slot => {
++    const button = document.createElement('button');
++    button.type = 'button';
++    button.dataset.bookingStart = slot.start;
++    button.textContent = slot.label;
++    button.className = 'rounded border p-3 text-left';
++    times.append(button);
++  });
++}
++
++/** Loads only live availability with a real quote, credential, and quoted price.
++ * @example await loadBookingAvailability(root, state); */
++async function loadBookingAvailability(root, state) {
++  if (state.terminal) return;
++  bookingControl(root, 'error').classList.add('hidden');
++  bookingControl(root, 'loading').classList.remove('hidden');
++  bookingControl(root, 'confirmation').classList.add('hidden');
++  bookingControl(root, 'authorization').classList.add('hidden');
++  const id = Number(root.dataset.quoteId);
++  if (!Number.isSafeInteger(id) || id <= 0 || root.dataset.preview === 'true') {
++    throw new Error('Live availability requires a real booking quote; preview does not create slots.');
++  }
++  const data = await bookingRequest(root, `${root.dataset.endpoint}/availability`);
++  if (!Array.isArray(data.slots) || !data.timezone || !data.serviceName
++    || !Number.isSafeInteger(data.amountQuotedCents) || data.amountQuotedCents < 0 || !data.currency) {
++    throw new Error('Booking availability or the quoted price is incomplete.');
++  }
++  state.availability = data;
++  state.slots = data.slots;
++  state.held = data.selectedSlot;
++  bookingControl(root, 'timezone').textContent = data.timezone;
++  bookingControl(root, 'loading').classList.add('hidden');
++  renderBookingDates(root, state);
++  if (state.held) displayBookingHold(root, state, state.held);
++  else if (!state.slots.length) showBookingError(root, 'No service windows are currently available.');
++  else bookingControl(root, 'picker').classList.remove('hidden');
++}
++  /** Serializes customer actions and changes UI state only after server acknowledgment.
++ * @example await handleBookingClick(root, state, event); */
++async function handleBookingClick(root, state, event) {
++  const button = event.target instanceof Element ? event.target.closest('button') : null;
++  if (!button || !root.contains(button) || state.busy || state.terminal) return;
++  bookingControl(root, 'error').classList.add('hidden');
++  setBookingBusy(root, state, true);
++  try {
++    if (button.dataset.bookingDate) return renderBookingTimes(root, state, button.dataset.bookingDate);
++    if (button.matches('[data-booking-retry]')) return await loadBookingAvailability(root, state);
++    if (button.matches('[data-booking-change]')) {
++      bookingControl(root, 'confirmation').classList.add('hidden');
++      bookingControl(root, 'authorization').classList.add('hidden');
++      await loadBookingAvailability(root, state);
++      bookingControl(root, 'confirmation').classList.add('hidden');
++      bookingControl(root, 'authorization').classList.add('hidden');
++      return bookingControl(root, 'picker').classList.remove('hidden');
++    }
++    if (button.dataset.bookingStart) {
++      const response = await bookingRequest(root, `${root.dataset.endpoint}/reserve`, {
++        start: button.dataset.bookingStart,
++      });
++      if (response.status !== 'held' || !response.slot) throw new Error('The service window was not held.');
++      return displayBookingHold(root, state, response.slot);
++    }
++    if (!state.held) throw new Error('Choose a service window first.');
++    if (button.matches('[data-booking-decline]')) {
++      const response = await bookingRequest(root, `${root.dataset.endpoint}/release`, {
++        acknowledgedStart: state.held.start,
++      });
++      if (response.released !== true) throw new Error('The service window has not been released.');
++      state.held = null;
++      bookingControl(root, 'confirmation').classList.add('hidden');
++      bookingControl(root, 'picker').classList.add('hidden');
++      return finishBookingUi(root, state, 'No charge was made. Your pending checkout was cancelled and its service window released.');
++    }
++    if (button.matches('[data-booking-authorize]')) {
++      const response = await bookingRequest(root, '/api/exterior-booking/authorize-charge', {
++        quoteRequestId: Number(root.dataset.quoteId), acknowledgedStart: state.held.start,
++      });
++      if (response.success === true || response.amountChargedCents > 0 || response.paymentStatus === 'processing') {
++        root.dataset.chargeStatus = response.paymentStatus || (response.amountChargedCents > 0 ? 'succeeded' : 'unknown');
++        bookingControl(root, 'confirmation').classList.add('hidden');
++        bookingControl(root, 'picker').classList.add('hidden');
++        return finishBookingUi(root, state, response.message || 'Check your booking confirmation before taking another payment action.');
++      }
++      throw new Error(response.message || 'Payment has not been confirmed.');
++    }
++  } catch (error) {
++    showBookingError(root, error.message || 'The booking action could not be confirmed.');
++  } finally {
++    setBookingBusy(root, state, false);
++  }
++}
++  document.querySelectorAll('[data-service-calendar]').forEach(root => {
++    if (root.dataset.bookingReady === 'true') return;
++    root.dataset.bookingReady = 'true';
++    const state = { held: null, slots: [], busy: false, terminal: false, availability: null };
++    root.addEventListener('click', event => handleBookingClick(root, state, event));
++    loadBookingAvailability(root, state).catch(error => showBookingError(root, error.message));
++  });
++})();
++</script>
++{% endif %}
+\ No newline at end of file

@@ -1,0 +1,52 @@
+{
+  "origin": "api-smoke",
+  "workerId": "a2a-server-harvester-0",
+  "targets": [
+    {
+      "id": "ios-25a3683e-182c-4d75-ad41-4d34a4e525d7",
+      "marker": "f54714a160ff81e351379231",
+      "tasks": [
+        {
+          "id": "5dc68064-2213-43de-96e2-9a7f21d98845",
+          "stage": "remember",
+          "status": "completed",
+          "sessionId": "ios-25a3683e-182c-4d75-ad41-4d34a4e525d7",
+          "result": "READY",
+          "error": null
+        },
+        {
+          "id": "a023f45b-48ba-444b-a426-87061fdec104",
+          "stage": "recall",
+          "status": "completed",
+          "sessionId": "ios-25a3683e-182c-4d75-ad41-4d34a4e525d7",
+          "result": "f54714a160ff81e351379231",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "ios-c88b7173-411a-425e-8398-6f8072e49557",
+      "marker": "b03fa8d78f567ad563a774ac",
+      "tasks": [
+        {
+          "id": "0a8ee0eb-9b00-475d-b62d-e65ddba354fa",
+          "stage": "remember",
+          "status": "completed",
+          "sessionId": "ios-c88b7173-411a-425e-8398-6f8072e49557",
+          "result": "READY",
+          "error": null
+        },
+        {
+          "id": "599c5b3f-437b-4659-bd28-2688799390b5",
+          "stage": "recall",
+          "status": "completed",
+          "sessionId": "ios-c88b7173-411a-425e-8398-6f8072e49557",
+          "result": "b03fa8d78f567ad563a774ac",
+          "error": null
+        }
+      ]
+    }
+  ],
+  "completed": true,
+  "verifiedAt": "2026-10-05T21:06:23.568Z"
+}

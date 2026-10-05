@@ -1,0 +1,30 @@
+{
+  "service": "keycloak/keycloak",
+  "realm": "quantum-forge",
+  "credentialPath": "kv/codetether/playwright/ui-live-cb1e678f",
+  "operations": [
+    {
+      "method": "GET",
+      "path": "/roles",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/users",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/users",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "path": "/users/28d1d4f6-59a1-48b4-bbaa-ce5b839d90c9/role-mappings/realm",
+      "status": 204
+    }
+  ],
+  "userId": "28d1d4f6-59a1-48b4-bbaa-ce5b839d90c9",
+  "assignedRole": "editor",
+  "adminPrivilegesGranted": false
+}

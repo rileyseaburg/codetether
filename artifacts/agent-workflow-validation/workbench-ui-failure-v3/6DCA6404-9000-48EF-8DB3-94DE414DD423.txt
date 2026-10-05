@@ -1,0 +1,5 @@
+Query chain:
+ →Find: Target Application 'com.a2a.monitor'
+  ↪︎Find: Descendants matching type Any
+    ↪︎Find: Elements matching predicate '"agents.worker.wrk_1791203157_35195f4f7b97da0a" IN identifiers'
+      ↪︎Find: First Match

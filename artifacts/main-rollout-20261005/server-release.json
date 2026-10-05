@@ -1,0 +1,7 @@
+{
+  "image": "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-eb2051a212a2",
+  "digest": "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp@sha256:f98bd714789f0b7a8693ec47a3abe87a0d87f34984e3c7719cfeb0f334b9b8a0",
+  "imageId": "sha256:9155029878e4e9e88a346fa237f0c98a8d7b7cfe4106027e03a2ea64876973b3",
+  "sourceRevision": "eb2051a212a2c729a7963da8e1dda39a4e958513",
+  "pullSecret": "registry-credentials"
+}

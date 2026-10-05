@@ -1,0 +1,68 @@
+{"input": "Create a new task to fix the login bug", "output": "<start_function_call>call:create_task{title:<escape>fix the login bug<escape>}<end_function_call>"}
+{"input": "Add a new task for implementing user authentication", "output": "<start_function_call>call:create_task{title:<escape>implement user authentication<escape>}<end_function_call>"}
+{"input": "Make a task to write API documentation", "output": "<start_function_call>call:create_task{title:<escape>write API documentation<escape>}<end_function_call>"}
+{"input": "Create a task with title: fix database connection issue", "output": "<start_function_call>call:create_task{title:<escape>fix database connection issue<escape>}<end_function_call>"}
+{"input": "I need to create a task for adding unit tests", "output": "<start_function_call>call:create_task{title:<escape>add unit tests<escape>}<end_function_call>"}
+{"input": "Can you create a task titled update dependencies", "output": "<start_function_call>call:create_task{title:<escape>update dependencies<escape>}<end_function_call>"}
+{"input": "Create task: refactor the payment module", "output": "<start_function_call>call:create_task{title:<escape>refactor the payment module<escape>}<end_function_call>"}
+{"input": "I want to create a task for debugging memory leak", "output": "<start_function_call>call:create_task{title:<escape>debug memory leak<escape>}<end_function_call>"}
+{"input": "Create a new task to implement OAuth2 login with title: add OAuth2 login", "output": "<start_function_call>call:create_task{title:<escape>add OAuth2 login<escape>}<end_function_call>"}
+{"input": "Add a task to optimize database queries", "output": "<start_function_call>call:create_task{title:<escape>optimize database queries<escape>}<end_function_call>"}
+{"input": "Create a task with title: fix login bug and description: The login button doesn't redirect users after successful authentication", "output": "<start_function_call>call:create_task{title:<escape>fix login bug<escape>,description:<escape>The login button doesn't redirect users after successful authentication<escape>}<end_function_call>"}
+{"input": "Create task to implement API authentication with description: Add JWT token support for API endpoints", "output": "<start_function_call>call:create_task{title:<escape>implement API authentication<escape>,description:<escape>Add JWT token support for API endpoints<escape>}<end_function_call>"}
+{"input": "Create a task titled write documentation with description: Document all API endpoints and their usage", "output": "<start_function_call>call:create_task{title:<escape>write documentation<escape>,description:<escape>Document all API endpoints and their usage<escape>}<end_function_call>"}
+{"input": "Create a high priority task to fix the critical bug with title: fix critical security vulnerability", "output": "<start_function_call>call:create_task{title:<escape>fix critical security vulnerability<escape>,priority:<escape>10<escape>}<end_function_call>"}
+{"input": "Create a build task for my-project codebase titled: implement user profile page", "output": "<start_function_call>call:create_task{title:<escape>implement user profile page<escape>,codebase_id:<escape>my-project<escape>,agent_type:<escape>build<escape>}<end_function_call>"}
+{"input": "Create a plan task for backend-api with title: design new microservice architecture", "output": "<start_function_call>call:create_task{title:<escape>design new microservice architecture<escape>,codebase_id:<escape>backend-api<escape>,agent_type:<escape>plan<escape>}<end_function_call>"}
+{"input": "List all tasks in the system", "output": "<start_function_call>call:list_tasks{<end_function_call>"}
+{"input": "Show me all pending tasks", "output": "<start_function_call>call:list_tasks{status:<escape>pending<escape>}<end_function_call>"}
+{"input": "What tasks are currently running", "output": "<start_function_call>call:list_tasks{status:<escape>running<escape>}<end_function_call>"}
+{"input": "List all completed tasks", "output": "<start_function_call>call:list_tasks{status:<escape>completed<escape>}<end_function_call>"}
+{"input": "Show tasks with failed status", "output": "<start_function_call>call:list_tasks{status:<escape>failed<escape>}<end_function_call>"}
+{"input": "What tasks do we have", "output": "<start_function_call>call:list_tasks{<end_function_call>"}
+{"input": "List all tasks for my-project codebase", "output": "<start_function_call>call:list_tasks{codebase_id:<escape>my-project<escape>}<end_function_call>"}
+{"input": "Show me pending tasks for backend-api", "output": "<start_function_call>call:list_tasks{status:<escape>pending<escape>,codebase_id:<escape>backend-api<escape>}<end_function_call>"}
+{"input": "What tasks are running in the frontend-app codebase", "output": "<start_function_call>call:list_tasks{status:<escape>running<escape>,codebase_id:<escape>frontend-app<escape>}<end_function_call>"}
+{"input": "Show me all tasks for the global codebase", "output": "<start_function_call>call:list_tasks{codebase_id:<escape>global<escape>}<end_function_call>"}
+{"input": "Get details for task task-123", "output": "<start_function_call>call:get_task{task_id:<escape>task-123<escape>}<end_function_call>"}
+{"input": "Show me task abc456", "output": "<start_function_call>call:get_task{task_id:<escape>abc456<escape>}<end_function_call>"}
+{"input": "What's the status of task xyz789", "output": "<start_function_call>call:get_task{task_id:<escape>xyz789<escape>}<end_function_call>"}
+{"input": "Get task information for task-id-001", "output": "<start_function_call>call:get_task{task_id:<escape>task-id-001<escape>}<end_function_call>"}
+{"input": "Show me the details of task 12345", "output": "<start_function_call>call:get_task{task_id:<escape>12345<escape>}<end_function_call>"}
+{"input": "I need to see what task def456 is about", "output": "<start_function_call>call:get_task{task_id:<escape>def456<escape>}<end_function_call>"}
+{"input": "What is task ghi789 currently doing", "output": "<start_function_call>call:get_task{task_id:<escape>ghi789<escape>}<end_function_call>"}
+{"input": "Get the details of task jkl012", "output": "<start_function_call>call:get_task{task_id:<escape>jkl012<escape>}<end_function_call>"}
+{"input": "Cancel task task-123", "output": "<start_function_call>call:cancel_task{task_id:<escape>task-123<escape>}<end_function_call>"}
+{"input": "Stop task abc456", "output": "<start_function_call>call:cancel_task{task_id:<escape>abc456<escape>}<end_function_call>"}
+{"input": "Abort task xyz789", "output": "<start_function_call>call:cancel_task{task_id:<escape>xyz789<escape>}<end_function_call>"}
+{"input": "I want to cancel task 12345", "output": "<start_function_call>call:cancel_task{task_id:<escape>12345<escape>}<end_function_call>"}
+{"input": "Please stop def456 from running", "output": "<start_function_call>call:cancel_task{task_id:<escape>def456<escape>}<end_function_call>"}
+{"input": "Cancel the running task ghi789", "output": "<start_function_call>call:cancel_task{task_id:<escape>ghi789<escape>}<end_function_call>"}
+{"input": "I need to terminate task jkl012", "output": "<start_function_call>call:cancel_task{task_id:<escape>jkl012<escape>}<end_function_call>"}
+{"input": "Stop the current task mno345", "output": "<start_function_call>call:cancel_task{task_id:<escape>mno345<escape>}<end_function_call>"}
+{"input": "Show me the session history for session-abc123", "output": "<start_function_call>call:get_session_history{session_id:<escape>session-abc123<escape>}<end_function_call>"}
+{"input": "What happened in session xyz789", "output": "<start_function_call>call:get_session_history{session_id:<escape>xyz789<escape>}<end_function_call>"}
+{"input": "Retrieve the conversation history for session def456", "output": "<start_function_call>call:get_session_history{session_id:<escape>def456<escape>}<end_function_call>"}
+{"input": "Get session history for session-id-001", "output": "<start_function_call>call:get_session_history{session_id:<escape>session-id-001<escape>}<end_function_call>"}
+{"input": "What was discussed in session 12345", "output": "<start_function_call>call:get_session_history{session_id:<escape>12345<escape>}<end_function_call>"}
+{"input": "Show me the message history for session abc", "output": "<start_function_call>call:get_session_history{session_id:<escape>abc<escape>}<end_function_call>"}
+{"input": "What agents are available in the system", "output": "<start_function_call>call:discover_agents{<end_function_call>"}
+{"input": "List all available agents", "output": "<start_function_call>call:discover_agents{<end_function_call>"}
+{"input": "Show me what agents I can use", "output": "<start_function_call>call:discover_agents{<end_function_call>"}
+{"input": "What agents are registered", "output": "<start_function_call>call:discover_agents{<end_function_call>"}
+{"input": "Tell me which agents are available", "output": "<start_function_call>call:discover_agents{<end_function_call>"}
+{"input": "List all the agents I can message", "output": "<start_function_call>call:discover_agents{<end_function_call>"}
+{"input": "What agents can I assign tasks to", "output": "<start_function_call>call:discover_agents{<end_function_call>"}
+{"input": "Send a message to the builder agent", "output": "<start_function_call>call:send_message{agent_name:<escape>builder agent<escape>,message:<escape><escape>}<end_function_call>"}
+{"input": "Tell the planner agent to start working on the design", "output": "<start_function_call>call:send_message{agent_name:<escape>planner agent<escape>,message:<escape>start working on the design<escape>}<end_function_call>"}
+{"input": "Send a message to test-agent saying please run the test suite", "output": "<start_function_call>call:send_message{agent_name:<escape>test-agent<escape>,message:<escape>please run the test suite<escape>}<end_function_call>"}
+{"input": "Message the code reviewer to check my pull request", "output": "<start_function_call>call:send_message{agent_name:<escape>code reviewer<escape>,message:<escape>check my pull request<escape>}<end_function_call>"}
+{"input": "Send message to builder-agent with content: finish implementing the API", "output": "<start_function_call>call:send_message{agent_name:<escape>builder-agent<escape>,message:<escape>finish implementing the API<escape>}<end_function_call>"}
+{"input": "Tell explorer-agent to investigate the codebase for memory issues", "output": "<start_function_call>call:send_message{agent_name:<escape>explorer-agent<escape>,message:<escape>investigate the codebase for memory issues<escape>}<end_function_call>"}
+{"input": "Send a message to general-agent asking for help with documentation", "output": "<start_function_call>call:send_message{agent_name:<escape>general-agent<escape>,message:<escape>help with documentation<escape>}<end_function_call>"}
+{"input": "Message the deployment agent to deploy the new version", "output": "<start_function_call>call:send_message{agent_name:<escape>deployment agent<escape>,message:<escape>deploy the new version<escape>}<end_function_call>"}
+{"input": "Play back session session-abc123", "output": "<start_function_call>call:playback_session{session_id:<escape>session-abc123<escape>}<end_function_call>"}
+{"input": "Replay session xyz789", "output": "<start_function_call>call:playback_session{session_id:<escape>xyz789<escape>}<end_function_call>"}
+{"input": "Play back session def456 in summary format", "output": "<start_function_call>call:playback_session{session_id:<escape>def456<escape>,style:<escape>summary<escape>}<end_function_call>"}
+{"input": "Show me the verbatim playback of session 12345", "output": "<start_function_call>call:playback_session{session_id:<escape>12345<escape>,style:<escape>verbatim<escape>}<end_function_call>"}
+{"input": "Playback session abc in summary style", "output": "<start_function_call>call:playback_session{session_id:<escape>abc<escape>,style:<escape>summary<escape>}<end_function_call>"}

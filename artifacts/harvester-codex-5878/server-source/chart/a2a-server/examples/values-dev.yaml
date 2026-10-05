@@ -1,0 +1,61 @@
+# Development environment configuration
+# Use this for local development and testing
+
+# Application configuration
+app:
+  name: "Development A2A Agent"
+  description: "Development A2A agent for testing"
+  logLevel: "DEBUG"
+  enhanced: true
+
+# Image configuration - use local image
+image:
+  repository: a2a-server
+  tag: "dev"
+  pullPolicy: Never
+
+# Service configuration
+service:
+  type: NodePort
+  port: 8000
+
+# Ingress disabled for development
+ingress:
+  enabled: false
+
+# Resource limits for development
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+# Redis configuration - use included Redis
+redis:
+  enabled: true
+  master:
+    persistence:
+      enabled: false
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        memory: 64Mi
+
+# Authentication disabled for development
+auth:
+  enabled: false
+
+# Monitoring disabled for development
+monitoring:
+  serviceMonitor:
+    enabled: false
+
+# Single replica for development
+replicaCount: 1
+
+# No autoscaling in development
+autoscaling:
+  enabled: false

@@ -1,6 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useAudioWaveform, useConnectionState, useLocalParticipant, useRoomContext, useVoiceAssistant } from '@livekit/components-react';
+import { ConnectionState, Track } from 'livekit-client';
+import { AgentState, parseAgentState } from './voiceTelemetry';
 
 const MicIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -32,38 +35,55 @@ interface VoiceAssistantUIProps {
   onClose: () => void;
 }
 
-type AgentState = 'idle' | 'listening' | 'thinking' | 'speaking';
-
 const stateMessages: Record<AgentState, string> = {
   idle: 'Ready to help',
   listening: 'Listening...',
   thinking: 'Processing...',
   speaking: 'Speaking...',
+  tool_calling: 'Running tool...',
+  tool_complete: 'Tool finished',
+  error: 'Voice assistant error',
+  unknown: 'State unavailable',
 };
 
+/** Render inside a LiveKitRoom; connection and media state come from that room. */
 export default function VoiceAssistantUI({ voice, onClose }: VoiceAssistantUIProps) {
-  const [isMuted, setIsMuted] = useState(false);
-  const [agentState, setAgentState] = useState<AgentState>('idle');
-  const [audioLevel, setAudioLevel] = useState(0);
-  const [isConnected, setIsConnected] = useState(false);
+  const room = useRoomContext();
+  const connectionState = useConnectionState();
+  const { state, audioTrack } = useVoiceAssistant();
+  const { localParticipant, microphoneTrack, isMicrophoneEnabled } = useLocalParticipant();
+  const microphoneReference = microphoneTrack ? {
+    participant: localParticipant,
+    publication: microphoneTrack,
+    source: Track.Source.Microphone,
+  } : undefined;
+  const { bars } = useAudioWaveform(audioTrack ?? microphoneReference, { barCount: 20 });
+  const isConnected = connectionState === ConnectionState.Connected;
+  const isMuted = !isMicrophoneEnabled;
+  const agentState = isConnected ? parseAgentState(state) : 'unknown';
+  const [error, setError] = useState<string | null>(null);
+  const [isMuting, setIsMuting] = useState(false);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setAudioLevel(Math.random() * 0.5 + (agentState === 'speaking' ? 0.3 : 0));
-    }, 100);
-    return () => clearInterval(timer);
-  }, [agentState]);
-
-  useEffect(() => {
-    setIsConnected(true);
-  }, []);
-
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
+  const toggleMute = async () => {
+    if (isMuting) return;
+    setIsMuting(true);
+    setError(null);
+    try {
+      await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not change microphone state');
+    } finally {
+      setIsMuting(false);
+    }
   };
 
-  const handleEndCall = () => {
-    onClose();
+  const handleEndCall = async () => {
+    try {
+      await room.disconnect();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not disconnect voice call');
+    }
   };
 
   const getStateColor = () => {
@@ -103,10 +123,10 @@ export default function VoiceAssistantUI({ voice, onClose }: VoiceAssistantUIPro
         </div>
       </div>
 
-      <div className="w-full max-w-xs mb-8">
+      <div className="w-full max-w-xs mb-8" role="img" aria-label="Live audio waveform">
         <div className="flex items-end justify-center gap-1 h-16">
-          {[...Array(20)].map((_, i) => {
-            const height = Math.max(4, audioLevel * 100 * Math.sin((i / 20) * Math.PI));
+          {bars.map((level, i) => {
+            const height = Math.max(4, Math.min(100, level * 100));
             return (
               <div
                 key={i}
@@ -126,6 +146,9 @@ export default function VoiceAssistantUI({ voice, onClose }: VoiceAssistantUIPro
       <div className="flex items-center gap-4">
         <button
           onClick={toggleMute}
+          disabled={!isConnected || isMuting}
+          aria-label={isMuted ? 'Unmute microphone' : 'Mute microphone'}
+          aria-pressed={isMuted}
           className={`p-4 rounded-full transition-all ${
             isMuted
               ? 'bg-red-100 text-red-600 hover:bg-red-200'
@@ -137,15 +160,17 @@ export default function VoiceAssistantUI({ voice, onClose }: VoiceAssistantUIPro
 
         <button
           onClick={handleEndCall}
+          aria-label="End voice call"
           className="p-4 bg-red-600 text-white rounded-full hover:bg-red-700 transition-all shadow-lg hover:shadow-xl"
         >
           <PhoneOffIcon className="w-6 h-6" />
         </button>
       </div>
 
-      <div className="mt-6 flex items-center gap-2 text-sm text-gray-500">
+      {error && <p role="alert" className="mt-4 text-sm text-red-600">{error}</p>}
+      <div className="mt-6 flex items-center gap-2 text-sm text-gray-500" role="status">
         <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-        <span>{isConnected ? 'Connected to LiveKit' : 'Connecting...'}</span>
+        <span>{isConnected ? 'Connected to LiveKit' : `LiveKit: ${connectionState}`}</span>
       </div>
     </div>
   );

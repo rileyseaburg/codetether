@@ -1,0 +1,1951 @@
+{
+  "testIdentifier" : "WorkSessionUITests/testDiscoverStartAndMessageThroughUI()",
+  "testIdentifierURL" : "test://com.apple.xcode/A2AMonitor/A2AMonitorUITests/WorkSessionUITests/testDiscoverStartAndMessageThroughUI",
+  "testName" : "testDiscoverStartAndMessageThroughUI()",
+  "testRuns" : [
+    {
+      "activities" : [
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Screen Recording 2026-10-05 at 02.56.13 PM.mp4",
+              "payloadId" : "0~p3PSTKePoRa5aHoc6nt7WyNEvTdSwsAvFtfznXJyBf-0icmKsYsimLjt1u1iK1_DFnX7CDwhfkUQdUwaMRVVFA==",
+              "timestamp" : 1791230173.538,
+              "uuid" : "5249A54D-F6F7-423F-957E-215ADCD823D6"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230173.538,
+              "title" : "kXCTAttachmentScreenRecording"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1791230173.516,
+          "title" : "Start Test at 2026-10-05 14:56:13.515"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1791230173.538,
+          "title" : "Set Up"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230174.006,
+                  "title" : "Setting up automation session"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230174.487,
+                  "title" : "Wait for com.a2a.monitor to idle"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230173.592,
+              "title" : "Launch com.a2a.monitor"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1791230173.592,
+          "title" : "Open com.a2a.monitor"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230176.72,
+                  "title" : "Checking existence of `\"Continue as Guest\" Button`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230176.719,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"Continue as Guest\" Button`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1791230175.659,
+          "title" : "Waiting 10.0s for \"Continue as Guest\" Button to exist"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-10-05 at 02.56.17 PM",
+              "payloadId" : "0~wpgo0d4r9c7hTR0A4csq-fXpaiIFWM7IPhqPW8rSr1FIqoPBgeYDDCGL-r-GZxNXFNxUEk31cbHyU9n6rgo26A==",
+              "timestamp" : 1791230177.115,
+              "uuid" : "2C79F335-E7B9-4460-A44D-9004E922FC0A"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230176.801,
+              "title" : "Wait for com.a2a.monitor to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230176.802,
+              "title" : "Find the \"Continue as Guest\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230176.812,
+              "title" : "Check for interrupting elements affecting \"Continue as Guest\" Button"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-10-05 at 02.56.17 PM",
+                  "payloadId" : "0~wpgo0d4r9c7hTR0A4csq-fXpaiIFWM7IPhqPW8rSr1FIqoPBgeYDDCGL-r-GZxNXFNxUEk31cbHyU9n6rgo26A==",
+                  "timestamp" : 1791230177.115,
+                  "uuid" : "2C79F335-E7B9-4460-A44D-9004E922FC0A"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230177.115,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230176.822,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230177.115,
+              "title" : "Wait for com.a2a.monitor to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1791230176.801,
+          "title" : "Tap \"Continue as Guest\" Button"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230178.153,
+                  "title" : "Checking existence of `\"agents.newSession\" Button`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230178.152,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.newSession\" Button`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1791230177.117,
+          "title" : "Waiting 30.0s for \"agents.newSession\" Button to exist"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_D80422BD-A071-4F72-9B22-A70E2D972778.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230179.339,
+              "uuid" : "C92BE7F9-2003-44D0-BCBC-1AD6309C6CE4"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_7603DF84-5061-41D4-81F7-81AB63D67F25.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230180.365,
+              "uuid" : "C54275A5-E7E3-486A-9415-38ADD5A8E76C"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_0B108197-BB3E-4002-9836-585C43225722.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230181.304,
+              "uuid" : "0F5086C8-4596-4051-910E-2F1189A0B7A4"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_C1899EDA-A29B-48A1-9B0B-0948A2807C6F.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230182.339,
+              "uuid" : "284F7A4B-4BEE-4F6F-A023-0D9361D058BF"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_2ECB9AA6-04D7-4CF8-9059-A0DCA8E69E38.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230183.376,
+              "uuid" : "DAE51076-4850-4526-AA13-BBAB8B9C13FD"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_C13F065B-C901-4893-A86E-A24ECB120D62.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230184.306,
+              "uuid" : "ADA42F3B-958B-4BC6-9C6F-B74D439C20CC"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_E3D75355-D6D7-4FB5-9803-F675B5BCA1D5.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230185.345,
+              "uuid" : "C36F5E58-21C3-4358-AD64-8BA08E5D554E"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_5386131B-AFE7-40B7-AE92-EFB9B8649494.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230186.373,
+              "uuid" : "1B6BA526-B0E2-43EC-B87A-5F26EE827007"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_F75D13B8-42BF-46A8-85B7-5607092E2F59.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230187.305,
+              "uuid" : "8E58F097-8999-4C9B-A41E-4DB262A43AA8"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_F86FA857-7F42-4600-9E7C-07C52D97F6A1.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230188.346,
+              "uuid" : "99424F7F-EB0A-41EE-88AE-65991C29E857"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_AF8EEA92-1661-4757-B66E-4467B5B3D9AC.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230189.39,
+              "uuid" : "FE026BCD-80D5-4440-99A9-0F1E0AE3FBB2"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_9469E37D-B3CB-4E05-BF7E-887EB3196282.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230190.322,
+              "uuid" : "97B8D534-28A5-4BCB-BFA5-79C70C66B4DE"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_E7795809-DF9B-435A-8BE1-F14128BF268E.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230191.361,
+              "uuid" : "D008ECEB-744E-4B03-8791-A081FA0DB7E7"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_48C11FB2-BAB0-4D50-82A5-7FE6CD8459B8.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230192.295,
+              "uuid" : "703FD23A-19C6-4582-A8E7-7AB358650179"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_864C1001-3F6F-430D-AB70-FEC2681153A4.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230193.337,
+              "uuid" : "F94EB49B-6127-45DC-A333-187029D03FE6"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_3148CCAF-DAB7-4E4C-9BA2-47CD6CCCEB6A.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230194.388,
+              "uuid" : "A8E1A045-4686-4B32-B68A-BF14A27D003F"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_37171790-5F82-4A0E-BE3A-D49A76DEDE2C.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230195.34,
+              "uuid" : "B21666A8-A268-4EE6-A145-46C34FCA26DE"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_7AE14B39-F758-44B2-895A-FEEAFC22BA70.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230196.376,
+              "uuid" : "C3960FE5-E73D-4184-B6BC-B897EE8E31D9"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_DCC3D525-27E0-46EF-AD2F-4B06B4B3EFCE.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230197.304,
+              "uuid" : "703D24EA-ED20-4312-A086-3DF4778B517B"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_C3209BC3-133D-4D3D-B72E-2614571462D1.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230198.346,
+              "uuid" : "42789547-A175-4FC8-91BF-1D2508928338"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_82906E7C-27D5-446A-A3A3-6ACD476DF678.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230199.373,
+              "uuid" : "247285C1-24EC-4FBF-8680-99EA903BD686"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_DB5B7550-7334-4467-8C97-602BB0B2ED52.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230200.31,
+              "uuid" : "7208884D-B53D-455F-AF7E-E18800AC94AE"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_E2F6B86F-00B3-4F9A-8B27-6F6CE248E68F.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230201.363,
+              "uuid" : "DB18178B-0BEF-42E1-8EE0-208971F01447"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_BBF9F657-CBB8-4C64-8898-38AD44CE2101.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230202.312,
+              "uuid" : "D5916DF7-75FF-4520-B67C-9411608527DF"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_2C782FD5-EFBB-49F7-A04B-FA518059B7D4.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230203.314,
+              "uuid" : "5BE31976-8DCF-4B5A-98BC-7120979DFC68"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_8012D8ED-96CE-4425-B33C-DAB25A4B9624.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230204.364,
+              "uuid" : "612D692F-3CC5-4C32-BA49-B436B93094F2"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_7FFF9F0E-7392-468C-8BC2-9F5E9431DFCC.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230205.305,
+              "uuid" : "5DF8F6B7-3AF2-40AB-96FA-32FC69258769"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_4C5B5F33-AD6E-45A0-8B7A-C8ED23B0E003.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230206.313,
+              "uuid" : "1842D596-F151-42DA-A90B-AF3D6F55B12B"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_D36424FD-F0FE-400B-BB86-D0D9D8294D3D.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230207.356,
+              "uuid" : "8BAA22A3-4ACF-499B-B071-5CF9C3A14671"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_5375CA7C-A84C-4CB3-A4E8-9060BFE401EC.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230208.306,
+              "uuid" : "525BB5ED-8CB0-46D9-BF60-A3B78D4B3357"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_E61E8CB4-F89D-4881-B93F-506D8075F50D.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230209.346,
+              "uuid" : "B5299D5D-7D75-4B2B-97F3-9123479FA5CE"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_D52ACFBF-A9DB-4217-8BE6-FB33387B9F47.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230210.386,
+              "uuid" : "5C10137C-F5DF-45DA-B252-5358D05909A9"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_3DCD94FA-DD55-4537-A157-F50F47301825.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230211.307,
+              "uuid" : "6DCA6404-9000-48EF-8DB3-94DE414DD423"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_7872EFBC-D2BF-40AA-B788-71C2A915409B.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230212.342,
+              "uuid" : "D222DDB2-72EC-4D69-935C-EBF896C1096B"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_C24D8C1B-82ED-4478-901D-EEDEC511E7C8.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230213.398,
+              "uuid" : "0CC11EF0-660E-47F7-BEFA-7B3FED762600"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_277C0843-FD66-4CB6-80A1-9922D2CCC3DA.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230214.33,
+              "uuid" : "4FE503B9-5B6D-4747-AD9D-CC125027BFC7"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_1FE728C5-C52C-4FD0-B721-63D5975D4300.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230215.371,
+              "uuid" : "EC389A5C-E042-4952-8E1A-84303B08CDFC"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_5510C136-9ACE-40C0-91FD-BEE1BCDB5D05.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230216.31,
+              "uuid" : "3CFAC3CD-B0E5-490F-9B9F-A100B77699F5"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_9D8EDCBC-3382-40C7-8C40-D2318D834732.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230217.345,
+              "uuid" : "0599D8B8-BB3B-447F-8953-06BA1307D1C6"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_271E64E5-750D-4A11-9FA9-DAE4D73FCA24.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230218.399,
+              "uuid" : "80B476DE-CACD-43B9-9738-64BA62C6F352"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_20189094-9039-49A8-80FF-C78F62211331.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230219.331,
+              "uuid" : "010468DA-46DD-4FA6-862C-AFE61D78BEEF"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_105AC4DB-04C8-4F0F-B136-84D1E0331D75.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230220.365,
+              "uuid" : "9C058178-8EC5-4424-AD88-B0F5C0242040"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_9325109B-B865-4C21-9E07-DF4AA3476EBB.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230221.311,
+              "uuid" : "BEB8DB77-4ECE-4909-AC5E-DEF6830DC807"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_E76BCCB3-9688-4BDF-B72F-BEC1EC6AA9B8.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230222.339,
+              "uuid" : "52233BBC-7EBD-47B3-A4B4-4E41FC48CFCA"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_66C566FF-BE54-44B0-A9F2-6580551B53C1.txt",
+              "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+              "timestamp" : 1791230223.317,
+              "uuid" : "6AD784D3-0E2B-496B-A431-1FD0B6BF58A1"
+            }
+          ],
+          "childActivities" : [
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_D80422BD-A071-4F72-9B22-A70E2D972778.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230179.339,
+                  "uuid" : "C92BE7F9-2003-44D0-BCBC-1AD6309C6CE4"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230179.254,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230179.339,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230179.339,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230179.252,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_7603DF84-5061-41D4-81F7-81AB63D67F25.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230180.365,
+                  "uuid" : "C54275A5-E7E3-486A-9415-38ADD5A8E76C"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230180.279,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230180.365,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230180.365,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230180.278,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_0B108197-BB3E-4002-9836-585C43225722.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230181.304,
+                  "uuid" : "0F5086C8-4596-4051-910E-2F1189A0B7A4"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230181.219,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230181.304,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230181.304,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230181.218,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_C1899EDA-A29B-48A1-9B0B-0948A2807C6F.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230182.339,
+                  "uuid" : "284F7A4B-4BEE-4F6F-A023-0D9361D058BF"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230182.253,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230182.339,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230182.339,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230182.252,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_2ECB9AA6-04D7-4CF8-9059-A0DCA8E69E38.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230183.376,
+                  "uuid" : "DAE51076-4850-4526-AA13-BBAB8B9C13FD"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230183.287,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230183.376,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230183.376,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230183.286,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_C13F065B-C901-4893-A86E-A24ECB120D62.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230184.306,
+                  "uuid" : "ADA42F3B-958B-4BC6-9C6F-B74D439C20CC"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230184.22,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230184.306,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230184.306,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230184.219,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_E3D75355-D6D7-4FB5-9803-F675B5BCA1D5.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230185.345,
+                  "uuid" : "C36F5E58-21C3-4358-AD64-8BA08E5D554E"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230185.26,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230185.345,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230185.345,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230185.259,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_5386131B-AFE7-40B7-AE92-EFB9B8649494.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230186.373,
+                  "uuid" : "1B6BA526-B0E2-43EC-B87A-5F26EE827007"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230186.288,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230186.372,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230186.373,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230186.287,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_F75D13B8-42BF-46A8-85B7-5607092E2F59.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230187.305,
+                  "uuid" : "8E58F097-8999-4C9B-A41E-4DB262A43AA8"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230187.22,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230187.305,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230187.305,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230187.219,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_F86FA857-7F42-4600-9E7C-07C52D97F6A1.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230188.346,
+                  "uuid" : "99424F7F-EB0A-41EE-88AE-65991C29E857"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230188.26,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230188.346,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230188.346,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230188.259,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_AF8EEA92-1661-4757-B66E-4467B5B3D9AC.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230189.39,
+                  "uuid" : "FE026BCD-80D5-4440-99A9-0F1E0AE3FBB2"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230189.303,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230189.389,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230189.39,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230189.302,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_9469E37D-B3CB-4E05-BF7E-887EB3196282.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230190.322,
+                  "uuid" : "97B8D534-28A5-4BCB-BFA5-79C70C66B4DE"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230190.236,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230190.322,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230190.322,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230190.235,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_E7795809-DF9B-435A-8BE1-F14128BF268E.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230191.361,
+                  "uuid" : "D008ECEB-744E-4B03-8791-A081FA0DB7E7"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230191.277,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230191.361,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230191.361,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230191.276,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_48C11FB2-BAB0-4D50-82A5-7FE6CD8459B8.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230192.295,
+                  "uuid" : "703FD23A-19C6-4582-A8E7-7AB358650179"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230192.21,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230192.294,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230192.295,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230192.208,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_864C1001-3F6F-430D-AB70-FEC2681153A4.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230193.337,
+                  "uuid" : "F94EB49B-6127-45DC-A333-187029D03FE6"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230193.252,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230193.336,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230193.337,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230193.251,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_3148CCAF-DAB7-4E4C-9BA2-47CD6CCCEB6A.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230194.388,
+                  "uuid" : "A8E1A045-4686-4B32-B68A-BF14A27D003F"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230194.304,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230194.388,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230194.388,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230194.302,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_37171790-5F82-4A0E-BE3A-D49A76DEDE2C.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230195.34,
+                  "uuid" : "B21666A8-A268-4EE6-A145-46C34FCA26DE"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230195.238,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230195.34,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230195.34,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230195.237,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_7AE14B39-F758-44B2-895A-FEEAFC22BA70.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230196.376,
+                  "uuid" : "C3960FE5-E73D-4184-B6BC-B897EE8E31D9"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230196.29,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230196.375,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230196.376,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230196.289,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_DCC3D525-27E0-46EF-AD2F-4B06B4B3EFCE.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230197.304,
+                  "uuid" : "703D24EA-ED20-4312-A086-3DF4778B517B"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230197.219,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230197.303,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230197.304,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230197.218,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_C3209BC3-133D-4D3D-B72E-2614571462D1.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230198.346,
+                  "uuid" : "42789547-A175-4FC8-91BF-1D2508928338"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230198.26,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230198.346,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230198.346,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230198.259,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_82906E7C-27D5-446A-A3A3-6ACD476DF678.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230199.373,
+                  "uuid" : "247285C1-24EC-4FBF-8680-99EA903BD686"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230199.29,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230199.373,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230199.373,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230199.289,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_DB5B7550-7334-4467-8C97-602BB0B2ED52.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230200.31,
+                  "uuid" : "7208884D-B53D-455F-AF7E-E18800AC94AE"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230200.22,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230200.31,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230200.31,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230200.219,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_E2F6B86F-00B3-4F9A-8B27-6F6CE248E68F.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230201.363,
+                  "uuid" : "DB18178B-0BEF-42E1-8EE0-208971F01447"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230201.27,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230201.363,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230201.363,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230201.269,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_BBF9F657-CBB8-4C64-8898-38AD44CE2101.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230202.312,
+                  "uuid" : "D5916DF7-75FF-4520-B67C-9411608527DF"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230202.216,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230202.312,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230202.312,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230202.215,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_2C782FD5-EFBB-49F7-A04B-FA518059B7D4.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230203.314,
+                  "uuid" : "5BE31976-8DCF-4B5A-98BC-7120979DFC68"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230203.22,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230203.313,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230203.314,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230203.219,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_8012D8ED-96CE-4425-B33C-DAB25A4B9624.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230204.364,
+                  "uuid" : "612D692F-3CC5-4C32-BA49-B436B93094F2"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230204.261,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230204.364,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230204.364,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230204.259,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_7FFF9F0E-7392-468C-8BC2-9F5E9431DFCC.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230205.305,
+                  "uuid" : "5DF8F6B7-3AF2-40AB-96FA-32FC69258769"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230205.211,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230205.305,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230205.305,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230205.21,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_4C5B5F33-AD6E-45A0-8B7A-C8ED23B0E003.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230206.313,
+                  "uuid" : "1842D596-F151-42DA-A90B-AF3D6F55B12B"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230206.219,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230206.312,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230206.313,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230206.217,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_D36424FD-F0FE-400B-BB86-D0D9D8294D3D.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230207.356,
+                  "uuid" : "8BAA22A3-4ACF-499B-B071-5CF9C3A14671"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230207.261,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230207.356,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230207.356,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230207.26,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_5375CA7C-A84C-4CB3-A4E8-9060BFE401EC.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230208.306,
+                  "uuid" : "525BB5ED-8CB0-46D9-BF60-A3B78D4B3357"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230208.211,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230208.306,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230208.306,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230208.209,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_E61E8CB4-F89D-4881-B93F-506D8075F50D.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230209.346,
+                  "uuid" : "B5299D5D-7D75-4B2B-97F3-9123479FA5CE"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230209.251,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230209.345,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230209.346,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230209.25,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_D52ACFBF-A9DB-4217-8BE6-FB33387B9F47.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230210.386,
+                  "uuid" : "5C10137C-F5DF-45DA-B252-5358D05909A9"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230210.287,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230210.386,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230210.386,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230210.286,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_3DCD94FA-DD55-4537-A157-F50F47301825.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230211.307,
+                  "uuid" : "6DCA6404-9000-48EF-8DB3-94DE414DD423"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230211.212,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230211.307,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230211.307,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230211.211,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_7872EFBC-D2BF-40AA-B788-71C2A915409B.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230212.342,
+                  "uuid" : "D222DDB2-72EC-4D69-935C-EBF896C1096B"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230212.26,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230212.342,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230212.342,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230212.26,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_C24D8C1B-82ED-4478-901D-EEDEC511E7C8.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230213.398,
+                  "uuid" : "0CC11EF0-660E-47F7-BEFA-7B3FED762600"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230213.304,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230213.398,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230213.398,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230213.303,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_277C0843-FD66-4CB6-80A1-9922D2CCC3DA.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230214.33,
+                  "uuid" : "4FE503B9-5B6D-4747-AD9D-CC125027BFC7"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230214.236,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230214.329,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230214.33,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230214.235,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_1FE728C5-C52C-4FD0-B721-63D5975D4300.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230215.371,
+                  "uuid" : "EC389A5C-E042-4952-8E1A-84303B08CDFC"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230215.277,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230215.371,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230215.371,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230215.276,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_5510C136-9ACE-40C0-91FD-BEE1BCDB5D05.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230216.31,
+                  "uuid" : "3CFAC3CD-B0E5-490F-9B9F-A100B77699F5"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230216.214,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230216.31,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230216.31,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230216.213,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_9D8EDCBC-3382-40C7-8C40-D2318D834732.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230217.345,
+                  "uuid" : "0599D8B8-BB3B-447F-8953-06BA1307D1C6"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230217.256,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230217.345,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230217.345,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230217.255,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_271E64E5-750D-4A11-9FA9-DAE4D73FCA24.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230218.399,
+                  "uuid" : "80B476DE-CACD-43B9-9738-64BA62C6F352"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230218.304,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230218.399,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230218.399,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230218.303,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_20189094-9039-49A8-80FF-C78F62211331.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230219.331,
+                  "uuid" : "010468DA-46DD-4FA6-862C-AFE61D78BEEF"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230219.237,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230219.331,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230219.331,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230219.236,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_105AC4DB-04C8-4F0F-B136-84D1E0331D75.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230220.365,
+                  "uuid" : "9C058178-8EC5-4424-AD88-B0F5C0242040"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230220.271,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230220.364,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230220.365,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230220.27,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_9325109B-B865-4C21-9E07-DF4AA3476EBB.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230221.311,
+                  "uuid" : "BEB8DB77-4ECE-4909-AC5E-DEF6830DC807"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230221.215,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230221.31,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230221.311,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230221.214,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_E76BCCB3-9688-4BDF-B72F-BEC1EC6AA9B8.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230222.339,
+                  "uuid" : "52233BBC-7EBD-47B3-A4B4-4E41FC48CFCA"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230222.27,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230222.339,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230222.339,
+                  "title" : "Capturing element debug description"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230222.269,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`_0_66C566FF-BE54-44B0-A9F2-6580551B53C1.txt",
+                  "payloadId" : "0~s3f_j6iiX2sO2RL4wa0vPZbO6Nf7g6tv6mHuNy3CQ_imBJvU7yg1HFTNvvvRSSaQQFkfs-0CfcvHzEvsn8SAxg==",
+                  "timestamp" : 1791230223.317,
+                  "uuid" : "6AD784D3-0E2B-496B-A431-1FD0B6BF58A1"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230223.22,
+                  "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230223.316,
+                  "title" : "Capturing element debug description"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1791230223.317,
+                  "title" : "Debug description for `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230223.219,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230223.317,
+              "title" : "Checking existence of `\"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1791230178.208,
+          "title" : "Waiting 45.0s for \"agents.worker.wrk_1791203157_35195f4f7b97da0a\" Any to exist"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "App UI hierarchy for com.a2a_0_2A9A8D02-3E10-412F-ABEB-EA5CC738D5F1.monitor",
+              "payloadId" : "0~hH6ogKebCwDhISovdcV1woJRmMwVtj6OPhcolfhIpG9LNigGo6VsajkIzknEEmeUzJEF6K_Niy8KvtXhy6Y74g==",
+              "timestamp" : 1791230223.409,
+              "uuid" : "FFE152AF-A451-42E3-BDEB-25686AF2F93E"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-10-05 at 02.57.03 PM",
+              "payloadId" : "0~1_L7V9yhKep1QKvKuGvcsmkd1wMeaNr_cjbK-0PTzqNbXzNA_fviIfB8RAvYPMJ5IefX7tyYundglIwBE9-gbQ==",
+              "timestamp" : 1791230223.409,
+              "uuid" : "17141566-7A2B-4CE0-B10B-25A4515B3ACF"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230223.385,
+              "title" : "Requesting snapshot of accessibility hierarchy for app with pid 61652"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230223.409,
+              "title" : "App UI hierarchy for com.a2a.monitor"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1791230223.409,
+              "title" : "kXCTAttachmentLegacySnapshot"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1791230223.384,
+          "title" : "Collecting debug information to assist test failure triage"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1791230223.412,
+          "title" : "Requesting snapshot of accessibility hierarchy for app with pid 61652"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1791230223.5,
+          "title" : "Requesting snapshot of accessibility hierarchy for app with pid 61652"
+        },
+        {
+          "isAssociatedWithFailure" : true,
+          "startTime" : 1791230223.522,
+          "title" : "failed - Online worker row was not available"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1791230223.528,
+          "title" : "Tear Down"
+        }
+      ],
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "C2DB3AC5-293F-4CAD-95DF-13221ECD0509",
+        "deviceName" : "iPhone 16 Pro Max",
+        "modelName" : "iPhone 16 Pro Max",
+        "osBuildNumber" : "22G86",
+        "osVersion" : "18.6",
+        "platform" : "iOS Simulator"
+      },
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ]
+}

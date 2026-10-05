@@ -1,0 +1,70 @@
+#!/usr/bin/python3
+"""Forgejo CLI with opaque, repository-scoped Kubernetes/Vault authentication."""
+
+import argparse
+import json
+import sys
+from urllib.error import HTTPError
+from urllib.parse import unquote, urlsplit
+
+sys.path.insert(0, '/usr/local/lib/codetether')
+from forgejo_auth import credentials, request_json
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--base')
+    parser.add_argument(
+        '--token', help='Legacy explicit-token mode; not needed on harvesters'
+    )
+    parser.add_argument('method', choices=['get', 'post'])
+    parser.add_argument('path')
+    parser.add_argument('body', nargs='?')
+    args = parser.parse_args()
+    if args.token:
+        if not args.base:
+            parser.error('--base is required with an explicit token')
+        base, token = args.base.rstrip('/'), args.token
+    else:
+        if args.method != 'get':
+            parser.error(
+                'review credential is read-only; CodeTether server publishes changes'
+            )
+        base, repo, token = credentials()
+        if args.base and args.base.rstrip('/') != base:
+            parser.error('--base does not match the scoped credential')
+        parsed = urlsplit(args.path)
+        path = unquote(parsed.path)
+        root = '/repos/' + repo
+        if parsed.scheme or parsed.netloc or '..' in path.split('/'):
+            parser.error('invalid scoped API path')
+        if path != root and not path.startswith(root + '/'):
+            parser.error('API path is outside the credential repository')
+    path = '/' + args.path.lstrip('/')
+    if args.method == 'post' and args.body is None:
+        parser.error('post requires a JSON body')
+    result = request_json(
+        base + path,
+        headers={'Authorization': 'token ' + token},
+        data=json.loads(args.body) if args.method == 'post' else None,
+        allow_text=True,
+    )
+    print(result if isinstance(result, str) else json.dumps(result))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except HTTPError as error:
+        # Never echo response bodies, token arguments, or authentication headers.
+        print(
+            f'forgejo-cli: authenticated request failed (HTTP {error.code})',
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    except Exception as error:
+        print(
+            f'forgejo-cli: {type(error).__name__}; request could not be completed',
+            file=sys.stderr,
+        )
+        sys.exit(1)

@@ -1,0 +1,24 @@
+{
+  "namespace": "a2a-system",
+  "name": "a2a-server-harvester",
+  "patch": [
+    {
+      "op": "test",
+      "path": "/metadata/resourceVersion",
+      "value": "702577182"
+    },
+    {
+      "op": "remove",
+      "path": "/spec/template/spec/imagePullSecrets/0"
+    },
+    {
+      "op": "remove",
+      "path": "/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt"
+    }
+  ],
+  "secretObjectsDeleted": false,
+  "podRestarted": false,
+  "updateStrategy": {
+    "type": "OnDelete"
+  }
+}

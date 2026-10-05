@@ -1,0 +1,46 @@
+{
+  "session_id": "85d9040f-f55a-4729-8489-a57d2a416608",
+  "items": [],
+  "evidence": [
+    {
+      "kind": "youtube",
+      "level": "real platform upload",
+      "value": "`https://www.youtube.com/watch?v=-nsQUCNPIZM`"
+    },
+    {
+      "kind": "argo",
+      "level": "live deployment/Argo",
+      "value": "healthy-synced"
+    },
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "ui/pocket.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "ui/*.zip"
+    },
+    {
+      "kind": "db-migration",
+      "level": "live DB",
+      "value": "applied"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

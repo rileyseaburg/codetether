@@ -1,0 +1,78 @@
+# Staging environment configuration
+# Use this for staging and testing production-like deployments
+
+# Application configuration
+app:
+  name: "Staging A2A Agent"
+  description: "Staging A2A agent for testing production features"
+  logLevel: "INFO"
+  enhanced: true
+
+# Image configuration
+image:
+  repository: your-registry/a2a-server
+  tag: "staging"
+  pullPolicy: Always
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8000
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+  hosts:
+    - host: a2a-staging.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: a2a-server-staging-tls
+      hosts:
+        - a2a-staging.yourdomain.com
+
+# Staging resource limits
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Redis configuration - use included Redis
+redis:
+  enabled: true
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        memory: 128Mi
+
+# Authentication enabled
+auth:
+  enabled: true
+  tokens:
+    staging-agent: "staging-token-123"
+
+# Monitoring enabled
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+
+# Two replicas for staging
+replicaCount: 2
+
+# No autoscaling in staging
+autoscaling:
+  enabled: false

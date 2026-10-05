@@ -1,0 +1,18 @@
+{
+  "restored": {
+    "replicas": 2,
+    "resources": {
+      "limits": {
+        "cpu": "2000m",
+        "memory": "4Gi"
+      },
+      "requests": {
+        "cpu": "500m",
+        "memory": "1Gi"
+      }
+    }
+  },
+  "reason": "Bounded registry projection removes the large allocation; restore original redundancy",
+  "inconclusiveDiffNormalizationRemoved": true,
+  "at": "2026-10-05T20:43:38.698Z"
+}

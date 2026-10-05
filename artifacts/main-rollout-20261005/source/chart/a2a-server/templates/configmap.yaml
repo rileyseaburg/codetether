@@ -1,0 +1,75 @@
+{{- if .Values.configMap.create }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-config
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+  {{- with .Values.configMap.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with include "a2a-server.annotations" . }}
+    {{- . | nindent 4 }}
+  {{- end }}
+data:
+  # Server configuration
+  A2A_HOST: {{ .Values.env.A2A_HOST | quote }}
+  A2A_PORT: {{ .Values.env.A2A_PORT | quote }}
+  A2A_LOG_LEVEL: {{ .Values.env.A2A_LOG_LEVEL | quote }}
+
+  # Redis configuration
+  A2A_REDIS_URL: {{ include "a2a-server.redisUrl" . | quote }}
+
+  # Agent configuration
+  A2A_AGENT_NAME: {{ .Values.env.A2A_AGENT_NAME | quote }}
+  A2A_AGENT_DESCRIPTION: {{ .Values.env.A2A_AGENT_DESCRIPTION | quote }}
+  A2A_AGENT_ORG: {{ .Values.env.A2A_AGENT_ORG | quote }}
+  A2A_AGENT_ORG_URL: {{ .Values.env.A2A_AGENT_ORG_URL | quote }}
+  {{- if .Values.env.A2A_AGENT_URL }}
+  A2A_AGENT_URL: {{ .Values.env.A2A_AGENT_URL | quote }}
+  {{- end }}
+  {{- if .Values.env.A2A_AGENT_DOCS_URL }}
+  A2A_AGENT_DOCS_URL: {{ .Values.env.A2A_AGENT_DOCS_URL | quote }}
+  {{- end }}
+
+  # Authentication enabled flag
+  A2A_AUTH_ENABLED: {{ .Values.auth.enabled | quote }}
+
+  # Keycloak SSO configuration (non-secret values)
+  KEYCLOAK_URL: {{ .Values.keycloak.url | quote }}
+  KEYCLOAK_ISSUER: {{ .Values.keycloak.issuer | quote }}
+  KEYCLOAK_REALM: {{ .Values.keycloak.realm | quote }}
+  KEYCLOAK_CLIENT_ID: {{ .Values.keycloak.clientId | quote }}
+
+  # Worker authentication token lives in a Secret (worker-auth-secret.yaml).
+
+  # Sandbox execution
+  {{- if .Values.sandbox.enabled }}
+  SANDBOX_ENABLED: "true"
+  SANDBOX_IMAGE: {{ .Values.sandbox.image | quote }}
+  SANDBOX_MEMORY_LIMIT: {{ .Values.sandbox.memoryLimit | quote }}
+  SANDBOX_CPU_LIMIT: {{ .Values.sandbox.cpuLimit | quote }}
+  SANDBOX_TIMEOUT: {{ .Values.sandbox.timeout | quote }}
+  {{- end }}
+
+  # RLS is enabled by default for multi-tenant isolation
+  RLS_ENABLED: "true"
+
+  # Durable Forgejo Temporal orchestration (non-secret client settings)
+  FORGEJO_TEMPORAL_ENABLED: {{ .Values.temporal.enabled | quote }}
+  {{- if .Values.temporal.enabled }}
+  TEMPORAL_ADDRESS: {{ required "temporal.address is required when temporal.enabled=true" .Values.temporal.address | quote }}
+  TEMPORAL_NAMESPACE: {{ .Values.temporal.namespace | quote }}
+  TEMPORAL_FORGEJO_TASK_QUEUE: {{ .Values.temporal.taskQueue | quote }}
+  {{- end }}
+
+  # Database persistence paths (use mounted volume for persistence across restarts)
+  {{- if .Values.persistence.enabled }}
+  MONITOR_DB_PATH: "{{ .Values.persistence.mountPath }}/monitor.db"
+  SESSIONS_DB_PATH: "{{ .Values.persistence.mountPath }}/sessions.db"
+  AGENT_DB_PATH: "{{ .Values.persistence.mountPath }}/agent.db"
+  # Backward compat: old env var still recognized by the server
+  OPENCODE_DB_PATH: "{{ .Values.persistence.mountPath }}/agent.db"
+  {{- end }}
+{{- end }}

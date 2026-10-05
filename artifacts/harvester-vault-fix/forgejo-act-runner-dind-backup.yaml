@@ -1,0 +1,260 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "85"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"name":"forgejo-act-runner-dind","namespace":"forgejo-actions"},"spec":{"replicas":2,"selector":{"matchLabels":{"app":"forgejo-act-runner-dind"}},"strategy":{"rollingUpdate":{"maxSurge":0,"maxUnavailable":1},"type":"RollingUpdate"},"template":{"metadata":{"labels":{"app":"forgejo-act-runner-dind"}},"spec":{"containers":[{"args":["agent","-config=/vault/config/agent.hcl"],"image":"hashicorp/vault:1.20.2","name":"vault-agent","resources":{"limits":{"cpu":"250m","memory":"256Mi"},"requests":{"cpu":"25m","memory":"64Mi"}},"securityContext":{"runAsNonRoot":false,"runAsUser":0},"volumeMounts":[{"mountPath":"/vault/config","name":"vault-agent-config","readOnly":true},{"mountPath":"/vault/runtime","name":"vault-runtime"}]},{"args":["--host=tcp://0.0.0.0:2375","--host=unix:///var/run/docker.sock","--insecure-registry=registry.quantum-forge.net","--insecure-registry=harbor-registry.container-registry.svc.cluster.local:5000"],"env":[{"name":"DOCKER_TLS_CERTDIR","value":""}],"envFrom":[{"secretRef":{"name":"forgejo-ci-secrets"}}],"image":"docker:27-dind","name":"dind","resources":{"limits":{"cpu":"8","memory":"4Gi"},"requests":{"cpu":"500m","memory":"2Gi"}},"securityContext":{"privileged":true},"volumeMounts":[{"mountPath":"/var/lib/docker","name":"docker-graph"}]},{"args":["set -e\nuntil wget -q -O - http://127.0.0.1:2375/_ping 2\u003e/dev/null | grep -q OK; do echo waiting-for-docker-ping; sleep 2; done\nmkdir -p /root/.docker\n: \u003e /data/job-env\nuntil [ -s /vault/runtime/token ]; do echo waiting-for-vault-agent-token; sleep 2; done\nif [ -s /var/run/harbor-registry-auth/.dockerconfigjson ]; then\n  harbor_auth=$(grep -o '\"auth\"[[:space:]]*:[[:space:]]*\"[^\"]*\"' /var/run/harbor-registry-auth/.dockerconfigjson | head -n 1 | cut -d '\"' -f 4)\n  if [ -n \"$harbor_auth\" ]; then\n    decoded_auth=$(printf '%s' \"$harbor_auth\" | base64 -d)\n    registry_username=${decoded_auth%%:*}\n    registry_password=${decoded_auth#*:}\n    printf '{\"auths\":{\"registry.quantum-forge.net\":{\"auth\":\"%s\"},\"harbor-registry.container-registry.svc.cluster.local:5000\":{\"auth\":\"%s\"}}}\\n' \"$harbor_auth\" \"$harbor_auth\" \u003e /root/.docker/config.json\n    printf 'REGISTRY_USERNAME=%s\\nREGISTRY_PASSWORD=%s\\n' \"$registry_username\" \"$registry_password\" \u003e\u003e /data/job-env\n    echo configured-kubernetes-harbor-auth-for-act-runner\n  fi\nfi\nprintf 'VAULT_ADDR=%s\\n' 'http://vault.vault.svc.cluster.local:8200' \u003e\u003e /data/job-env\nprintf 'VAULT_TOKEN=%s\\n' \"$(cat /vault/runtime/token)\" \u003e\u003e /data/job-env\nif [ -n \"${GITOPS_SSH_PRIVATE_KEY:-}\" ]; then\n  printf 'GITOPS_SSH_PRIVATE_KEY_B64=%s\\n' \"$(printf '%s' \"$GITOPS_SSH_PRIVATE_KEY\" | base64 -w 0)\" \u003e\u003e /data/job-env\nfi\nfor key in SCCACHE_SECRET_KEY CI_CACHE_TOKEN ARGOCD_AUTH_TOKEN GITOPS_TOKEN; do\n  value=$(printenv \"$key\" || true)\n  if [ -n \"$value\" ]; then\n    printf '%s=%s\\n' \"$key\" \"$value\" \u003e\u003e /data/job-env\n  fi\ndone\nprintf 'CODETETHER_JSON_URL=https://api.codetether.run/v1/agent/tasks\\n' \u003e\u003e /data/job-env\nif [ -s /var/run/codetether-worker-auth/CODETETHER_TOKEN ]; then\n  printf 'CODETETHER_TOKEN=%s\\n' \"$(cat /var/run/codetether-worker-auth/CODETETHER_TOKEN)\" \u003e\u003e /data/job-env\nfi\nprintf 'DOCKER_CONFIG=/root/.docker\\n' \u003e\u003e /data/job-env\nchmod 0600 /root/.docker/config.json 2\u003e/dev/null || true\nchmod 0600 /data/job-env\nif [ ! -s /data/.runner ]; then\n  act_runner register --config /etc/act-runner/config.yaml --no-interactive --instance \"${GITEA_INSTANCE_URL}\" --token \"${GITEA_RUNNER_REGISTRATION_TOKEN}\" --name \"${GITEA_RUNNER_NAME}\" --labels \"${GITEA_RUNNER_LABELS}\"\nfi\nexec act_runner --config /etc/act-runner/config.yaml daemon\n"],"command":["/bin/sh","-c"],"env":[{"name":"DOCKER_HOST","value":"tcp://127.0.0.1:2375"},{"name":"GITEA_INSTANCE_URL","value":"http://192.168.50.80:3000"},{"name":"GITEA_RUNNER_REGISTRATION_TOKEN","valueFrom":{"secretKeyRef":{"key":"token","name":"forgejo-runner-token"}}},{"name":"GITEA_RUNNER_NAME","valueFrom":{"fieldRef":{"fieldPath":"metadata.name"}}},{"name":"GITEA_RUNNER_LABELS","value":"spotlessbinco-k8s-dind-privileged:docker://registry.quantum-forge.net/rust-builder/github-actions-rust-runner@sha256:be87fd514ed61768c78c4ea33ce45f16198ecf3e0cc86a61a960b476fdc18c6d,spotlessbinco-k8s-dind:docker://registry.quantum-forge.net/rust-builder/github-actions-rust-runner@sha256:be87fd514ed61768c78c4ea33ce45f16198ecf3e0cc86a61a960b476fdc18c6d,spotlessbinco-k8s:docker://registry.quantum-forge.net/rust-builder/github-actions-rust-runner@sha256:be87fd514ed61768c78c4ea33ce45f16198ecf3e0cc86a61a960b476fdc18c6d,ubuntu-latest:docker://catthehacker/ubuntu:act-latest,ubuntu-22.04:docker://catthehacker/ubuntu:act-22.04,node-20:docker://node:20-bookworm,python-3.12:docker://python:3.12-bookworm,rust:docker://rust:1-bookworm,docker:docker://catthehacker/ubuntu:act-latest"}],"envFrom":[{"secretRef":{"name":"forgejo-ci-secrets"}}],"image":"gitea/act_runner:0.2.11","name":"runner","resources":{"limits":{"cpu":"2","memory":"2Gi"},"requests":{"cpu":"250m","memory":"512Mi"}},"volumeMounts":[{"mountPath":"/data","name":"runner-data"},{"mountPath":"/etc/act-runner","name":"act-runner-config","readOnly":true},{"mountPath":"/var/run/harbor-registry-auth","name":"harbor-registry-auth","readOnly":true},{"mountPath":"/var/run/codetether-worker-auth","name":"codetether-worker-auth","readOnly":true},{"mountPath":"/vault/runtime","name":"vault-runtime","readOnly":true}]}],"hostAliases":[{"hostnames":["registry.quantum-forge.net"],"ip":"10.233.7.242"}],"nodeSelector":{"arc-runner":"enabled","arc-runner-dind":"healthy"},"serviceAccountName":"forgejo-vault-sync","tolerations":[{"operator":"Exists"}],"topologySpreadConstraints":[{"labelSelector":{"matchLabels":{"app":"forgejo-act-runner-dind"}},"maxSkew":1,"topologyKey":"kubernetes.io/hostname","whenUnsatisfiable":"DoNotSchedule"}],"volumes":[{"emptyDir":{},"name":"runner-data"},{"emptyDir":{"sizeLimit":"40Gi"},"name":"docker-graph"},{"configMap":{"name":"forgejo-act-runner-config"},"name":"act-runner-config"},{"name":"harbor-registry-auth","secret":{"optional":true,"secretName":"harbor-regcred"}},{"name":"codetether-worker-auth","secret":{"optional":false,"secretName":"codetether-worker-auth"}},{"configMap":{"name":"forgejo-vault-agent-config"},"name":"vault-agent-config"},{"emptyDir":{},"name":"vault-runtime"}]}}}}
+  creationTimestamp: "2026-06-15T14:54:20Z"
+  generation: 115
+  name: forgejo-act-runner-dind
+  namespace: forgejo-actions
+  resourceVersion: "619687095"
+  uid: 2e1f8c83-c774-437f-9876-6c97030b4e6d
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 2
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: forgejo-act-runner-dind
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        codetether.io/gitops-credential-repair: "2026-07-11T19:44:50Z"
+        kubectl.kubernetes.io/restartedAt: "2026-08-12T21:11:03Z"
+      creationTimestamp: null
+      labels:
+        app: forgejo-act-runner-dind
+    spec:
+      containers:
+      - args:
+        - agent
+        - -config=/vault/config/agent.hcl
+        env:
+        - name: GITEA_RUNNER_LABELS
+          value: spotlessbinco-k8s-dind-privileged:docker://registry.quantum-forge.net/rust-builder/github-actions-rust-runner@sha256:13a7063b03c03125f0d50181964ae2a703334ce758543490da70444b619696c8,spotlessbinco-k8s-dind:docker://registry.quantum-forge.net/rust-builder/github-actions-rust-runner@sha256:13a7063b03c03125f0d50181964ae2a703334ce758543490da70444b619696c8,spotlessbinco-k8s:docker://registry.quantum-forge.net/rust-builder/github-actions-rust-runner@sha256:13a7063b03c03125f0d50181964ae2a703334ce758543490da70444b619696c8,ubuntu-latest:docker://catthehacker/ubuntu:act-latest,ubuntu-22.04:docker://catthehacker/ubuntu:act-22.04,node-20:docker://node:20-bookworm,python-3.12:docker://python:3.12-bookworm,rust:docker://rust:1-bookworm,docker:docker://catthehacker/ubuntu:act-latest
+        image: hashicorp/vault:1.20.2
+        imagePullPolicy: IfNotPresent
+        name: vault-agent
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 25m
+            memory: 64Mi
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /vault/config
+          name: vault-agent-config
+          readOnly: true
+        - mountPath: /vault/runtime
+          name: vault-runtime
+      - args:
+        - --host=tcp://0.0.0.0:2375
+        - --host=unix:///var/run/docker.sock
+        - --insecure-registry=registry.quantum-forge.net
+        - --insecure-registry=harbor-registry.container-registry.svc.cluster.local:5000
+        env:
+        - name: DOCKER_TLS_CERTDIR
+        - name: GITEA_RUNNER_LABELS
+          value: spotlessbinco-k8s-dind-privileged:docker://registry.quantum-forge.net/rust-builder/github-actions-rust-runner@sha256:13a7063b03c03125f0d50181964ae2a703334ce758543490da70444b619696c8,spotlessbinco-k8s-dind:docker://registry.quantum-forge.net/rust-builder/github-actions-rust-runner@sha256:13a7063b03c03125f0d50181964ae2a703334ce758543490da70444b619696c8,spotlessbinco-k8s:docker://registry.quantum-forge.net/rust-builder/github-actions-rust-runner@sha256:13a7063b03c03125f0d50181964ae2a703334ce758543490da70444b619696c8,ubuntu-latest:docker://catthehacker/ubuntu:act-latest,ubuntu-22.04:docker://catthehacker/ubuntu:act-22.04,node-20:docker://node:20-bookworm,python-3.12:docker://python:3.12-bookworm,rust:docker://rust:1-bookworm,docker:docker://catthehacker/ubuntu:act-latest
+        envFrom:
+        - secretRef:
+            name: forgejo-ci-secrets
+        image: docker:27-dind
+        imagePullPolicy: IfNotPresent
+        name: dind
+        resources:
+          limits:
+            cpu: "8"
+            memory: 4Gi
+          requests:
+            cpu: 500m
+            memory: 2Gi
+        securityContext:
+          privileged: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/lib/docker
+          name: docker-graph
+      - args:
+        - |
+          set -e
+          until wget -q -O - http://127.0.0.1:2375/_ping 2>/dev/null | grep -q OK; do echo waiting-for-docker-ping; sleep 2; done
+          mkdir -p /root/.docker
+          : > /data/job-env
+          until [ -s /vault/runtime/token ]; do echo waiting-for-vault-agent-token; sleep 2; done
+          if [ -s /var/run/harbor-registry-auth/.dockerconfigjson ]; then
+            harbor_auth=$(grep -o '"auth"[[:space:]]*:[[:space:]]*"[^"]*"' /var/run/harbor-registry-auth/.dockerconfigjson | head -n 1 | cut -d '"' -f 4)
+            if [ -n "$harbor_auth" ]; then
+              decoded_auth=$(printf '%s' "$harbor_auth" | base64 -d)
+              registry_username=${decoded_auth%%:*}
+              registry_password=${decoded_auth#*:}
+              printf '{"auths":{"registry.quantum-forge.net":{"auth":"%s"},"harbor-registry.container-registry.svc.cluster.local:5000":{"auth":"%s"}}}\n' "$harbor_auth" "$harbor_auth" > /root/.docker/config.json
+              printf 'REGISTRY_USERNAME=%s\nREGISTRY_PASSWORD=%s\n' "$registry_username" "$registry_password" >> /data/job-env
+              echo configured-kubernetes-harbor-auth-for-act-runner
+            fi
+          fi
+          printf 'VAULT_ADDR=%s\n' 'http://vault.vault.svc.cluster.local:8200' >> /data/job-env
+          printf 'VAULT_TOKEN=%s\n' "$(cat /vault/runtime/token)" >> /data/job-env
+          if [ -n "${GITOPS_SSH_PRIVATE_KEY:-}" ]; then
+            printf 'GITOPS_SSH_PRIVATE_KEY_B64=%s\n' "$(printf '%s' "$GITOPS_SSH_PRIVATE_KEY" | base64 -w 0)" >> /data/job-env
+          fi
+          for key in SCCACHE_SECRET_KEY CI_CACHE_TOKEN ARGOCD_AUTH_TOKEN GITOPS_TOKEN; do
+            value=$(printenv "$key" || true)
+            if [ -n "$value" ]; then
+              printf '%s=%s\n' "$key" "$value" >> /data/job-env
+            fi
+          done
+          printf 'CODETETHER_JSON_URL=https://api.codetether.run/v1/agent/tasks\n' >> /data/job-env
+          if [ -s /var/run/codetether-worker-auth/CODETETHER_TOKEN ]; then
+            printf 'CODETETHER_TOKEN=%s\n' "$(cat /var/run/codetether-worker-auth/CODETETHER_TOKEN)" >> /data/job-env
+          fi
+          printf 'DOCKER_CONFIG=/root/.docker\n' >> /data/job-env
+          chmod 0600 /root/.docker/config.json 2>/dev/null || true
+          chmod 0600 /data/job-env
+          if [ ! -s /data/.runner ]; then
+            act_runner register --config /etc/act-runner/config.yaml --no-interactive --instance "${GITEA_INSTANCE_URL}" --token "${GITEA_RUNNER_REGISTRATION_TOKEN}" --name "${GITEA_RUNNER_NAME}" --labels "${GITEA_RUNNER_LABELS}"
+          fi
+          exec act_runner --config /etc/act-runner/config.yaml daemon
+        command:
+        - /bin/sh
+        - -c
+        env:
+        - name: DOCKER_HOST
+          value: tcp://127.0.0.1:2375
+        - name: GITEA_INSTANCE_URL
+          value: http://192.168.50.80:3000
+        - name: GITEA_RUNNER_REGISTRATION_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: forgejo-runner-token
+        - name: GITEA_RUNNER_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: GITEA_RUNNER_LABELS
+          value: spotlessbinco-k8s-dind-privileged:docker://registry.quantum-forge.net/rust-builder/github-actions-rust-runner@sha256:16d024d64a04024bd38309b9cb8b52baabb613388ed3bffd85186569612b3d9b,spotlessbinco-k8s-dind:docker://registry.quantum-forge.net/rust-builder/github-actions-rust-runner@sha256:16d024d64a04024bd38309b9cb8b52baabb613388ed3bffd85186569612b3d9b,spotlessbinco-k8s:docker://registry.quantum-forge.net/rust-builder/github-actions-rust-runner@sha256:16d024d64a04024bd38309b9cb8b52baabb613388ed3bffd85186569612b3d9b,ubuntu-latest:docker://catthehacker/ubuntu:act-latest,ubuntu-22.04:docker://catthehacker/ubuntu:act-22.04,node-20:docker://node:20-bookworm,python-3.12:docker://python:3.12-bookworm,rust:docker://rust:1-bookworm,docker:docker://catthehacker/ubuntu:act-latest
+        envFrom:
+        - secretRef:
+            name: forgejo-ci-secrets
+        image: gitea/act_runner:0.2.11
+        imagePullPolicy: IfNotPresent
+        name: runner
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - test "$(cat /proc/1/comm)" = act_runner && primary_label="${GITEA_RUNNER_LABELS%%,*}"
+              && grep -Fq "\"$primary_label\"" /data/.runner
+          failureThreshold: 3
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 2
+        resources:
+          limits:
+            cpu: "2"
+            memory: 2Gi
+          requests:
+            cpu: 250m
+            memory: 512Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /data
+          name: runner-data
+        - mountPath: /etc/act-runner
+          name: act-runner-config
+          readOnly: true
+        - mountPath: /var/run/harbor-registry-auth
+          name: harbor-registry-auth
+          readOnly: true
+        - mountPath: /var/run/codetether-worker-auth
+          name: codetether-worker-auth
+          readOnly: true
+        - mountPath: /vault/runtime
+          name: vault-runtime
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      hostAliases:
+      - hostnames:
+        - registry.quantum-forge.net
+        ip: 10.233.7.242
+      nodeSelector:
+        arc-runner: enabled
+        arc-runner-dind: healthy
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: forgejo-vault-sync
+      serviceAccountName: forgejo-vault-sync
+      terminationGracePeriodSeconds: 30
+      tolerations:
+      - operator: Exists
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: forgejo-act-runner-dind
+        maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+      volumes:
+      - emptyDir: {}
+        name: runner-data
+      - emptyDir:
+          sizeLimit: 40Gi
+        name: docker-graph
+      - configMap:
+          defaultMode: 420
+          name: forgejo-act-runner-config
+        name: act-runner-config
+      - name: harbor-registry-auth
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: harbor-regcred
+      - name: codetether-worker-auth
+        secret:
+          defaultMode: 420
+          optional: false
+          secretName: codetether-worker-auth
+      - configMap:
+          defaultMode: 420
+          name: forgejo-vault-agent-config
+        name: vault-agent-config
+      - emptyDir: {}
+        name: vault-runtime
+status:
+  availableReplicas: 2
+  conditions:
+  - lastTransitionTime: "2026-08-23T14:37:31Z"
+    lastUpdateTime: "2026-08-23T14:37:31Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2026-08-22T00:26:25Z"
+    lastUpdateTime: "2026-09-02T19:54:23Z"
+    message: ReplicaSet "forgejo-act-runner-dind-549648545b" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  observedGeneration: 115
+  readyReplicas: 2
+  replicas: 2
+  updatedReplicas: 2

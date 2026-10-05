@@ -1,0 +1,39 @@
+{
+  "info" : {
+    "arguments" : [
+      "devicectl",
+      "device",
+      "install",
+      "app",
+      "--device",
+      "4745B27B-2B68-5164-A053-B869B07EE2CA",
+      "--timeout",
+      "120",
+      "--json-output",
+      "evidence/install.json",
+      "build/Build/Products/Debug-iphoneos/A2AMonitor.app"
+    ],
+    "commandType" : "devicectl.device.install.app",
+    "environment" : {
+
+    },
+    "jsonVersion" : 2,
+    "outcome" : "success",
+    "version" : "443.24"
+  },
+  "result" : {
+    "deviceIdentifier" : "4745B27B-2B68-5164-A053-B869B07EE2CA",
+    "installedApplications" : [
+      {
+        "bundleID" : "com.a2a.monitor",
+        "databaseSequenceNumber" : 16140,
+        "databaseUUID" : "EBC21B34-3CD5-41AA-AFA2-59362B923D63",
+        "installationURL" : "file:///private/var/containers/Bundle/Application/7CA03B0A-76B4-4EBB-848B-483AF2A985CC/A2AMonitor.app/",
+        "launchServicesIdentifier" : "unknown",
+        "options" : {
+
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,766 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogPanel,
+  DialogTitle,
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuItems,
+} from '@headlessui/react'
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
+import clsx from 'clsx'
+import { ApiAuthSync } from '@/components/ApiAuthSync'
+import { DashboardNavigation } from '@/components/DashboardNavigation'
+import {
+  useDashboardAuth,
+  notifyDashboardAuthChange,
+} from '@/hooks/useDashboardAuth'
+import { useDashboardTheme } from '@/hooks/useDashboardTheme'
+
+function FolderIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+      />
+    </svg>
+  )
+}
+
+function ClipboardIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+      />
+    </svg>
+  )
+}
+
+function ChatIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+      />
+    </svg>
+  )
+}
+
+function TerminalIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+      />
+    </svg>
+  )
+}
+
+function BoltIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M13 10V3L4 14h7v7l9-11h-7z"
+      />
+    </svg>
+  )
+}
+
+function CogIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+      />
+    </svg>
+  )
+}
+
+function ChartIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+      />
+    </svg>
+  )
+}
+
+function AnalyticsIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+      />
+    </svg>
+  )
+}
+
+function CreditCardIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+      />
+    </svg>
+  )
+}
+
+function ShieldIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+      />
+    </svg>
+  )
+}
+
+function RocketIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"
+      />
+    </svg>
+  )
+}
+
+function LoopIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+      />
+    </svg>
+  )
+}
+
+function BrainIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9.5 4a3.5 3.5 0 00-3.5 3.5v.5a3 3 0 00-2 2.83V12a3 3 0 002 2.83v.67A3.5 3.5 0 009.5 19H11v-7H9.5A1.5 1.5 0 018 10.5 1.5 1.5 0 019.5 9H11V7.5A3.5 3.5 0 009.5 4zM14.5 4A3.5 3.5 0 0118 7.5v.5a3 3 0 012 2.83V12a3 3 0 01-2 2.83v.67A3.5 3.5 0 0114.5 19H13v-7h1.5a1.5 1.5 0 001.5-1.5A1.5 1.5 0 0014.5 9H13V7.5A3.5 3.5 0 0114.5 4z"
+      />
+    </svg>
+  )
+}
+
+function AvatarIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15 11l5-3m0 6l-5-3"
+      />
+    </svg>
+  )
+}
+
+function ServerIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
+      />
+    </svg>
+  )
+}
+
+function MegaphoneIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
+      />
+    </svg>
+  )
+}
+
+function ClockIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
+    </svg>
+  )
+}
+
+function TargetIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0-4a8 8 0 100 16 8 8 0 000-16zm0 6a2 2 0 110 4 2 2 0 010-4z"
+      />
+    </svg>
+  )
+}
+
+function SwarmIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+      />
+    </svg>
+  )
+}
+
+function PlugIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+      />
+    </svg>
+  )
+}
+
+function LockIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+      />
+    </svg>
+  )
+}
+
+function CodeBracketIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+      />
+    </svg>
+  )
+}
+
+const navigation = [
+  {
+    name: 'Get Started',
+    href: '/dashboard/getting-started',
+    icon: RocketIcon,
+    highlight: true,
+  },
+  { name: 'Workspaces', href: '/dashboard', icon: FolderIcon },
+  { name: 'Workers', href: '/dashboard/workers', icon: ServerIcon },
+  { name: 'OKR', href: '/dashboard/okr', icon: TargetIcon, highlight: true },
+  { name: 'Swarm', href: '/dashboard/swarm', icon: SwarmIcon, highlight: true },
+  {
+    name: 'MCP Tools',
+    href: '/dashboard/mcp',
+    icon: PlugIcon,
+    highlight: true,
+  },
+  {
+    name: 'Security',
+    href: '/dashboard/security',
+    icon: LockIcon,
+    highlight: true,
+  },
+  { name: 'Ralph', href: '/dashboard/ralph', icon: LoopIcon, highlight: true },
+  { name: 'Cognition', href: '/dashboard/cognition', icon: BrainIcon },
+  {
+    name: 'Avatar',
+    href: '/dashboard/avatar',
+    icon: AvatarIcon,
+    highlight: true,
+  },
+  { name: 'Ads', href: '/dashboard/ads', icon: MegaphoneIcon, highlight: true },
+  { name: 'Benchmarks', href: '/dashboard/benchmarks', icon: ChartIcon },
+  {
+    name: 'Analytics',
+    href: '/dashboard/analytics',
+    icon: AnalyticsIcon,
+    highlight: true,
+  },
+  { name: 'Cronjobs', href: '/cronjobs', icon: ClockIcon },
+  { name: 'Tasks', href: '/dashboard/tasks', icon: ClipboardIcon },
+  { name: 'Sessions', href: '/dashboard/sessions', icon: ChatIcon },
+  { name: 'Output', href: '/dashboard/output', icon: TerminalIcon },
+  { name: 'Activity', href: '/dashboard/activity', icon: BoltIcon },
+  {
+    name: 'GitHub Actions',
+    href: '/dashboard/integrations/github-actions',
+    icon: CodeBracketIcon,
+    highlight: true,
+  },
+  {
+    name: 'GitHub App',
+    href: '/dashboard/workflows/github-app',
+    icon: CodeBracketIcon,
+    highlight: true,
+  },
+  { name: 'Automations', href: '/dashboard/automations', icon: CogIcon },
+  { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon },
+  { name: 'Settings', href: '/dashboard/settings', icon: CogIcon },
+]
+
+// Admin navigation item (shown only for admins)
+const adminNavItem = {
+  name: 'Admin',
+  href: '/dashboard/admin',
+  icon: ShieldIcon,
+}
+
+function MenuIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 6h16M4 12h16M4 18h16"
+      />
+    </svg>
+  )
+}
+
+function XIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M6 18L18 6M6 6l12 12"
+      />
+    </svg>
+  )
+}
+
+function SunIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="currentColor" viewBox="0 0 20 20" {...props}>
+      <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" />
+    </svg>
+  )
+}
+
+function MoonIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
+  return (
+    <svg fill="currentColor" viewBox="0 0 20 20" {...props}>
+      <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+    </svg>
+  )
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { darkMode, toggleTheme: toggleDarkMode } = useDashboardTheme()
+  const sidebarCloseButton = useRef<HTMLButtonElement>(null)
+  const pathname = usePathname()
+  const router = useRouter()
+  const { user, isAuthenticated, loading, session } = useDashboardAuth()
+
+  // Do not leave an invisible modal trapping focus after switching to desktop.
+  useEffect(() => {
+    const desktop = window.matchMedia('(min-width: 768px)')
+    const closeOnDesktop = () => {
+      if (desktop.matches) setSidebarOpen(false)
+    }
+    desktop.addEventListener('change', closeOnDesktop)
+    return () => desktop.removeEventListener('change', closeOnDesktop)
+  }, [])
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.push('/login?callbackUrl=' + encodeURIComponent(pathname))
+    }
+  }, [loading, isAuthenticated, router, pathname])
+
+  // Middleware authorizes /dashboard from the `a2a_token` cookie, but a Keycloak
+  // SSO session lives only in the NextAuth session. Without mirroring it into
+  // the cookie, middleware redirected an authenticated user back to /login while
+  // the client sent them to /dashboard again, rendering as nonstop flicker.
+  useEffect(() => {
+    if (!session) {
+      return
+    }
+    const sessionToken =
+      (session as any)?.accessToken || (session as any)?.access_token
+    if (!sessionToken || document.cookie.includes('a2a_token=')) {
+      return
+    }
+    const secure = window.location.protocol === 'https:' ? '; Secure' : ''
+    document.cookie =
+      `a2a_token=${encodeURIComponent(sessionToken)}; path=/; ` +
+      `max-age=${60 * 60 * 24 * 7}; SameSite=Lax${secure}`
+  }, [session])
+
+  // Check if user has admin role
+  const isAdmin =
+    user?.roles?.includes('admin') ||
+    user?.roles?.includes('a2a-admin') ||
+    user?.role === 'admin'
+
+  // Build navigation with admin item if user is admin
+  const navItems = isAdmin ? [...navigation, adminNavItem] : navigation
+  const activeItem = navItems.find(
+    (item) =>
+      pathname === item.href ||
+      (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`)),
+  )
+
+  const handleSignOut = () => {
+    // Keep logout usable even when browser storage has been disabled.
+    try {
+      for (const key of [
+        'a2a_token',
+        'a2a_user',
+        'a2a_refresh_token',
+        'a2a_session',
+        'access_token',
+      ]) {
+        localStorage.removeItem(key)
+      }
+    } catch {
+      // Continue clearing the cookie and terminating the server session.
+    }
+    notifyDashboardAuthChange()
+
+    // Clear cookie
+    document.cookie = 'a2a_token=; path=/; max-age=0'
+
+    // Sign out from NextAuth if using that
+    if (session) {
+      signOut({ callbackUrl: '/' })
+    } else {
+      router.push('/')
+    }
+  }
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div
+        role="status"
+        className="flex h-screen items-center justify-center bg-gray-900"
+      >
+        <span className="sr-only">Loading dashboard</span>
+        <div
+          aria-hidden="true"
+          className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent"
+        />
+      </div>
+    )
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null
+  }
+
+  return (
+    <div
+      className={clsx('relative h-screen overflow-hidden', darkMode && 'dark')}
+    >
+      <ApiAuthSync />
+      <a
+        href="#dashboard-main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-4 focus:py-3 focus:text-gray-900 focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+      {/* Dialog unmounts the closed drawer and manages Escape/focus restoration. */}
+      <Dialog
+        open={sidebarOpen}
+        onClose={setSidebarOpen}
+        initialFocus={sidebarCloseButton}
+        className="fixed inset-0 z-50 md:hidden"
+      >
+        <DialogBackdrop className="fixed inset-0 bg-gray-950/45" />
+        <DialogPanel className="fixed inset-y-0 left-0 flex w-64 flex-col overflow-y-auto border-r border-gray-200 bg-white sm:w-72 dark:border-gray-800 dark:bg-gray-950">
+          <DialogTitle className="sr-only">Dashboard navigation</DialogTitle>
+          <div className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 px-5 dark:border-gray-800">
+            <Link
+              href="/dashboard"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-center gap-2"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-900">
+                <TerminalIcon
+                  aria-hidden="true"
+                  className="h-5 w-5 text-gray-500 dark:text-gray-400"
+                />
+              </div>
+              <span className="text-base font-semibold tracking-tight text-gray-950 dark:text-gray-100">
+                CodeTether
+              </span>
+            </Link>
+            <button
+              ref={sidebarCloseButton}
+              type="button"
+              aria-label="Close navigation menu"
+              onClick={() => setSidebarOpen(false)}
+              className="flex h-11 w-11 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-cyan-600 dark:text-gray-400 dark:hover:bg-gray-900 dark:hover:text-gray-100"
+            >
+              <XIcon className="h-6 w-6" />
+            </button>
+          </div>
+          <DashboardNavigation
+            items={navItems}
+            activeHref={activeItem?.href}
+            onNavigate={() => setSidebarOpen(false)}
+          />
+        </DialogPanel>
+      </Dialog>
+
+      {/* Desktop sidebar */}
+      <div className="hidden md:fixed md:inset-y-0 md:z-50 md:flex md:w-60 lg:w-56 lg:flex-col">
+        <div className="flex grow flex-col overflow-y-auto border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
+          <div className="flex h-16 shrink-0 items-center border-b border-gray-200 px-5 dark:border-gray-800">
+            <Link href="/dashboard" className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-900">
+                <TerminalIcon
+                  aria-hidden="true"
+                  className="h-5 w-5 text-gray-500 dark:text-gray-400"
+                />
+              </div>
+              <span className="text-base font-semibold tracking-tight text-gray-950 dark:text-gray-100">
+                CodeTether
+              </span>
+            </Link>
+          </div>
+          <DashboardNavigation items={navItems} activeHref={activeItem?.href} />
+        </div>
+      </div>
+
+      {/* Main content wrapper */}
+      <div className="absolute inset-0 flex flex-col overflow-hidden md:left-60 lg:left-56">
+        {/* Top navbar */}
+        <div className="z-40 flex h-16 shrink-0 items-center gap-x-3 border-b border-gray-200 bg-white px-3 sm:gap-x-6 sm:px-6 lg:px-8 dark:border-gray-800 dark:bg-gray-950">
+          {/* Mobile menu button */}
+          <button
+            type="button"
+            aria-label="Open navigation menu"
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen(true)}
+            className="-m-2.5 p-2.5 text-gray-700 md:hidden dark:text-gray-200"
+          >
+            <MenuIcon className="h-6 w-6" />
+          </button>
+
+          {/* Separator */}
+          <div className="h-6 w-px bg-gray-200 md:hidden dark:bg-gray-700" />
+
+          <div className="flex flex-1 gap-x-2 self-stretch overflow-hidden sm:gap-x-6">
+            <nav
+              aria-label="Breadcrumb"
+              className="hidden min-w-0 items-center gap-2 text-sm text-gray-600 md:flex dark:text-gray-300"
+            >
+              <Link href="/dashboard" className="hover:underline">
+                Dashboard
+              </Link>
+              {activeItem && activeItem.href !== '/dashboard' && (
+                <>
+                  <span aria-hidden="true">/</span>
+                  <span aria-current="page" className="truncate">
+                    {activeItem.name}
+                  </span>
+                </>
+              )}
+            </nav>
+
+            {/* Right actions */}
+            <div className="ml-auto flex items-center gap-x-2 sm:gap-x-3">
+              <button
+                type="button"
+                aria-label={
+                  darkMode ? 'Switch to light mode' : 'Switch to dark mode'
+                }
+                onClick={toggleDarkMode}
+                className="flex h-11 w-11 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-2 focus-visible:outline-cyan-600 dark:text-gray-500 dark:hover:bg-gray-900 dark:hover:text-gray-200"
+              >
+                {darkMode ? (
+                  <SunIcon className="h-5 w-5" />
+                ) : (
+                  <MoonIcon className="h-5 w-5" />
+                )}
+              </button>
+
+              {/* User menu */}
+              {user ? (
+                <Menu as="div" className="relative">
+                  <MenuButton
+                    aria-label="Open user menu"
+                    className="flex min-h-11 items-center gap-2 rounded-md px-1 py-1 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-cyan-600 dark:hover:bg-gray-900"
+                  >
+                    {user.image ? (
+                      <img
+                        src={user.image}
+                        alt={user.name || user.first_name || 'User'}
+                        className="h-8 w-8 rounded-full"
+                      />
+                    ) : (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-sm font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                        {user.name?.charAt(0) ||
+                          user.first_name?.charAt(0) ||
+                          user.email?.charAt(0) ||
+                          'U'}
+                      </div>
+                    )}
+                    <span className="xs:hidden hidden max-w-20 truncate text-xs font-medium text-gray-700 sm:block sm:max-w-none sm:text-sm dark:text-gray-300">
+                      {user.name || user.first_name || user.email}
+                    </span>
+                  </MenuButton>
+
+                  <MenuItems
+                    anchor="bottom end"
+                    className="ring-opacity-5 z-[60] w-48 rounded-md bg-white py-1 shadow-lg ring-1 ring-black [--anchor-gap:0.5rem] focus:outline-none dark:bg-gray-800"
+                  >
+                    <div className="border-b border-gray-200 px-4 py-2 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                      Signed in as
+                      <div className="truncate font-medium text-gray-900 dark:text-white">
+                        {user.email}
+                      </div>
+                    </div>
+                    <MenuItem>
+                      <Link
+                        href="/dashboard/billing"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 data-focus:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 dark:data-focus:bg-gray-700"
+                      >
+                        Billing
+                      </Link>
+                    </MenuItem>
+                    <MenuItem>
+                      <Link
+                        href="/dashboard/settings"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 data-focus:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 dark:data-focus:bg-gray-700"
+                      >
+                        Settings
+                      </Link>
+                    </MenuItem>
+                    <MenuItem>
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 data-focus:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700 dark:data-focus:bg-gray-700"
+                      >
+                        Sign out
+                      </button>
+                    </MenuItem>
+                  </MenuItems>
+                </Menu>
+              ) : (
+                <Link
+                  href="/login"
+                  className="text-sm font-medium text-cyan-600 hover:text-cyan-500 dark:text-cyan-400"
+                >
+                  Sign in
+                </Link>
+              )}
+
+              <Link
+                href="/"
+                className="hidden text-sm font-medium text-gray-600 hover:text-gray-900 sm:inline-flex dark:text-gray-300 dark:hover:text-white"
+              >
+                ← Back to Site
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Main content */}
+        <main
+          id="dashboard-main"
+          tabIndex={-1}
+          className="min-h-0 flex-1 overflow-auto px-3 py-4 sm:px-4 md:px-6 lg:px-8"
+        >
+          {children}
+        </main>
+      </div>
+    </div>
+  )
+}

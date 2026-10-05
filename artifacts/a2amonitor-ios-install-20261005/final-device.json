@@ -1,0 +1,270 @@
+{
+  "info" : {
+    "arguments" : [
+      "devicectl",
+      "device",
+      "info",
+      "details",
+      "--device",
+      "4745B27B-2B68-5164-A053-B869B07EE2CA",
+      "--timeout",
+      "30",
+      "--json-output",
+      "evidence/final-device.json"
+    ],
+    "commandType" : "devicectl.device.info.details",
+    "environment" : {
+
+    },
+    "jsonVersion" : 2,
+    "outcome" : "success",
+    "version" : "443.24"
+  },
+  "result" : {
+    "capabilities" : [
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.acquireusageassertion",
+        "name" : "Acquire Usage Assertion"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.capturesysdiagnose",
+        "name" : "Capture Sysdiagnose"
+      },
+      {
+        "featureIdentifier" : "com.apple.dt.serviceconnection.create",
+        "name" : "Create Service Connection"
+      },
+      {
+        "featureIdentifier" : "com.apple.dt.servicesocket.create",
+        "name" : "Create Service Socket"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.disableddiservices",
+        "name" : "Disable Developer Disk Image Services"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.disconnectdevice",
+        "name" : "Disconnect from Device"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.fetchappicons",
+        "name" : "Fetch Application Icons"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.fetchddimetadata",
+        "name" : "Fetch Developer Disk Image Services Metadata"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.getdeviceinfo",
+        "name" : "Fetch Extended Device Info"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.getdisplayinfo",
+        "name" : "Get Display Information"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.getlockstate",
+        "name" : "Get Lock State"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.installapp",
+        "name" : "Install Application"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.installroot",
+        "name" : "Install Root"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.launchapplication",
+        "name" : "Launch Application"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.listapps",
+        "name" : "List Applications"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.listFiles",
+        "name" : "List Files"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.listprocesses",
+        "name" : "List Processes"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.listroots",
+        "name" : "List Roots"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.tags",
+        "name" : "Modify Tags"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.monitorprocesstermination",
+        "name" : "Monitor Process for Termination"
+      },
+      {
+        "featureIdentifier" : "com.apple.dt.customer.postdarwinnotification",
+        "name" : "Post Darwin Notification"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.querymobilegestalt",
+        "name" : "Query MobileGestalt"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.rebootdevice",
+        "name" : "Reboot Device"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.sendmemorywarningtoprocess",
+        "name" : "Send Memory Warning to Process"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.sendsignaltoprocess",
+        "name" : "Send Signal to Process"
+      },
+      {
+        "featureIdentifier" : "com.apple.dt.profile",
+        "name" : "Service Hub Profile"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.spawnexecutable",
+        "name" : "Spawn Executable"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.transferFiles",
+        "name" : "Transfer Files"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.uninstallapp",
+        "name" : "Uninstall Application"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.uninstallroot",
+        "name" : "Uninstall Root"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.unpairdevice",
+        "name" : "Unpair Device"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.viewdevicescreen",
+        "name" : "View Device Screen"
+      },
+      {
+        "featureIdentifier" : "com.apple.dt.remoteFetchSymbols.dyldSharedCacheFiles",
+        "name" : "com.apple.dt.remoteFetchSymbols"
+      },
+      {
+        "featureIdentifier" : "com.apple.coredevice.feature.debugserverproxy",
+        "name" : "com.apple.internal.dt.remote.debugproxy"
+      },
+      {
+        "featureIdentifier" : "Cryptex1,UseProductClass",
+        "name" : "com.apple.security.cryptexd.remote"
+      },
+      {
+        "featureIdentifier" : "CryptexInstall",
+        "name" : "com.apple.security.cryptexd.remote"
+      },
+      {
+        "featureIdentifier" : "Cryptex1",
+        "name" : "com.apple.security.cryptexd.remote"
+      },
+      {
+        "featureIdentifier" : "ReadIdentifiers",
+        "name" : "com.apple.security.cryptexd.remote"
+      }
+    ],
+    "connectionProperties" : {
+      "authenticationType" : "manualPairing",
+      "isMobileDeviceOnly" : false,
+      "lastConnectionDate" : "2026-10-05T03:41:20.949Z",
+      "pairingState" : "paired",
+      "potentialHostnames" : [
+        "00008110-001879C23E0A401E.coredevice.local",
+        "4745B27B-2B68-5164-A053-B869B07EE2CA.coredevice.local"
+      ],
+      "transportType" : "localNetwork",
+      "tunnelIPAddress" : "fd7a:2c83:92bc::1",
+      "tunnelState" : "connected",
+      "tunnelTransportProtocol" : "tcp"
+    },
+    "deviceProperties" : {
+      "bootState" : "booted",
+      "bootedFromSnapshot" : true,
+      "bootedSnapshotName" : "com.apple.os.update-7AA355115B63E0506A9B0824F4A0F6E2815C8EA2F4A4007903EF6A45E97DC805",
+      "ddiServicesAvailable" : true,
+      "developerModeStatus" : "enabled",
+      "hasInternalOSBuild" : false,
+      "name" : "riley",
+      "osBuildUpdate" : "23D127",
+      "osVersionNumber" : "26.3",
+      "releaseType" : "Beta",
+      "rootFileSystemIsWritable" : false,
+      "screenViewingURL" : "devices://device/open?id=4745B27B-2B68-5164-A053-B869B07EE2CA"
+    },
+    "hardwareProperties" : {
+      "authListingIdentifiers" : {
+        "APProductionMode" : true,
+        "ApECID" : 6889274612531230,
+        "BMU,UniqueID" : 780096763,
+        "BbSNUM" : "0xa2c75615",
+        "BoardID" : 14,
+        "ChipID" : 33040,
+        "HardwareModel" : "D64AP",
+        "Rap,ECID" : "0x006403c43082e798",
+        "SE,ID" : "0x044230b3ce14900221080138803151900e8bf42bd44d5f00",
+        "Savage,UID" : "0x000127067d0476c61dbc56533489c442",
+        "SerialNumber" : "K3VLY4D9QF",
+        "eUICC,EID" : "89049032007008882600121516025042"
+      },
+      "cpuType" : {
+        "name" : "arm64e",
+        "subType" : 2,
+        "type" : 16777228
+      },
+      "deviceType" : "iPhone",
+      "ecid" : 6889274612531230,
+      "hardwareModel" : "D64AP",
+      "internalStorageCapacity" : 128000000000,
+      "isProductionFused" : true,
+      "marketingName" : "iPhone 13 Pro Max",
+      "platform" : "iOS",
+      "productType" : "iPhone14,3",
+      "reality" : "physical",
+      "serialNumber" : "K3VLY4D9QF",
+      "supportedCPUTypes" : [
+        {
+          "name" : "arm64e",
+          "subType" : 2,
+          "type" : 16777228
+        },
+        {
+          "name" : "arm64",
+          "subType" : 0,
+          "type" : 16777228
+        },
+        {
+          "name" : "arm64",
+          "subType" : 1,
+          "type" : 16777228
+        },
+        {
+          "name" : "arm64_32",
+          "subType" : 1,
+          "type" : 33554444
+        }
+      ],
+      "supportedDeviceFamilies" : [
+        1
+      ],
+      "thinningProductType" : "iPhone14,3",
+      "udid" : "00008110-001879C23E0A401E"
+    },
+    "identifier" : "4745B27B-2B68-5164-A053-B869B07EE2CA",
+    "tags" : [
+
+    ],
+    "visibilityClass" : "default"
+  }
+}

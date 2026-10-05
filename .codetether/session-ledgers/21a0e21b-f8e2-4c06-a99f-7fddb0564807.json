@@ -1,0 +1,88 @@
+{
+  "session_id": "21a0e21b-f8e2-4c06-a99f-7fddb0564807",
+  "items": [
+    {
+      "deliverable": "2 errors occurred:",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "^|/)(node_modules|dist|public|coverage|test-results)|(^|/)(playwright-report|\\.git)(/|$",
+        "test-results"
+      ]
+    },
+    {
+      "deliverable": "permission denied",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "^|/)(node_modules|dist|public|coverage|test-results)|(^|/)(playwright-report|\\.git)(/|$",
+        "test-results"
+      ]
+    },
+    {
+      "deliverable": "invalid token",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "^|/)(node_modules|dist|public|coverage|test-results)|(^|/)(playwright-report|\\.git)(/|$",
+        "test-results"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "kind": "argo",
+      "level": "live deployment/Argo",
+      "value": "healthy-synced"
+    },
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "^|/)(node_modules|dist|public|coverage|test-results)|(^|/)(playwright-report|\\.git)(/|$"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/integration-test-list.txt"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/integration-test-list.txt"
+    },
+    {
+      "kind": "db-migration",
+      "level": "live DB",
+      "value": "applied"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

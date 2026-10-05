@@ -1,0 +1,10 @@
+{
+  "taskId": "9bf9cd72-4fc0-450b-971c-42efeaf9dabe",
+  "workerId": "wrk_1791203157_35195f4f7b97da0a",
+  "workspaceId": "ios-e2e-ubuntu-dev",
+  "submittedAt": "2026-10-05T12:42:46.716Z",
+  "phoneOrigin": false,
+  "output": "/home/riley/A2A-Server-MCP/artifacts/ios-e2e-web/backend-rehearsal",
+  "url": "http://192.168.50.101:8768/",
+  "marker": "ios-backend-rehearsal-20261005"
+}

@@ -1,0 +1,17 @@
+{
+  "level": "live deployment/Argo",
+  "mode": "production-host canary",
+  "commit": "a1d68a889bd3e752e5a00b6cfba90a0e9888c0c0",
+  "image": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing:ui-a1d68a889bd3",
+  "checks": [
+    {
+      "host": "codetether.run",
+      "requests": []
+    }
+  ],
+  "mutations": [],
+  "testUserId": "a8542367-a9eb-48ef-a562-9365d437dbfe",
+  "error": "page.goto: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://codetether.run/api/ui-version\", waiting until \"domcontentloaded\"\u001b[22m\n",
+  "success": false,
+  "testUserDisabled": true
+}

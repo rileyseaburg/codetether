@@ -1,0 +1,100 @@
+export const plans = [
+  {
+    id: 'free',
+    name: 'Free',
+    featured: false,
+    price: { monthly: '$0', annually: '$0' },
+    description: 'Get started free. Perfect for testing workflows.',
+    bestFor: 'Testing & experimentation',
+    tokenInfo: '$5 token credit included',
+    button: { label: 'Start Free', href: '/register', action: 'signup' },
+    features: [
+      '100 tasks / month',
+      '1 agent',
+      '3 workspaces',
+      '$5 prepaid token credit',
+      'Per-token usage tracking',
+      'HMAC-SHA256 auth + full audit trail',
+      'Community Discord',
+    ],
+    limits: { tasks: 100, concurrency: 1, runtime: '3 workspaces' },
+    logomarkClassName: 'fill-gray-500',
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    featured: true,
+    price: { monthly: '$49', annually: '$49' },
+    description: 'For builders who need serious throughput.',
+    bestFor: 'Solopreneurs & automation builders',
+    tokenInfo: '$50 token credit / month included',
+    button: { label: 'Upgrade to Pro', href: '/register', action: 'checkout' },
+    features: [
+      '5,000 tasks / month',
+      '5 concurrent agents',
+      '20 workspaces',
+      '$50/mo prepaid token credit',
+      'Per-model cost breakdown',
+      'Monthly spending limits',
+      'OPA Rego RBAC policies',
+      'Ed25519 plugin signing',
+      'RLM unlimited context',
+      'Swarm orchestration',
+      'MCP tool bridge',
+    ],
+    limits: { tasks: 5000, concurrency: 5, runtime: '20 workspaces' },
+    logomarkClassName: 'fill-cyan-500',
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise',
+    featured: false,
+    price: { monthly: '$199', annually: '$199' },
+    description: 'Unlimited tasks, workers, and workspaces.',
+    bestFor: 'Teams & agencies',
+    tokenInfo: '$150 token credit / month included',
+    button: { label: 'Upgrade to Enterprise', href: '/register', action: 'checkout' },
+    features: [
+      'Unlimited tasks / month',
+      'Unlimited agents',
+      'Unlimited workspaces',
+      '$150/mo prepaid token credit',
+      'Per-tenant token isolation',
+      'Custom spending limits & alerts',
+      'Everything in Pro',
+      'K8s self-deployment',
+      'Team workspaces with RBAC',
+      'Relay multi-agent pipelines',
+      'Voice & media pipeline',
+      'Custom OPA security policies',
+      'Dedicated support',
+    ],
+    limits: { tasks: -1, concurrency: -1, runtime: 'Unlimited' },
+    logomarkClassName: 'fill-gray-900',
+  },
+]
+
+export const billingHighlights = [
+  { value: 'Per-Token', label: 'Billed by actual input, output, cache & reasoning tokens' },
+  { value: 'Per-Model', label: 'Each AI model priced at cost. No hidden markup.' },
+  { value: 'Prepaid', label: 'Credits included with your plan. Add more anytime.' },
+  { value: 'Limits', label: 'Set monthly spending caps to stay in budget.' },
+]
+
+export const modelPricing = [
+  { model: 'Claude Opus 4.6', input: '$15.00', output: '$75.00', cacheRead: '$1.50', featured: true },
+  { model: 'Claude Opus 4.5', input: '$5.00', output: '$25.00', cacheRead: '$0.50' },
+  { model: 'Claude Sonnet 4', input: '$3.00', output: '$15.00', cacheRead: '$0.30' },
+  { model: 'GPT-5.2', input: '$3.00', output: '$12.00', cacheRead: '—', featured: true },
+  { model: 'GPT-4.1', input: '$2.00', output: '$8.00', cacheRead: '—' },
+  { model: 'Gemini 3 Pro', input: '$1.50', output: '$12.00', cacheRead: '—', featured: true },
+  { model: 'Gemini 2.5 Flash', input: '$0.15', output: '$0.60', cacheRead: '—' },
+]
+
+export const pricingSteps = [
+  { icon: '1. Describe', title: 'CLI, API, or Dashboard', description: 'Describe what you want built in plain English' },
+  { icon: '2. Orchestrate', title: 'Autonomous AI Agents', description: 'Ralph generates PRDs, spawns swarms, and implements stories' },
+  { icon: '3. Ship', title: 'Ready-to-Merge Code', description: 'Auto-committed, auto-tested PR waiting in your branch' },
+]
+
+export type PricingPlan = (typeof plans)[number]

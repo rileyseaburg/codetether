@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#07111f" />
+    <title>Remote Employee</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'><text y='.9em' font-size='90'>⌁</text></svg>" />
+    <link rel="stylesheet" href="./static/styles.css?v=20260719-2" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+          "livekit-client": "https://cdn.jsdelivr.net/npm/livekit-client@2.20.1/dist/livekit-client.esm.mjs"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar glass">
+        <div class="brand">
+          <span class="brand-mark">RE</span>
+          <div>
+            <h1>Remote Employee</h1>
+            <p>Autonomous company command center</p>
+          </div>
+        </div>
+        <div class="system-state">
+          <span id="mux-status" class="status-pill"><i></i> CodeTether</span>
+          <span id="livekit-status" class="status-pill"><i></i> LiveKit</span>
+          <button id="auth-button" class="icon-button" title="Set CEO access token">⌁</button>
+        </div>
+      </header>
+
+      <aside class="roster glass">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Company</span>
+            <h2>Your team</h2>
+          </div>
+          <button id="hire-open" class="primary small">+ Hire</button>
+        </div>
+        <div id="roster" class="roster-list"></div>
+        <div id="empty-roster" class="empty-state">
+          <span>◌</span>
+          <strong>No employees yet</strong>
+          <p>Hire your first autonomous teammate.</p>
+        </div>
+        <div class="proposal-header">
+          <span class="eyebrow">Approval inbox</span>
+          <span id="proposal-count" class="count">0</span>
+        </div>
+        <div id="proposals" class="proposal-list"></div>
+      </aside>
+
+      <section class="office glass">
+        <div id="office-canvas" aria-label="Interactive 3D office"></div>
+        <div class="office-label">
+          <span class="live-dot"></span>
+          Live office
+        </div>
+        <div class="office-help">Drag to orbit · Scroll to zoom · Click an employee</div>
+        <div id="toast" class="toast" role="status"></div>
+        <div class="meeting-dock glass-dark">
+          <div>
+            <strong id="meeting-label">Office audio is off</strong>
+            <span id="meeting-room">Connect to speak with the team</span>
+          </div>
+          <div class="meeting-actions">
+            <button id="mic-button" class="media-button" disabled title="Toggle microphone">🎙</button>
+            <button id="camera-button" class="media-button" disabled title="Toggle camera">◉</button>
+            <button id="office-button" class="primary">Enter office</button>
+            <button id="leave-button" class="danger hidden">Leave</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="inspector glass">
+        <div id="employee-placeholder" class="employee-placeholder">
+          <span class="avatar-placeholder">◎</span>
+          <h2>Select an employee</h2>
+          <p>Click a teammate in the roster or 3D office to inspect their mux session.</p>
+        </div>
+        <div id="employee-detail" class="hidden">
+          <div class="profile-row">
+            <div id="profile-avatar" class="profile-avatar"></div>
+            <div>
+              <span id="profile-state" class="employee-state"></span>
+              <h2 id="profile-name"></h2>
+              <p id="profile-role"></p>
+            </div>
+          </div>
+          <div class="stat-grid">
+            <div><span>Mux</span><strong id="profile-mux"></strong></div>
+            <div><span>Workspace</span><strong id="profile-workspace"></strong></div>
+          </div>
+          <div class="voice-profile">
+            <div><span id="voice-accent"></span><strong id="profile-voice"></strong></div>
+            <p id="profile-temperament"></p>
+            <small id="profile-cadence"></small>
+            <code id="profile-model"></code>
+          </div>
+          <label class="field">
+            <span>Assign an objective</span>
+            <textarea id="task-objective" rows="4" placeholder="Research the market and produce a focused sales plan…"></textarea>
+          </label>
+          <div class="button-row">
+            <button id="assign-button" class="primary wide">Assign work</button>
+            <button id="private-meeting-button" class="secondary wide">Private meeting</button>
+          </div>
+          <div class="terminal-heading">
+            <span>Live mux output</span>
+            <span id="task-state" class="employee-state"></span>
+          </div>
+          <pre id="terminal-output">Waiting for an assignment.</pre>
+        </div>
+      </aside>
+    </main>
+
+    <div id="video-stage" class="video-stage"></div>
+    <div id="audio-stage" class="sr-only"></div>
+
+    <dialog id="hire-dialog">
+      <form id="hire-form" method="dialog">
+        <div class="dialog-heading">
+          <div><span class="eyebrow">Grow the team</span><h2>Hire an employee</h2></div>
+          <button type="button" class="icon-button" data-close>×</button>
+        </div>
+        <div class="form-grid">
+          <label class="field"><span>Name</span><input name="name" required maxlength="80" placeholder="Maya" /></label>
+          <label class="field"><span>Role</span><input name="role" required maxlength="120" placeholder="Head of Sales" /></label>
+        </div>
+        <label class="field"><span>Company / role goal</span><textarea name="goal" required rows="3" placeholder="Build a qualified pipeline for the product."></textarea></label>
+        <label class="field"><span>Local workspace</span><input name="workspace" required value="/home/riley/A2A-Server-MCP" /></label>
+        <p class="form-note">Hiring creates a real, persistent <code>codetether mux</code> session rooted in this workspace.</p>
+        <div class="dialog-actions"><button type="button" class="secondary" data-close>Cancel</button><button class="primary" value="submit">Create employee</button></div>
+      </form>
+    </dialog>
+
+    <script type="module" src="./static/app.js?v=20260719-3"></script>
+  </body>
+</html>

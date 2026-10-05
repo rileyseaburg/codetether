@@ -1,0 +1,14 @@
+{
+  "taskId": "b009806e-6184-4d5f-a5cb-2ca7ccf93214",
+  "marker": "ios-simulator-1791210365956",
+  "simulatorOrigin": true,
+  "physicalPhone": false,
+  "userLoginTested": false,
+  "url": "http://192.168.50.101:8769/",
+  "file": "/home/riley/A2A-Server-MCP/artifacts/ios-e2e-web/simulator-live/site/index.html",
+  "sha256": "247622e8664c42843fe3f8d5515bfbf83b906846049b862b980f22c80058a69a",
+  "httpStatus": 200,
+  "unit": "codetether-ios-simulator-live.service",
+  "pid": 1019264,
+  "verifiedAt": "2026-10-05T14:27:43.317Z"
+}

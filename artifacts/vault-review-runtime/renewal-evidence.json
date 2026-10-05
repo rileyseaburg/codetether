@@ -1,0 +1,94 @@
+{
+  "level": "live deployment/Argo",
+  "namespace": "forgejo-actions",
+  "deployment": "forgejo-act-runner-dind",
+  "timestamp": "2026-09-06T03:35:41.535008+00:00",
+  "runners": [
+    {
+      "pod": "forgejo-act-runner-dind-7784886b55-ggvk4",
+      "before": {
+        "display_name": "kubernetes-forgejo-actions-forgejo-vault-sync",
+        "policies": [
+          "default",
+          "forgejo-ci-runtime"
+        ],
+        "ttl": 86086,
+        "period": 86400,
+        "renewable": true,
+        "path": "auth/kubernetes/login",
+        "explicit_max_ttl": 0
+      },
+      "renewal": {
+        "renewable": true,
+        "lease_duration": 86400,
+        "policies": [
+          "default",
+          "forgejo-ci-runtime"
+        ]
+      },
+      "after": {
+        "display_name": "kubernetes-forgejo-actions-forgejo-vault-sync",
+        "policies": [
+          "default",
+          "forgejo-ci-runtime"
+        ],
+        "ttl": 86399,
+        "period": 86400,
+        "renewable": true,
+        "path": "auth/kubernetes/login",
+        "explicit_max_ttl": 0
+      },
+      "credential_reads": {
+        "spotlessbinco-agent": true,
+        "codetether-bot": true
+      },
+      "token_creation_capabilities": [
+        "deny"
+      ],
+      "job_env_matches_token_sink": true
+    },
+    {
+      "pod": "forgejo-act-runner-dind-7784886b55-qp6nb",
+      "before": {
+        "display_name": "kubernetes-forgejo-actions-forgejo-vault-sync",
+        "policies": [
+          "default",
+          "forgejo-ci-runtime"
+        ],
+        "ttl": 78590,
+        "period": 86400,
+        "renewable": true,
+        "path": "auth/kubernetes/login",
+        "explicit_max_ttl": 0
+      },
+      "renewal": {
+        "renewable": true,
+        "lease_duration": 86400,
+        "policies": [
+          "default",
+          "forgejo-ci-runtime"
+        ]
+      },
+      "after": {
+        "display_name": "kubernetes-forgejo-actions-forgejo-vault-sync",
+        "policies": [
+          "default",
+          "forgejo-ci-runtime"
+        ],
+        "ttl": 86400,
+        "period": 86400,
+        "renewable": true,
+        "path": "auth/kubernetes/login",
+        "explicit_max_ttl": 0
+      },
+      "credential_reads": {
+        "spotlessbinco-agent": true,
+        "codetether-bot": true
+      },
+      "token_creation_capabilities": [
+        "deny"
+      ],
+      "job_env_matches_token_sink": true
+    }
+  ]
+}

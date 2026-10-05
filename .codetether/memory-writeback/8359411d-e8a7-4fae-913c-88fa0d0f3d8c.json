@@ -1,0 +1,37 @@
+[
+  {
+    "kind": "youtube",
+    "level": "real platform upload",
+    "value": "`https://www.youtube.com/watch?v=-nsQUCNPIZM`"
+  },
+  {
+    "kind": "youtube",
+    "level": "real platform upload",
+    "value": "`https://www.youtube.com/watch?v=-nsQUCNPIZM`"
+  },
+  {
+    "kind": "k8s",
+    "level": "live deployment/Argo",
+    "value": "pod-succeeded"
+  },
+  {
+    "kind": "runtime",
+    "level": "blocked",
+    "value": "failed-or-degraded"
+  },
+  {
+    "kind": "artifact",
+    "level": "focused CI-like",
+    "value": "test-results"
+  },
+  {
+    "kind": "artifact",
+    "level": "focused CI-like",
+    "value": "marketing-site/test-results/auth-Authentication-Flow-P-470f5-d-page-should-be-accessible-chromium/test-failed-1.png"
+  },
+  {
+    "kind": "db-query",
+    "level": "live DB",
+    "value": "row-evidence"
+  }
+]

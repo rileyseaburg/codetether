@@ -1,0 +1,61 @@
+{
+  "session_id": "7ccff286-224c-49ca-888d-bef5600e4de9",
+  "items": [],
+  "evidence": [
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "marketing-site/test-results"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/home/riley/spotlessbinco/test-results/infra-kanel-strict-generat-15daa-ls-unresolved-source-output-source-contracts"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/home/riley/spotlessbinco/test-results/infra-forgejo-dev-build-Fo-862d7-n-DinD-with-cached-BuildKit-source-contracts"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results/dashboard-shell-results.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "--outputFile=test-results/dashboard-shell-results.json"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/dashboard-shell-results.json`"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "`marketing-site/test-results/dashboard-shell-eslint.json`"
+    },
+    {
+      "kind": "db-migration",
+      "level": "live DB",
+      "value": "applied"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

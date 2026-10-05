@@ -1,0 +1,289 @@
+{{- if .Values.harvester.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-harvester
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: harvester
+spec:
+  serviceName: {{ include "a2a-server.fullname" . }}-harvester
+  replicas: {{ .Values.harvester.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "a2a-server.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: harvester
+  template:
+    metadata:
+      labels:
+        {{- include "a2a-server.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: harvester
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "a2a-server.serviceAccountName" . }}-harvester
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.harvester.podSecurityContext | nindent 8 }}
+      containers:
+        {{- if .Values.harvester.workspaceReclaim.enabled }}
+        # Harvester workspaces are per-repository clones on a node-local volume.
+        # Without bounded retention they accumulate until the node crosses
+        # kubelet's DiskPressure threshold, which taints the node and leaves the
+        # harvester Pending, so queued tasks are accepted and never executed.
+        # This sidecar reclaims only clones that are older than the retention
+        # window AND have no uncommitted, unpushed, or stashed work.
+        - name: workspace-reclaim
+          image: "{{ .Values.harvester.image.repository | default .Values.image.repository }}:{{ .Values.harvester.image.tag | default .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.harvester.image.pullPolicy | default .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -u
+              root=/var/lib/codetether/repos
+              retain_days={{ .Values.harvester.workspaceReclaim.retainDays | default 3 }}
+              interval={{ .Values.harvester.workspaceReclaim.intervalSeconds | default 3600 }}
+              min_free_pct={{ .Values.harvester.workspaceReclaim.minFreePercent | default 20 }}
+              git config --global --add safe.directory '*' >/dev/null 2>&1 || true
+              while true; do
+                free_pct=$(df -P "$root" | awk 'NR==2 {print 100 - int($5)}')
+                echo "workspace-reclaim: free=${free_pct}% threshold=${min_free_pct}%"
+                if [ "$free_pct" -lt "$min_free_pct" ]; then
+                  find "$root" -maxdepth 1 -mindepth 1 -type d -mtime "+${retain_days}" 2>/dev/null |
+                  while read -r ws; do
+                    name=$(basename "$ws")
+                    case "$name" in .*) continue ;; esac
+                    gd=$(find "$ws" -maxdepth 2 -name .git -type d 2>/dev/null | head -1)
+                    if [ -n "$gd" ]; then
+                      wt=$(dirname "$gd")
+                      dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l)
+                      unpushed=$(git -C "$wt" log --branches --not --remotes --oneline 2>/dev/null | wc -l)
+                      stash=$(git -C "$wt" stash list 2>/dev/null | wc -l)
+                      readable=$(git -C "$wt" rev-parse --is-inside-work-tree 2>/dev/null || echo no)
+                      # Preserve anything unreadable or carrying unsaved work.
+                      if [ "$readable" != true ] ||
+                         [ "$dirty" -ne 0 ] || [ "$unpushed" -ne 0 ] || [ "$stash" -ne 0 ]; then
+                        echo "workspace-reclaim: preserving $name (dirty=$dirty unpushed=$unpushed stash=$stash)"
+                        continue
+                      fi
+                    fi
+                    echo "workspace-reclaim: reclaiming $name"
+                    rm -rf "$ws" || echo "workspace-reclaim: failed $name"
+                  done
+                fi
+                sleep "$interval"
+              done
+          resources:
+            {{- toYaml .Values.harvester.workspaceReclaim.resources | nindent 12 }}
+          volumeMounts:
+            - name: workspace
+              mountPath: /var/lib/codetether/repos
+        {{- end }}
+        - name: harvester
+          securityContext:
+            {{- toYaml .Values.harvester.securityContext | nindent 12 }}
+          image: "{{ .Values.harvester.image.repository | default .Values.image.repository }}:{{ .Values.harvester.image.tag | default .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.harvester.image.pullPolicy | default .Values.image.pullPolicy }}
+          command:
+            - /usr/local/bin/codetether
+          {{- with .Values.harvester.providerSecrets.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          args:
+            - worker
+            - --server
+            - http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}
+            - --workspaces
+            - /var/lib/codetether/repos
+            - --name
+            - {{ printf "%s-$(POD_NAME)" (.Values.harvester.agentName | default "harvester") | quote }}
+            - --auto-approve
+            - {{ .Values.harvester.autoApprove | default "all" | quote }}
+            {{- with .Values.harvester.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: PERSISTENT_WORKER_ENABLED
+              value: "true"
+            - name: PERSISTENT_WORKER_LEASE_SECONDS
+              value: {{ .Values.harvester.leaseSeconds | default 3600 | quote }}
+            - name: PERSISTENT_WORKER_MAX_TIMEOUT
+              value: {{ .Values.harvester.maxTimeout | default 604800 | quote }}
+            - name: GITHUB_PROGRESS_ENABLED
+              value: "true"
+            - name: CODETETHER_HARVESTER_ENABLED
+              value: "true"
+            - name: CODETETHER_WORKER_A2A_MDNS
+              value: "true"
+            - name: CODETETHER_WORKER_PUBLIC_URL
+              value: "http://$(POD_NAME).{{ include "a2a-server.fullname" . }}-harvester.{{ .Release.Namespace }}.svc.cluster.local:8080"
+            - name: CODETETHER_WORKER_PORT
+              value: "8080"
+            - name: CODETETHER_WORKER_A2A_PORT
+              value: "8081"
+            - name: CODETETHER_SERVER
+              value: http://{{ include "a2a-server.fullname" . }}:{{ .Values.service.port }}
+            - name: CODETETHER_WORKER_CAPABILITIES
+              value: {{ join "," (.Values.harvester.capabilities | default (list "harvester" "persistent" "persistent-workspace" "persistent_workspace" "git-clone" "repo-cache")) | quote }}
+            {{- if .Values.harvester.tokenSecret.name }}
+            - name: CODETETHER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.harvester.tokenSecret.name | quote }}
+                  key: {{ .Values.harvester.tokenSecret.key | default "CODETETHER_TOKEN" | quote }}
+            {{- end }}
+            {{- if .Values.postgresql.enabled }}
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgresql.auth.username }}:$(POSTGRES_PASSWORD)@{{ include "a2a-server.fullname" . }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgresql.auth.existingSecret | default (printf "%s-postgresql" (include "a2a-server.fullname" .)) }}
+                  key: {{ .Values.postgresql.auth.secretKeys.userPasswordKey | default "password" }}
+            {{- else if .Values.externalPostgresql.url }}
+            - name: DATABASE_URL
+              value: {{ .Values.externalPostgresql.url | quote }}
+            {{- else if .Values.externalPostgresql.existingSecret }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalPostgresql.existingSecret }}
+                  key: {{ .Values.externalPostgresql.secretKey | default "DATABASE_URL" }}
+            {{- else }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "a2a-server.fullname" . }}-db
+                  key: url
+            {{- end }}
+            {{- if .Values.harvester.homePath }}
+            - name: HOME
+              value: {{ .Values.harvester.homePath | quote }}
+            - name: XDG_CONFIG_HOME
+              value: {{ printf "%s/.config" (.Values.harvester.homePath | trimSuffix "/") | quote }}
+            - name: XDG_DATA_HOME
+              value: {{ printf "%s/.local/share" (.Values.harvester.homePath | trimSuffix "/") | quote }}
+            - name: XDG_CACHE_HOME
+              value: {{ printf "%s/.cache" (.Values.harvester.homePath | trimSuffix "/") | quote }}
+            - name: CODETETHER_AGENT_HOME
+              value: {{ printf "%s/.codetether-agent" (.Values.harvester.homePath | trimSuffix "/") | quote }}
+            - name: CODETETHER_HOME
+              value: {{ printf "%s/.codetether-agent" (.Values.harvester.homePath | trimSuffix "/") | quote }}
+            {{- end }}
+            {{- if and .Values.harvester.vault.enabled .Values.harvester.vault.tokenSecret.name }}
+            - name: VAULT_ADDR
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.harvester.vault.tokenSecret.name | quote }}
+                  key: {{ .Values.harvester.vault.tokenSecret.addressKey | default "VAULT_ADDR" | quote }}
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.harvester.vault.tokenSecret.name | quote }}
+                  key: {{ .Values.harvester.vault.tokenSecret.tokenKey | default "VAULT_TOKEN" | quote }}
+            {{- else if .Values.harvester.vault.enabled }}
+            - name: VAULT_ADDR
+              value: {{ .Values.harvester.vault.address | quote }}
+            - name: VAULT_ROLE
+              value: {{ .Values.harvester.vault.role | default "codetether-harvester" | quote }}
+            - name: VAULT_AUTH_MOUNT
+              value: {{ .Values.harvester.vault.authMount | default "kubernetes" | quote }}
+            - name: VAULT_K8S_SA_JWT_PATH
+              value: "/var/run/secrets/vault/token"
+            - name: VAULT_MOUNT
+              value: {{ .Values.harvester.vault.mount | default "secret" | quote }}
+            - name: VAULT_SECRETS_PATH
+              value: {{ .Values.harvester.vault.secretsPath | default "codetether/providers" | quote }}
+            {{- end }}
+            {{- if and .Values.harvester.vault.enabled .Values.harvester.vault.tlsSkipVerify }}
+            - name: VAULT_SKIP_VERIFY
+              value: "1"
+            {{- end }}
+            {{- if .Values.harvester.defaultProvider }}
+            - name: CODETETHER_DEFAULT_PROVIDER
+              value: {{ .Values.harvester.defaultProvider | quote }}
+            {{- end }}
+            {{- if .Values.harvester.defaultModel }}
+            - name: CODETETHER_DEFAULT_MODEL
+              value: {{ .Values.harvester.defaultModel | quote }}
+            {{- end }}
+            {{- with .Values.harvester.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: health
+              containerPort: 8080
+              protocol: TCP
+            - name: a2a
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.harvester.resources | nindent 12 }}
+          volumeMounts:
+            - name: workspace
+              mountPath: /var/lib/codetether/repos
+            {{- if .Values.harvester.homePath }}
+            - name: workspace
+              mountPath: /home/worker
+              subPath: .worker-home
+            {{- end }}
+            {{- if and .Values.harvester.vault.enabled (not .Values.harvester.vault.tokenSecret.name) }}
+            - name: vault-sa-token
+              mountPath: /var/run/secrets/vault
+              readOnly: true
+            {{- end }}
+            {{- with .Values.harvester.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      {{- if or .Values.harvester.vault.enabled .Values.harvester.extraVolumes }}
+      volumes:
+        {{- if and .Values.harvester.vault.enabled (not .Values.harvester.vault.tokenSecret.name) }}
+        - name: vault-sa-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: {{ .Values.harvester.vault.audience | default "vault" | quote }}
+                  expirationSeconds: {{ .Values.harvester.vault.tokenExpirationSeconds | default 3600 }}
+                  path: token
+        {{- end }}
+        {{- with .Values.harvester.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: workspace
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        {{- if .Values.harvester.storage.className }}
+        storageClassName: {{ .Values.harvester.storage.className | default "standard" }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.harvester.storage.size | default "50Gi" }}
+{{- end }}

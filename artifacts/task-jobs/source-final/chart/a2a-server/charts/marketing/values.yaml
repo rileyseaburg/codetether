@@ -1,0 +1,47 @@
+# Marketing site defaults
+enabled: true
+
+replicaCount: 1
+
+## Optional: set to force a rollout even when the image tag doesn't change (e.g. "latest").
+rolloutId: ""
+
+podAnnotations: {}
+
+image:
+  repository: registry.quantum-forge.net/cluster-ci-cache/codetether-marketing
+  pullPolicy: Always
+  tag: "latest"
+
+imagePullSecrets:
+  - name: registry-credentials
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "cloudflare-issuer"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  host: codetether.run
+  tls:
+    secretName: codetether-marketing-tls
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+# Keycloak OIDC configuration
+keycloak:
+  # Name of the Kubernetes secret containing KEYCLOAK_CLIENT_SECRET and NEXTAUTH_SECRET
+  secretName: ""
+
+env: {}

@@ -9,12 +9,10 @@ import {
   DialogTitle,
 } from '@headlessui/react'
 import { useWorkspaces } from '../sessions/hooks/useWorkspaces'
-import {
-  getTaskOutputV1AgentTasksTaskIdOutputGet,
-  listAllTasksV1AgentTasksGet,
-} from '@/lib/api'
+import { listAllTasksV1AgentTasksGet } from '@/lib/api'
 import { useTenantApi } from '@/hooks/useTenantApi'
-import { getApiAuth } from '@/lib/auth-token'
+import { getApiAuth, subscribeToAuthChanges } from '@/lib/auth-token'
+import { watchTaskOutput } from '@/lib/task-output-stream'
 import { readTaskQueue, taskRequestError } from '@/lib/task-queue-response'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -323,6 +321,8 @@ export default function TasksPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const { workspaces } = useWorkspaces()
   const { data: session, status: authStatus } = useSession()
+  const [authRevision, setAuthRevision] = useState(0)
+  useEffect(() => subscribeToAuthChanges(() => setAuthRevision((value) => value + 1)), [])
   const { token } = getApiAuth(session)
   const [isLoading, setIsLoading] = useState(true)
   const [hasLoaded, setHasLoaded] = useState(false)
@@ -340,7 +340,6 @@ export default function TasksPage() {
   const [taskSwarmMonitors, setTaskSwarmMonitors] = useState<
     Record<string, SwarmMonitorState>
   >({})
-  const taskStreamRef = useRef<EventSource | null>(null)
 
   // New task creation state
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -594,11 +593,6 @@ export default function TasksPage() {
   const selectedTaskAgentType = selectedTask?.agent_type ?? null
 
   useEffect(() => {
-    if (taskStreamRef.current) {
-      taskStreamRef.current.close()
-      taskStreamRef.current = null
-    }
-
     if (!selectedTaskId || !selectedTaskAgentType) {
       return
     }
@@ -613,102 +607,57 @@ export default function TasksPage() {
     }
 
     const taskId = selectedTaskId
-    updateTaskSwarmMonitor(taskId, (prev) => ({ ...prev, connected: false }))
-
-    let cancelled = false
-
-    const hydrateFromCurrentOutput = async () => {
-      try {
-        const { data, error } = await getTaskOutputV1AgentTasksTaskIdOutputGet({
-          path: { task_id: taskId },
-        })
-        if (cancelled || error || !data) return
-
-        const response = data as any
-        const outputs = Array.isArray(response?.outputs) ? response.outputs : []
-        for (const chunk of outputs) {
-          ingestTaskOutputPayload(taskId, chunk)
-        }
-      } catch (error) {
-        console.error('Failed to hydrate task output stream:', error)
-      }
-    }
-
-    hydrateFromCurrentOutput()
-
-    const isActive =
-      selectedTaskStatus === 'pending' || selectedTaskStatus === 'running'
-    if (!isActive) {
-      return () => {
-        cancelled = true
-      }
-    }
-
-    // Handle relative API URLs by resolving against window.location
-    const baseApiUrl = apiUrl.startsWith('/')
-      ? `${window.location.origin}${apiUrl}`
-      : apiUrl
-    const baseUrl = baseApiUrl.replace(/\/+$/, '')
-    const sseUrl = new URL(
-      `${baseUrl}/v1/agent/tasks/${encodeURIComponent(taskId)}/output/stream`,
-    )
-    if (session?.accessToken) {
-      sseUrl.searchParams.set('access_token', session.accessToken)
-    }
-    const eventSource = new EventSource(sseUrl.toString())
-    taskStreamRef.current = eventSource
-
-    eventSource.onopen = () => {
-      updateTaskSwarmMonitor(taskId, (prev) => ({ ...prev, connected: true }))
-    }
-
-    eventSource.onerror = () => {
-      updateTaskSwarmMonitor(taskId, (prev) => ({ ...prev, connected: false }))
-    }
-
-    eventSource.addEventListener('output', (rawEvent) => {
-      const event = rawEvent as MessageEvent<string>
-      if (!event.data) return
-      try {
-        ingestTaskOutputPayload(taskId, JSON.parse(event.data))
-      } catch {
-        ingestTaskOutputPayload(taskId, event.data)
-      }
+    // A new watcher replays from zero. Rebuild rather than double-counting telemetry.
+    updateTaskSwarmMonitor(taskId, () => ({
+      ...INITIAL_SWARM_MONITOR,
+      subtasks: {},
+      recentLines: [],
     })
-
-    eventSource.addEventListener('done', (rawEvent) => {
-      const event = rawEvent as MessageEvent<string>
-      let status = selectedTaskStatus ?? 'completed'
-      if (event.data) {
-        try {
-          const done = JSON.parse(event.data) as { status?: string }
-          if (done?.status) {
-            status = done.status
-          }
-        } catch {
-          // ignore parse errors for done payload
-        }
-      }
+    )
+    if (!token) {
       updateTaskSwarmMonitor(taskId, (prev) => ({
         ...prev,
-        connected: false,
-        status: status === 'failed' ? 'failed' : 'completed',
+        error: 'Sign in to view task output.',
       }))
-    })
-
-    return () => {
-      cancelled = true
-      eventSource.close()
-      if (taskStreamRef.current === eventSource) {
-        taskStreamRef.current = null
-      }
+      return
     }
+
+    const controller = new AbortController()
+    void watchTaskOutput({
+      apiUrl: new URL(apiUrl, window.location.origin).toString(),
+      taskId,
+      signal: controller.signal,
+      getHeaders: () => {
+        const auth = getApiAuth(session)
+        return {
+          Authorization: `Bearer ${auth.token ?? ''}`,
+          ...(auth.tenantId ? { 'X-Tenant-ID': auth.tenantId } : {}),
+        }
+      },
+      onOutput: (output) => ingestTaskOutputPayload(taskId, output),
+      onConnection: (connected) => {
+        if (!controller.signal.aborted) {
+          updateTaskSwarmMonitor(taskId, (prev) => ({ ...prev, connected }))
+        }
+      },
+      onError: (error) => updateTaskSwarmMonitor(taskId, (prev) => ({
+        ...prev, error: error ?? undefined,
+      })),
+      onDone: (status) => updateTaskSwarmMonitor(taskId, (prev) => ({
+        ...prev,
+        connected: false,
+        status: status === 'completed' ? 'completed' : 'failed',
+      })),
+    })
+    return () => controller.abort()
   }, [
     apiUrl,
+    authRevision,
     ingestTaskOutputPayload,
     selectedTaskAgentType,
     selectedTaskId,
-    selectedTaskStatus,
+    session,
+    token,
     updateTaskSwarmMonitor,
   ])
 

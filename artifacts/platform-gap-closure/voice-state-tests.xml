@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="41" time="2.504" timestamp="2026-10-05T03:29:49.819600+00:00" hostname="ubuntu-dev"><testcase classname="tests.test_voice_session_access" name="test_owner_requires_authenticated_identity[user0]" time="0.001" /><testcase classname="tests.test_voice_session_access" name="test_owner_requires_authenticated_identity[user1]" time="0.001" /><testcase classname="tests.test_voice_session_access" name="test_owner_requires_authenticated_identity[user2]" time="0.001" /><testcase classname="tests.test_voice_session_access" name="test_owner_accepts_verified_id_alias" time="0.000" /><testcase classname="tests.test_voice_session_access" name="test_unowned_or_foreign_rooms_are_not_disclosed[None]" time="0.007" /><testcase classname="tests.test_voice_session_access" name="test_unowned_or_foreign_rooms_are_not_disclosed[]" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_unowned_or_foreign_rooms_are_not_disclosed[not-json]" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_unowned_or_foreign_rooms_are_not_disclosed[[]]" time="0.002" /><testcase classname="tests.test_voice_session_access" name="test_unowned_or_foreign_rooms_are_not_disclosed[null]" time="0.004" /><testcase classname="tests.test_voice_session_access" name="test_unowned_or_foreign_rooms_are_not_disclosed[{}]" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_unowned_or_foreign_rooms_are_not_disclosed[{&quot;user_id&quot;: &quot;alice&quot;, &quot;tenant_id&quot;: &quot;tenant-a&quot;}]" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_unowned_or_foreign_rooms_are_not_disclosed[{&quot;user_id&quot;: &quot;bob&quot;, &quot;tenant_id&quot;: &quot;tenant-a&quot;, &quot;ownership_version&quot;: 1}]" time="0.004" /><testcase classname="tests.test_voice_session_access" name="test_unowned_or_foreign_rooms_are_not_disclosed[{&quot;user_id&quot;: &quot;alice&quot;, &quot;tenant_id&quot;: &quot;tenant-b&quot;, &quot;ownership_version&quot;: 1}]" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_missing_room" time="0.002" /><testcase classname="tests.test_voice_session_access" name="test_creation_binds_token_and_metadata_to_verified_owner" time="0.005" /><testcase classname="tests.test_voice_session_access" name="test_forbidden_execution_targets_do_not_create_rooms[workspace]" time="0.005" /><testcase classname="tests.test_voice_session_access" name="test_forbidden_execution_targets_do_not_create_rooms[session]" time="0.008" /><testcase classname="tests.test_voice_session_access" name="test_forbidden_execution_targets_do_not_create_rooms[worker]" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_forbidden_execution_targets_do_not_create_rooms[missing]" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_forbidden_execution_targets_do_not_create_rooms[unscoped]" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_session_target_infers_and_authorizes_workspace" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_bare_worker_target_rejected" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_partial_creation_cleans_up_room[dispatch_agent]" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_partial_creation_cleans_up_room[mint_access_token]" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_reconnect_ignores_forged_participant_identity" time="0.003" /><testcase classname="tests.test_voice_session_access" name="test_reconnect_token_failure_is_not_success" time="0.005" /><testcase classname="tests.test_voice_session_access" name="test_cross_tenant_actions_do_not_mint_or_delete[get]" time="0.004" /><testcase classname="tests.test_voice_session_access" name="test_cross_tenant_actions_do_not_mint_or_delete[state]" time="0.005" /><testcase classname="tests.test_voice_session_access" name="test_cross_tenant_actions_do_not_mint_or_delete[delete]" time="0.005" /><testcase classname="tests.test_voice_session_access" name="test_owned_room_state[0-idle]" time="0.004"><failure message="fastapi.exceptions.HTTPException: 503: Voice session state unavailable">room_name = 'room'
+user = {'roles': ['editor'], 'tenant_id': 'tenant-a', 'user_id': 'alice'}
+
+    @voice_router.get('/sessions/{room_name}/state')
+    async def get_voice_session_state(
+        room_name: str,
+        user: Dict[str, Any] = Depends(require_permission('voice:read')),
+    ):
+        """Get the current agent state for a voice session.
+    
+        Returns the agent's current state: idle, listening, thinking, speaking, or error.
+        This endpoint is used by voice clients to update their UI with the agent's status.
+    
+        State comes from the agent participant's LiveKit attributes. A worker
+        without state telemetry is 'unknown'; service outages return HTTP 503.
+        """
+        bridge = get_livekit_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail='LiveKit not available')
+    
+        try:
+            await owned_voice_room(bridge, room_name, user)
+&gt;           return await voice_agent_state(bridge, room_name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+a2a_server/monitor_api.py:9017: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+bridge = &lt;Mock id='136690190067200'&gt;, room_name = 'room'
+
+    async def voice_agent_state(bridge, room_name: str) -&gt; str:
+        """Read worker telemetry, never infer speech from room occupancy.
+    
+        Only LiveKit's server-assigned AGENT participant kind is authoritative;
+        browser identities and user-editable metadata/attributes are not.
+        """
+&gt;       participants = await bridge.list_participants(room_name, strict=True)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: object Mock can't be used in 'await' expression
+
+a2a_server/voice_session_access.py:54: TypeError
+
+The above exception was the direct cause of the following exception:
+
+bridge = &lt;Mock id='136690190067200'&gt;, participants = 0, expected = 'idle'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'participants,expected', [(0, 'idle'), (1, 'listening'), (2, 'speaking')]
+    )
+    async def test_owned_room_state(bridge, participants, expected):
+        bridge.get_room_info.return_value = {
+            'metadata': json.dumps(
+                {**voice_owner(OWNER), 'session_id': 'session-a'}
+            ),
+            'num_participants': participants,
+        }
+&gt;       assert await monitor_api.get_voice_session_state('room', OWNER) == expected
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_voice_session_access.py:244: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+room_name = 'room'
+user = {'roles': ['editor'], 'tenant_id': 'tenant-a', 'user_id': 'alice'}
+
+    @voice_router.get('/sessions/{room_name}/state')
+    async def get_voice_session_state(
+        room_name: str,
+        user: Dict[str, Any] = Depends(require_permission('voice:read')),
+    ):
+        """Get the current agent state for a voice session.
+    
+        Returns the agent's current state: idle, listening, thinking, speaking, or error.
+        This endpoint is used by voice clients to update their UI with the agent's status.
+    
+        State comes from the agent participant's LiveKit attributes. A worker
+        without state telemetry is 'unknown'; service outages return HTTP 503.
+        """
+        bridge = get_livekit_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail='LiveKit not available')
+    
+        try:
+            await owned_voice_room(bridge, room_name, user)
+            return await voice_agent_state(bridge, room_name)
+    
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f'Failed to get session state for {room_name}: {e}')
+&gt;           raise HTTPException(
+                status_code=503,
+                detail='Voice session state unavailable',
+            ) from e
+E           fastapi.exceptions.HTTPException: 503: Voice session state unavailable
+
+a2a_server/monitor_api.py:9023: HTTPException</failure></testcase><testcase classname="tests.test_voice_session_access" name="test_owned_room_state[1-listening]" time="0.004"><failure message="fastapi.exceptions.HTTPException: 503: Voice session state unavailable">room_name = 'room'
+user = {'roles': ['editor'], 'tenant_id': 'tenant-a', 'user_id': 'alice'}
+
+    @voice_router.get('/sessions/{room_name}/state')
+    async def get_voice_session_state(
+        room_name: str,
+        user: Dict[str, Any] = Depends(require_permission('voice:read')),
+    ):
+        """Get the current agent state for a voice session.
+    
+        Returns the agent's current state: idle, listening, thinking, speaking, or error.
+        This endpoint is used by voice clients to update their UI with the agent's status.
+    
+        State comes from the agent participant's LiveKit attributes. A worker
+        without state telemetry is 'unknown'; service outages return HTTP 503.
+        """
+        bridge = get_livekit_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail='LiveKit not available')
+    
+        try:
+            await owned_voice_room(bridge, room_name, user)
+&gt;           return await voice_agent_state(bridge, room_name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+a2a_server/monitor_api.py:9017: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+bridge = &lt;Mock id='136690180316992'&gt;, room_name = 'room'
+
+    async def voice_agent_state(bridge, room_name: str) -&gt; str:
+        """Read worker telemetry, never infer speech from room occupancy.
+    
+        Only LiveKit's server-assigned AGENT participant kind is authoritative;
+        browser identities and user-editable metadata/attributes are not.
+        """
+&gt;       participants = await bridge.list_participants(room_name, strict=True)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: object Mock can't be used in 'await' expression
+
+a2a_server/voice_session_access.py:54: TypeError
+
+The above exception was the direct cause of the following exception:
+
+bridge = &lt;Mock id='136690180316992'&gt;, participants = 1, expected = 'listening'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'participants,expected', [(0, 'idle'), (1, 'listening'), (2, 'speaking')]
+    )
+    async def test_owned_room_state(bridge, participants, expected):
+        bridge.get_room_info.return_value = {
+            'metadata': json.dumps(
+                {**voice_owner(OWNER), 'session_id': 'session-a'}
+            ),
+            'num_participants': participants,
+        }
+&gt;       assert await monitor_api.get_voice_session_state('room', OWNER) == expected
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_voice_session_access.py:244: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+room_name = 'room'
+user = {'roles': ['editor'], 'tenant_id': 'tenant-a', 'user_id': 'alice'}
+
+    @voice_router.get('/sessions/{room_name}/state')
+    async def get_voice_session_state(
+        room_name: str,
+        user: Dict[str, Any] = Depends(require_permission('voice:read')),
+    ):
+        """Get the current agent state for a voice session.
+    
+        Returns the agent's current state: idle, listening, thinking, speaking, or error.
+        This endpoint is used by voice clients to update their UI with the agent's status.
+    
+        State comes from the agent participant's LiveKit attributes. A worker
+        without state telemetry is 'unknown'; service outages return HTTP 503.
+        """
+        bridge = get_livekit_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail='LiveKit not available')
+    
+        try:
+            await owned_voice_room(bridge, room_name, user)
+            return await voice_agent_state(bridge, room_name)
+    
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f'Failed to get session state for {room_name}: {e}')
+&gt;           raise HTTPException(
+                status_code=503,
+                detail='Voice session state unavailable',
+            ) from e
+E           fastapi.exceptions.HTTPException: 503: Voice session state unavailable
+
+a2a_server/monitor_api.py:9023: HTTPException</failure></testcase><testcase classname="tests.test_voice_session_access" name="test_owned_room_state[2-speaking]" time="0.003"><failure message="fastapi.exceptions.HTTPException: 503: Voice session state unavailable">room_name = 'room'
+user = {'roles': ['editor'], 'tenant_id': 'tenant-a', 'user_id': 'alice'}
+
+    @voice_router.get('/sessions/{room_name}/state')
+    async def get_voice_session_state(
+        room_name: str,
+        user: Dict[str, Any] = Depends(require_permission('voice:read')),
+    ):
+        """Get the current agent state for a voice session.
+    
+        Returns the agent's current state: idle, listening, thinking, speaking, or error.
+        This endpoint is used by voice clients to update their UI with the agent's status.
+    
+        State comes from the agent participant's LiveKit attributes. A worker
+        without state telemetry is 'unknown'; service outages return HTTP 503.
+        """
+        bridge = get_livekit_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail='LiveKit not available')
+    
+        try:
+            await owned_voice_room(bridge, room_name, user)
+&gt;           return await voice_agent_state(bridge, room_name)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+a2a_server/monitor_api.py:9017: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+bridge = &lt;Mock id='136690180414576'&gt;, room_name = 'room'
+
+    async def voice_agent_state(bridge, room_name: str) -&gt; str:
+        """Read worker telemetry, never infer speech from room occupancy.
+    
+        Only LiveKit's server-assigned AGENT participant kind is authoritative;
+        browser identities and user-editable metadata/attributes are not.
+        """
+&gt;       participants = await bridge.list_participants(room_name, strict=True)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: object Mock can't be used in 'await' expression
+
+a2a_server/voice_session_access.py:54: TypeError
+
+The above exception was the direct cause of the following exception:
+
+bridge = &lt;Mock id='136690180414576'&gt;, participants = 2, expected = 'speaking'
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        'participants,expected', [(0, 'idle'), (1, 'listening'), (2, 'speaking')]
+    )
+    async def test_owned_room_state(bridge, participants, expected):
+        bridge.get_room_info.return_value = {
+            'metadata': json.dumps(
+                {**voice_owner(OWNER), 'session_id': 'session-a'}
+            ),
+            'num_participants': participants,
+        }
+&gt;       assert await monitor_api.get_voice_session_state('room', OWNER) == expected
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_voice_session_access.py:244: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+room_name = 'room'
+user = {'roles': ['editor'], 'tenant_id': 'tenant-a', 'user_id': 'alice'}
+
+    @voice_router.get('/sessions/{room_name}/state')
+    async def get_voice_session_state(
+        room_name: str,
+        user: Dict[str, Any] = Depends(require_permission('voice:read')),
+    ):
+        """Get the current agent state for a voice session.
+    
+        Returns the agent's current state: idle, listening, thinking, speaking, or error.
+        This endpoint is used by voice clients to update their UI with the agent's status.
+    
+        State comes from the agent participant's LiveKit attributes. A worker
+        without state telemetry is 'unknown'; service outages return HTTP 503.
+        """
+        bridge = get_livekit_bridge()
+        if not bridge:
+            raise HTTPException(status_code=503, detail='LiveKit not available')
+    
+        try:
+            await owned_voice_room(bridge, room_name, user)
+            return await voice_agent_state(bridge, room_name)
+    
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f'Failed to get session state for {room_name}: {e}')
+&gt;           raise HTTPException(
+                status_code=503,
+                detail='Voice session state unavailable',
+            ) from e
+E           fastapi.exceptions.HTTPException: 503: Voice session state unavailable
+
+a2a_server/monitor_api.py:9023: HTTPException</failure></testcase><testcase classname="tests.test_voice_session_access" name="test_state_service_failure_is_unavailable_not_idle" time="0.002" /><testcase classname="tests.test_voice_session_access" name="test_http_routes_require_authentication[POST-/v1/voice/sessions]" time="0.009" /><testcase classname="tests.test_voice_session_access" name="test_http_routes_require_authentication[GET-/v1/voice/sessions/room]" time="0.007" /><testcase classname="tests.test_voice_session_access" name="test_http_routes_require_authentication[GET-/v1/voice/sessions/room/state]" time="0.006" /><testcase classname="tests.test_voice_session_access" name="test_http_routes_require_authentication[DELETE-/v1/voice/sessions/room]" time="0.007" /><testcase classname="tests.test_voice_session_access" name="test_room_service_outage_is_not_missing_room[get]" time="0.002" /><testcase classname="tests.test_voice_session_access" name="test_room_service_outage_is_not_missing_room[delete]" time="0.002" /><testcase classname="tests.test_voice_session_access" name="test_room_service_outage_is_not_missing_room[state]" time="0.004" /><testcase classname="tests.test_voice_session_access" name="test_bridge_strict_lookup_distinguishes_outage_from_absence" time="0.003" /></testsuite></testsuites>

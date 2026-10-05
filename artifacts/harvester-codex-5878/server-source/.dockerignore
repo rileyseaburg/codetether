@@ -1,0 +1,121 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+# Keep markdown/reST files in the build context because the unified Dockerfile
+# builds the docs image from content in codetether-docs/.
+
+# Test files
+tests/
+cypress/
+*.test.py
+pytest_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Development files
+.editorconfig
+.prettierrc
+.ruff.toml
+config/lychee.toml
+requirements-docs.txt
+requirements-test.txt
+
+# Node.js (for docs)
+node_modules/
+package*.json
+cypress.config.js
+
+# CI/CD
+.github/
+.mkdocs/
+
+# Example files
+examples/
+specification/
+types/
+
+# Helm chart (we don't want it in the image)
+chart/
+
+# NOTE: Do not exclude marketing-site/, opencode/, codetether-docs/, or ui/
+# when building with docker/Dockerfile.unified. For the standard Dockerfile (API server
+# only), these large dirs are excluded below for fast builds.
+
+# Large directories not needed by API server Dockerfile
+opencode/
+marketing-site/
+codetether/
+codetether-docs/
+codetether-agent/
+models.dev/
+ui/
+agents/
+assets/
+docs/
+scripts/
+artifacts/
+integrations/
+untracked-backup-*/
+.codetether-agent/
+codetether-site/
+MARKETING_SITE.md
+.codetether-todos.json
+
+# Helm packages
+*.tgz
+
+# Data directory (runtime data)
+data/
+helm/
+

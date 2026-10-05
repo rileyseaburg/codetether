@@ -105,6 +105,7 @@ struct Codebase: Identifiable, Codable, Hashable {
     var sessionId: String?
     var pendingTasks: Int
     var workingTasks: Int
+    var workerId: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, path, status, description
@@ -113,6 +114,7 @@ struct Codebase: Identifiable, Codable, Hashable {
         case sessionId = "session_id"
         case pendingTasks = "pending_tasks"
         case workingTasks = "working_tasks"
+        case workerId = "worker_id"
     }
 
     init(from decoder: Decoder) throws {
@@ -127,9 +129,10 @@ struct Codebase: Identifiable, Codable, Hashable {
         sessionId = try container.decodeIfPresent(String.self, forKey: .sessionId)
         pendingTasks = try container.decodeIfPresent(Int.self, forKey: .pendingTasks) ?? 0
         workingTasks = try container.decodeIfPresent(Int.self, forKey: .workingTasks) ?? 0
+        workerId = try container.decodeIfPresent(String.self, forKey: .workerId)
     }
 
-    init(id: String, name: String, path: String, status: AgentStatus = .idle, description: String? = nil) {
+    init(id: String, name: String, path: String, status: AgentStatus = .idle, description: String? = nil, workerId: String? = nil) {
         self.id = id
         self.name = name
         self.path = path
@@ -140,6 +143,7 @@ struct Codebase: Identifiable, Codable, Hashable {
         self.sessionId = nil
         self.pendingTasks = 0
         self.workingTasks = 0
+        self.workerId = workerId
     }
 }
 
@@ -210,6 +214,15 @@ enum MessageType: String, Codable, CaseIterable {
 // MARK: - Task Models
 
 struct AgentTask: Identifiable, Codable, Hashable {
+    private struct SessionMetadata: Decodable {
+        let sessionId: String?
+        let workerSessionId: String?
+        enum CodingKeys: String, CodingKey {
+            case sessionId = "session_id"
+            case workerSessionId = "worker_session_id"
+        }
+    }
+    private enum MetadataKeys: String, CodingKey { case metadata }
     let id: String
     let title: String
     var description: String
@@ -218,26 +231,45 @@ struct AgentTask: Identifiable, Codable, Hashable {
     var codebaseId: String?
     var context: String?
     var result: String?
+    var sessionId: String?
+    var error: String?
     var createdAt: Date
     var updatedAt: Date?
 
     enum CodingKeys: String, CodingKey {
-        case id, title, description, status, priority, context, result
-        case codebaseId = "codebase_id"
+        case id, title, status, priority, context, result
+        case description = "prompt"
+        case codebaseId = "workspace_id"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case sessionId = "session_id"
+        case error
+    }
+
+    private enum LegacyCodingKeys: String, CodingKey {
+        case description
+        case codebaseId = "codebase_id"
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        let legacy = try decoder.container(keyedBy: LegacyCodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
         title = try container.decodeIfPresent(String.self, forKey: .title) ?? "Untitled"
-        description = try container.decodeIfPresent(String.self, forKey: .description) ?? ""
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+            ?? legacy.decodeIfPresent(String.self, forKey: .description) ?? ""
         status = try container.decodeIfPresent(TaskStatus.self, forKey: .status) ?? .pending
-        priority = try container.decodeIfPresent(TaskPriority.self, forKey: .priority) ?? .normal
+        let rawPriority = try container.decodeIfPresent(Int.self, forKey: .priority) ?? 0
+        priority = TaskPriority(rawValue: rawPriority) ?? .normal
         codebaseId = try container.decodeIfPresent(String.self, forKey: .codebaseId)
+            ?? legacy.decodeIfPresent(String.self, forKey: .codebaseId)
         context = try container.decodeIfPresent(String.self, forKey: .context)
         result = try container.decodeIfPresent(String.self, forKey: .result)
+        let metadata = try decoder.container(keyedBy: MetadataKeys.self).decodeIfPresent(SessionMetadata.self, forKey: .metadata)
+        sessionId = try metadata?.workerSessionId
+            ?? container.decodeIfPresent(String.self, forKey: .sessionId)
+            ?? metadata?.sessionId
+        error = try container.decodeIfPresent(String.self, forKey: .error)
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
     }

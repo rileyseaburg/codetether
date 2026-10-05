@@ -1,0 +1,370 @@
+---
+title: Security Features
+description: Mandatory auth, audit trail, plugin sandboxing, and K8s self-deployment in CodeTether Agent
+---
+
+# Security Features
+
+!!! info "v1.1.0"
+    These features ship with CodeTether Agent v1.1.0. They are implemented in Rust and cannot be disabled.
+
+CodeTether treats security as non-optional infrastructure. Six security controls are built into the platform:
+
+| Control | Module | Description |
+|---------|--------|-------------|
+| **Mandatory Auth** | `src/server/auth.rs` | Bearer token on every endpoint. Cannot be disabled. |
+| **OPA Policy Engine** | `src/server/policy.rs`, `a2a_server/policy.py` | Centralized RBAC + scope + tenant authorization via OPA. |
+| **Database RLS** | `a2a_server/database.py`, `migrations/024_okr_rls.sql` | PostgreSQL Row-Level Security for tenant isolation at the database layer. |
+| **Audit Trail** | `src/audit/mod.rs` | Append-only log of every action. Queryable. |
+| **Plugin Sandboxing** | `src/tool/sandbox.rs` | Ed25519-signed manifests, resource limits. |
+| **K8s Self-Deployment** | `src/k8s/mod.rs` | Agent manages its own pods, scales, self-heals. |
+
+---
+
+## Mandatory Authentication
+
+Every HTTP endpoint requires a Bearer token — except `/health`. This is enforced by a tower middleware layer that **cannot be conditionally removed**.
+
+### How It Works
+
+1. On startup, the server checks for `CODETETHER_AUTH_TOKEN` environment variable
+2. If not set, it auto-generates an HMAC-SHA256 token from `hostname + timestamp`
+3. The generated token is logged once at startup so operators can retrieve it
+4. All requests without a valid `Authorization: Bearer <token>` header receive a `401` JSON error
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CODETETHER_AUTH_TOKEN` | (auto-generated) | Set a fixed Bearer token for the API |
+
+### Example
+
+```bash
+# With explicit token
+export CODETETHER_AUTH_TOKEN="my-secure-token"
+codetether serve --port 4096
+
+# Authenticate requests
+curl -H "Authorization: Bearer my-secure-token" http://localhost:4096/v1/cognition/status
+```
+
+### Exempt Endpoints
+
+Only `/health` is accessible without authentication, for use with Kubernetes liveness/readiness probes.
+
+---
+
+## OPA Policy Engine (Authorization)
+
+Beyond authentication, CodeTether enforces fine-grained authorization using [Open Policy Agent (OPA)](https://www.openpolicyagent.org/). Authorization policies are written in the Rego policy language and evaluated either by an OPA sidecar (production) or in-process (development).
+
+### What It Enforces
+
+| Layer | Description |
+|-------|-------------|
+| **RBAC** | 5 hierarchical roles (admin → operator → editor → viewer) |
+| **API Key Scopes** | Keys restricted to their granted `resource:action` scopes |
+| **Tenant Isolation** | Cross-tenant access blocked (admin bypass available) |
+| **Resource Ownership** | Write/delete operations verify resource ownership |
+
+### Middleware Coverage
+
+The policy middleware maps every HTTP path + method to a required permission. ~120 previously-unprotected endpoints are now secured:
+
+```
+GET  /v1/agent/tasks          → tasks:read
+POST /v1/agent/codebases      → codebases:write
+POST /v1/monitor/intervene    → monitor:write
+POST /mcp/v1/rpc              → mcp:write
+GET  /v1/analytics/funnel      → analytics:admin
+```
+
+### Configuration
+
+```bash
+# Development: evaluate policies in-process
+export OPA_LOCAL_MODE=true
+
+# Production: OPA sidecar (auto-configured by Helm chart)
+export OPA_URL=http://localhost:8181
+```
+
+See [Policy Engine (OPA)](../auth/policy-engine.md) for full documentation including role matrix, API key scopes, and adding new permissions.
+
+---
+
+## Database Row-Level Security (RLS)
+
+PostgreSQL Row-Level Security provides **database-level tenant isolation** as a defense-in-depth layer. Even if application code has a bug that omits a `WHERE tenant_id = $1` clause, the database itself will never return another tenant's data.
+
+### How It Works
+
+1. **Session variable**: Before executing queries, the Python API sets a PostgreSQL session variable:
+   ```sql
+   SET app.current_tenant_id = 'tenant-abc-123';
+   ```
+
+2. **Helper function**: A `SECURITY DEFINER` function reads the session variable:
+   ```sql
+   CREATE FUNCTION get_current_tenant_id() RETURNS TEXT AS $$
+       SELECT nullif(current_setting('app.current_tenant_id', true), '');
+   $$ LANGUAGE sql STABLE SECURITY DEFINER;
+   ```
+
+3. **RLS policies** on each table enforce that rows are only visible when `tenant_id = get_current_tenant_id()`.
+
+4. **Child tables** without their own `tenant_id` column (e.g., `okr_key_results`, `okr_runs`) inherit isolation through FK-based subquery policies that check the parent table.
+
+### Using `tenant_scope()` in API Code
+
+The `tenant_scope()` context manager in `a2a_server/database.py` handles the full lifecycle:
+
+```python
+from .database import tenant_scope
+
+@router.get("/v1/okr")
+async def list_okrs(user: UserSession = Depends(require_auth)):
+    tenant_id = getattr(user, "tenant_id", None)
+    async with tenant_scope(tenant_id) as conn:
+        rows = await conn.fetch("SELECT * FROM okrs ORDER BY created_at DESC")
+    return [dict(r) for r in rows]
+```
+
+This acquires a connection, sets the session variable, yields the connection, then resets the variable and releases the connection — even if an exception occurs.
+
+### Tables with RLS Enabled
+
+| Table | Policy Pattern | Migration |
+|-------|---------------|-----------|
+| `workers` | Direct `tenant_id` match | `enable_rls.sql` |
+| `workspaces` | Direct `tenant_id` match | `enable_rls.sql` |
+| `tasks` | Direct `tenant_id` match | `enable_rls.sql` |
+| `sessions` | Direct `tenant_id` match | `enable_rls.sql` |
+| `task_runs` | Direct `tenant_id` match | `010_task_runs_tenant_isolation.sql` |
+| `okrs` | Direct `tenant_id` match | `024_okr_rls.sql` |
+| `okr_key_results` | FK subquery via `okrs` | `024_okr_rls.sql` |
+| `okr_runs` | FK subquery via `okrs` | `024_okr_rls.sql` |
+| `cronjobs` | Direct `tenant_id` match | `013_cronjobs.sql` |
+| `cronjob_runs` | Direct `tenant_id` match | `013_cronjobs.sql` |
+| `analytics_events` | Direct `tenant_id` match | `012_analytics_events.sql` |
+| `analytics_identity_map` | Direct `tenant_id` match | `012_analytics_events.sql` |
+
+### Admin Bypass
+
+The `a2a_admin` PostgreSQL role bypasses all RLS policies for maintenance and migration operations.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RLS_ENABLED` | `true` | Set to `false` to disable RLS context setting in the API. Policies remain in PostgreSQL but `get_current_tenant_id()` returns NULL, allowing unrestricted access. |
+
+### Checking RLS Status
+
+```sql
+-- View which tables have RLS enabled
+SELECT * FROM rls_status;
+
+-- List all policies on a specific table
+SELECT policyname, cmd, qual FROM pg_policies WHERE tablename = 'okrs';
+```
+
+---
+
+## System-Wide Audit Trail
+
+Every API call, tool execution, and session event is recorded in an append-only audit log.
+
+### Architecture
+
+- **Backend**: JSON Lines file (one JSON object per line, append-only)
+- **Singleton**: Global `AUDIT_LOG` initialized once at server startup via `OnceCell`
+- **Schema**: Each entry contains `id`, `timestamp`, `actor`, `action`, `resource`, `outcome`, `metadata`, `ip`, `session_id`
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/v1/audit/events` | List recent audit events |
+| `POST` | `/v1/audit/query` | Query with filters |
+
+### Query Filters
+
+```json
+{
+  "actor": "user-123",
+  "action": "tool.execute",
+  "resource": "bash",
+  "from": "2026-02-10T00:00:00Z",
+  "to": "2026-02-10T23:59:59Z"
+}
+```
+
+### Example
+
+```bash
+# List recent events
+curl -H "Authorization: Bearer $TOKEN" http://localhost:4096/v1/audit/events
+
+# Query by actor
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"actor": "system"}' \
+  http://localhost:4096/v1/audit/query
+```
+
+---
+
+## Plugin Sandboxing & Code Signing
+
+Tools (plugins) are verified before execution using cryptographic signing and resource sandboxing.
+
+### Manifest System
+
+Every tool has a `ToolManifest` containing:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tool_id` | `String` | Unique tool identifier |
+| `version` | `String` | Semver version |
+| `sha256_hash` | `String` | SHA-256 hash of the tool's content |
+| `signature` | `String` | Ed25519 signature over the manifest |
+| `allowed_resources` | `Vec<String>` | Filesystem paths/network hosts the tool may access |
+| `max_memory_mb` | `u64` | Maximum memory allocation |
+| `max_cpu_seconds` | `u64` | Maximum CPU time |
+| `network_allowed` | `bool` | Whether network access is permitted |
+
+### Verification Flow
+
+```mermaid
+flowchart LR
+    A[Tool Execution Request] --> B{Manifest exists?}
+    B -->|No| C[Reject]
+    B -->|Yes| D{Ed25519 signature valid?}
+    D -->|No| C
+    D -->|Yes| E{SHA-256 hash matches?}
+    E -->|No| C
+    E -->|Yes| F{Resource limits OK?}
+    F -->|No| C
+    F -->|Yes| G[Execute in sandbox]
+```
+
+### Sandbox Policies
+
+| Policy | Description |
+|--------|-------------|
+| **Default** | Standard resource limits, network allowed |
+| **Restricted** | Minimal resources, no network, limited filesystem |
+| **Custom** | User-defined limits per tool |
+
+### Signing a Tool Manifest
+
+```bash
+# Generate an Ed25519 keypair (one-time)
+# The agent manages keys internally
+
+# Register a signed manifest
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool_id": "my_tool",
+    "version": "1.0.0",
+    "sha256_hash": "abc123...",
+    "signature": "base64-ed25519-sig...",
+    "max_memory_mb": 256,
+    "max_cpu_seconds": 30,
+    "network_allowed": false
+  }' \
+  http://localhost:4096/v1/tools/manifests
+```
+
+---
+
+## Kubernetes Self-Deployment
+
+When running inside a Kubernetes cluster, the agent manages its own lifecycle — creating deployments, scaling replicas, health-checking pods, and self-healing.
+
+### Cluster Detection
+
+The agent checks for `KUBERNETES_SERVICE_HOST` on startup. If present, it initializes the `K8sManager` with in-cluster configuration from the service account.
+
+### Capabilities
+
+| Operation | Method | Description |
+|-----------|--------|-------------|
+| **Detect cluster** | `detect_cluster()` | Check if running inside K8s |
+| **Self info** | `self_info()` | Read pod metadata from Downward API |
+| **Ensure deployment** | `ensure_deployment()` | Create or update the agent's Deployment |
+| **Scale** | `scale(replicas)` | Adjust replica count |
+| **Health check** | `health_check()` | Rolling restart of unhealthy pods |
+| **Self-heal** | `self_heal()` | Comprehensive self-management |
+| **Reconcile loop** | `reconcile_loop()` | Background task every 30 seconds |
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/v1/k8s/status` | Current cluster and pod status |
+| `POST` | `/v1/k8s/scale` | Scale deployment replicas |
+| `POST` | `/v1/k8s/health` | Trigger health check |
+| `POST` | `/v1/k8s/reconcile` | Trigger reconciliation |
+
+### Example
+
+```bash
+# Check cluster status
+curl -H "Authorization: Bearer $TOKEN" http://localhost:4096/v1/k8s/status
+
+# Scale to 3 replicas
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"replicas": 3}' \
+  http://localhost:4096/v1/k8s/scale
+
+# Trigger health check
+curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:4096/v1/k8s/health
+```
+
+### Reconciliation Loop
+
+When enabled, the agent runs a background reconciliation every 30 seconds:
+
+1. Checks all pods in the deployment
+2. Identifies unhealthy or crashed pods
+3. Triggers rolling restarts for unhealthy pods
+4. Logs all actions to the audit trail
+
+---
+
+## Security Model Summary
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   codetether-agent                      │
+│                                                         │
+│  ┌──────────────┐  Every request passes through:        │
+│  │ Auth Layer   │  Bearer token validation (mandatory)  │
+│  └──────┬───────┘                                       │
+│         │                                               │
+│  ┌──────▼───────┐  RBAC + scopes + tenant isolation:    │
+│  │ Policy (OPA) │  Rego policies, 5 roles, API key scopes│
+│  └──────┬───────┘                                       │
+│         │                                               │
+│  ┌──────▼───────┐  Every action recorded:               │
+│  │ Audit Layer  │  Append-only JSON Lines log           │
+│  └──────┬───────┘                                       │
+│         │                                               │
+│  ┌──────▼───────┐  Database-level tenant isolation:     │
+│  │ Database RLS │  PostgreSQL row-level security        │
+│  └──────┬───────┘                                       │
+│         │                                               │
+│  ┌──────▼───────┐  Tools verified before execution:     │
+│  │ Sandbox      │  Ed25519 signed, SHA-256 hashed       │
+│  └──────┬───────┘                                       │
+│         │                                               │
+│  ┌──────▼───────┐  Infrastructure self-manages:         │
+│  │ K8s Manager  │  Deploy, scale, health-check, heal    │
+│  └──────────────┘                                       │
+└─────────────────────────────────────────────────────────┘
+```

@@ -1,0 +1,3488 @@
+{
+  "counts": [
+    {
+      "status": "cancelled",
+      "stage": "review_chunk",
+      "waiting": "job_retention_capacity_exhausted",
+      "count": 450
+    },
+    {
+      "status": "cancelled",
+      "stage": "review_chunk",
+      "waiting": null,
+      "count": 119
+    },
+    {
+      "status": "completed",
+      "stage": "code",
+      "waiting": "job_retention_capacity_exhausted",
+      "count": 18
+    },
+    {
+      "status": "completed",
+      "stage": "code",
+      "waiting": null,
+      "count": 16
+    },
+    {
+      "status": "completed",
+      "stage": "prepare",
+      "waiting": "job_retention_capacity_exhausted",
+      "count": 39
+    },
+    {
+      "status": "completed",
+      "stage": "prepare",
+      "waiting": null,
+      "count": 16
+    },
+    {
+      "status": "completed",
+      "stage": "review_chunk",
+      "waiting": "job_retention_capacity_exhausted",
+      "count": 53
+    },
+    {
+      "status": "completed",
+      "stage": "review_chunk",
+      "waiting": null,
+      "count": 80
+    },
+    {
+      "status": "completed",
+      "stage": "review_recovery",
+      "waiting": "job_retention_capacity_exhausted",
+      "count": 3
+    },
+    {
+      "status": "completed",
+      "stage": "review_recovery",
+      "waiting": null,
+      "count": 6
+    },
+    {
+      "status": "failed",
+      "stage": "code",
+      "waiting": null,
+      "count": 17
+    },
+    {
+      "status": "failed",
+      "stage": "prepare",
+      "waiting": "job_retention_capacity_exhausted",
+      "count": 1
+    },
+    {
+      "status": "failed",
+      "stage": "review_chunk",
+      "waiting": "job_retention_capacity_exhausted",
+      "count": 2
+    },
+    {
+      "status": "pending",
+      "stage": "code",
+      "waiting": "job_retention_capacity_exhausted",
+      "count": 4
+    },
+    {
+      "status": "pending",
+      "stage": "prepare",
+      "waiting": "job_retention_capacity_exhausted",
+      "count": 25
+    },
+    {
+      "status": "pending",
+      "stage": "review_chunk",
+      "waiting": "job_retention_capacity_exhausted",
+      "count": 23
+    },
+    {
+      "status": "pending",
+      "stage": "review_recovery",
+      "waiting": "job_retention_capacity_exhausted",
+      "count": 4
+    }
+  ],
+  "tasks": [
+    {
+      "id": "db9a4575-7e48-4d90-b403-2749fd907adf",
+      "status": "pending",
+      "title": "Resolve review feedback for PR #6003",
+      "workspace_id": "503231622b09aafa",
+      "created_at": "2026-09-11 19:17:18.292486+00:00",
+      "updated_at": "2026-09-11 19:17:18.415955+00:00",
+      "started_at": null,
+      "completed_at": null,
+      "error": null,
+      "result_size": null,
+      "metadata": {
+        "workflow_stage": "review_recovery",
+        "issue_number": 5853,
+        "forgejo_agent_task_id": null,
+        "pr_number": 6003,
+        "branch_name": "codetether/issue-5853",
+        "pr_head_sha": "a5379e321d4707acc973afa2e65a31c919af8e52",
+        "job_name": "ct-task-a9877362b4fe5bf6d628455f6e6b30c0",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": null,
+        "job_terminal_evidence": null
+      }
+    },
+    {
+      "id": "18d722c1-0ff1-4a64-89f8-d3d6500d7e6c",
+      "status": "completed",
+      "title": "Work Forgejo task #5853",
+      "workspace_id": "503231622b09aafa",
+      "created_at": "2026-09-11 17:14:18.650224+00:00",
+      "updated_at": "2026-09-11 18:57:21.550538+00:00",
+      "started_at": "2026-09-11 18:52:03.721992+00:00",
+      "completed_at": "2026-09-11 18:57:21.297625+00:00",
+      "error": null,
+      "result_size": 2616,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 5853,
+        "forgejo_agent_task_id": 534,
+        "pr_number": null,
+        "branch_name": "codetether/issue-5853",
+        "pr_head_sha": "",
+        "job_name": "ct-task-aca5a8e60c493d77b0a1d5cad4b9ea9e",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6003",
+          "number": 6003
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-aca5a8e60c493d77b0a1d5cad4b9ea9e-6ptdx",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"9cffd4927cc4fba99b4e3b92e1c2f18b9592c272\", \"workspace\": \"503231622b09aafa\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-aca5a8e60c493d77b0a1d5cad4b9ea9e-6ptdx",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"a5379e321d4707acc973afa2e65a31c919af8e52\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "9d28b139-9b0f-4f8c-949c-55d3648ae2dd",
+      "status": "completed",
+      "title": "Prepare Forgejo task #5853",
+      "workspace_id": "503231622b09aafa",
+      "created_at": "2026-09-11 15:44:10.556977+00:00",
+      "updated_at": "2026-09-11 17:14:03.656310+00:00",
+      "started_at": "2026-09-11 17:01:35.292068+00:00",
+      "completed_at": "2026-09-11 17:14:03.434290+00:00",
+      "error": null,
+      "result_size": 77,
+      "metadata": {
+        "workflow_stage": "prepare",
+        "issue_number": 5853,
+        "forgejo_agent_task_id": 534,
+        "pr_number": null,
+        "branch_name": "codetether/issue-5853",
+        "pr_head_sha": "",
+        "job_name": "ct-task-38d9c5637d22fdb7515e8b4c3bf8a110",
+        "job_wait_reason": null,
+        "job_cleanup_scheduled": true,
+        "forgejo_published_pr": null,
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-38d9c5637d22fdb7515e8b4c3bf8a110-vvwp5",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": true, \"diagnostic\": \"task_completed\", \"head_sha\": \"11aaa81bca18eae2b197522984528c34a3420058\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": false, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "e6a8b1fe-3777-4b13-adfb-886f3ad2d966",
+      "status": "pending",
+      "title": "Work Forgejo task #6032",
+      "workspace_id": "c0dc2e0b4c6260f6",
+      "created_at": "2026-09-12 21:28:38.172555+00:00",
+      "updated_at": "2026-09-12 21:28:38.363292+00:00",
+      "started_at": null,
+      "completed_at": null,
+      "error": null,
+      "result_size": null,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6032,
+        "forgejo_agent_task_id": 557,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6032",
+        "pr_head_sha": "",
+        "job_name": "ct-task-22c89ec543d94e7e6872b9549c2995f5",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": null,
+        "job_terminal_evidence": null
+      }
+    },
+    {
+      "id": "420aa345-9af2-4fdb-8027-f95a79a3d0c3",
+      "status": "pending",
+      "title": "Work Forgejo task #6030",
+      "workspace_id": "cec2af0058c31eb3",
+      "created_at": "2026-09-12 21:28:27.791927+00:00",
+      "updated_at": "2026-09-12 21:28:27.923954+00:00",
+      "started_at": null,
+      "completed_at": null,
+      "error": null,
+      "result_size": null,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6030,
+        "forgejo_agent_task_id": 555,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6030",
+        "pr_head_sha": "",
+        "job_name": "ct-task-e2483966e09c3d8b1892636420d7e32f",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": null,
+        "job_terminal_evidence": null
+      }
+    },
+    {
+      "id": "9b0f1a26-617f-4383-b302-296d55f811a3",
+      "status": "pending",
+      "title": "Work Forgejo task #6031",
+      "workspace_id": "2501ac665f125e79",
+      "created_at": "2026-09-12 21:28:21.605063+00:00",
+      "updated_at": "2026-09-12 21:28:22.203160+00:00",
+      "started_at": null,
+      "completed_at": null,
+      "error": null,
+      "result_size": null,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6031,
+        "forgejo_agent_task_id": 556,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6031",
+        "pr_head_sha": "",
+        "job_name": "ct-task-97a6a8776bba4cfdf1ab8ef75168b601",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": null,
+        "job_terminal_evidence": null
+      }
+    },
+    {
+      "id": "31bc7f21-9b31-4444-96cf-0eb972755a76",
+      "status": "pending",
+      "title": "Work Forgejo task #6029",
+      "workspace_id": "57189e4554d2e23d",
+      "created_at": "2026-09-12 21:24:58.315261+00:00",
+      "updated_at": "2026-09-12 21:24:58.641837+00:00",
+      "started_at": null,
+      "completed_at": null,
+      "error": null,
+      "result_size": null,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6029,
+        "forgejo_agent_task_id": 554,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6029",
+        "pr_head_sha": "",
+        "job_name": "ct-task-9f5078efd467261f3fe3764b619f0b26",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": null,
+        "job_terminal_evidence": null
+      }
+    },
+    {
+      "id": "df8be6b5-aca8-4f92-978b-7eb9622b46f2",
+      "status": "completed",
+      "title": "Work Forgejo task #6026",
+      "workspace_id": "0a857224ee9d336a",
+      "created_at": "2026-09-12 21:24:30.496361+00:00",
+      "updated_at": "2026-09-12 22:22:03.323438+00:00",
+      "started_at": "2026-09-12 22:20:29.171982+00:00",
+      "completed_at": "2026-09-12 22:22:03.276723+00:00",
+      "error": null,
+      "result_size": 2009,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6026,
+        "forgejo_agent_task_id": 551,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6026",
+        "pr_head_sha": "",
+        "job_name": "ct-task-b259960d455435ef820343eb44da4ba8",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6046",
+          "number": 6046
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-b259960d455435ef820343eb44da4ba8-mh2vx",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"0a857224ee9d336a\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-b259960d455435ef820343eb44da4ba8-mh2vx",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"3405352953f5fc5eba3c893c3682cae29d524a28\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "5a822e39-6b6b-4cb7-9c42-032db0cd8d19",
+      "status": "completed",
+      "title": "Work Forgejo task #6025",
+      "workspace_id": "ac74242b2cf93a8f",
+      "created_at": "2026-09-12 21:07:12.501259+00:00",
+      "updated_at": "2026-09-12 22:12:27.298534+00:00",
+      "started_at": "2026-09-12 22:05:22.678566+00:00",
+      "completed_at": "2026-09-12 22:12:27.008696+00:00",
+      "error": null,
+      "result_size": 2767,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6025,
+        "forgejo_agent_task_id": 550,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6025",
+        "pr_head_sha": "",
+        "job_name": "ct-task-1fd923be6b736c1873abbabcc3684fe1",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6045",
+          "number": 6045
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-1fd923be6b736c1873abbabcc3684fe1-kxg5d",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"ac74242b2cf93a8f\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-1fd923be6b736c1873abbabcc3684fe1-kxg5d",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"dee9c137b227152d0c5739defffebb2e61ddc274\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "d85aebf2-44c4-4d19-ac91-8d44c1a1f345",
+      "status": "completed",
+      "title": "Work Forgejo task #6020",
+      "workspace_id": "a4733d9cfa227500",
+      "created_at": "2026-09-12 21:06:58.871775+00:00",
+      "updated_at": "2026-09-12 22:10:47.267457+00:00",
+      "started_at": "2026-09-12 22:04:50.713637+00:00",
+      "completed_at": "2026-09-12 22:10:46.245149+00:00",
+      "error": null,
+      "result_size": 2767,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6020,
+        "forgejo_agent_task_id": 545,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6020",
+        "pr_head_sha": "",
+        "job_name": "ct-task-1e11e97194c6069c098e2fcea316360c",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6044",
+          "number": 6044
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-1e11e97194c6069c098e2fcea316360c-2dpk8",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"a4733d9cfa227500\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-1e11e97194c6069c098e2fcea316360c-2dpk8",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"5a09b4d92ed5ca98ae606563dbd1e4fcd4744f9d\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "5b12c6d5-09bb-4b93-aeca-fc20dc374819",
+      "status": "completed",
+      "title": "Work Forgejo task #6024",
+      "workspace_id": "22f3dc49d3c4d0c8",
+      "created_at": "2026-09-12 21:06:43.231734+00:00",
+      "updated_at": "2026-09-12 22:04:49.040784+00:00",
+      "started_at": "2026-09-12 22:03:35.664441+00:00",
+      "completed_at": "2026-09-12 22:04:48.897792+00:00",
+      "error": null,
+      "result_size": 1694,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6024,
+        "forgejo_agent_task_id": 549,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6024",
+        "pr_head_sha": "",
+        "job_name": "ct-task-118fd747c3a60c49e50a3e552bbe0e0c",
+        "job_wait_reason": null,
+        "job_cleanup_scheduled": true,
+        "forgejo_published_pr": null,
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-118fd747c3a60c49e50a3e552bbe0e0c-ltk8f",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"22f3dc49d3c4d0c8\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-118fd747c3a60c49e50a3e552bbe0e0c-ltk8f",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": true, \"diagnostic\": \"task_completed\", \"head_sha\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": false, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "42c302d3-421a-4c0f-8556-463748e5406d",
+      "status": "completed",
+      "title": "Work Forgejo task #6023",
+      "workspace_id": "ab892a35de3737e0",
+      "created_at": "2026-09-12 21:06:28.714329+00:00",
+      "updated_at": "2026-09-12 22:04:49.040748+00:00",
+      "started_at": "2026-09-12 22:01:26.310633+00:00",
+      "completed_at": "2026-09-12 22:04:48.900796+00:00",
+      "error": null,
+      "result_size": 2321,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6023,
+        "forgejo_agent_task_id": 548,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6023",
+        "pr_head_sha": "",
+        "job_name": "ct-task-8b982302eda3fb9fed7fbe6d9b6ebfa2",
+        "job_wait_reason": null,
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6043",
+          "number": 6043
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-8b982302eda3fb9fed7fbe6d9b6ebfa2-lkh82",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"ab892a35de3737e0\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-8b982302eda3fb9fed7fbe6d9b6ebfa2-lkh82",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"31e4d9bdde77c901b550ed7f26755912ea6bf159\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "2ece554a-850d-4844-896a-ea1427ddca74",
+      "status": "completed",
+      "title": "Work Forgejo task #6021",
+      "workspace_id": "6b363564efa08131",
+      "created_at": "2026-09-12 21:06:21.998878+00:00",
+      "updated_at": "2026-09-12 22:01:36.513181+00:00",
+      "started_at": "2026-09-12 21:54:22.964812+00:00",
+      "completed_at": "2026-09-12 22:01:36.177631+00:00",
+      "error": null,
+      "result_size": 2403,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6021,
+        "forgejo_agent_task_id": 546,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6021",
+        "pr_head_sha": "",
+        "job_name": "ct-task-7dd12cacf0849ad0267bd5267444b5bc",
+        "job_wait_reason": null,
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6042",
+          "number": 6042
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-7dd12cacf0849ad0267bd5267444b5bc-59tl5",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"6b363564efa08131\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-7dd12cacf0849ad0267bd5267444b5bc-59tl5",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"45737e296148e2f5588f9b85f69940cb70e394f1\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "e3a92f4a-aae1-4f21-b3c0-4c8eb9d4dd96",
+      "status": "failed",
+      "title": "Work Forgejo task #6022",
+      "workspace_id": "5c89a593dac8322d",
+      "created_at": "2026-09-12 21:04:40.175418+00:00",
+      "updated_at": "2026-09-12 21:04:40.450904+00:00",
+      "started_at": null,
+      "completed_at": "2026-09-12 21:52:28.553017+00:00",
+      "error": "kubernetes_job_terminated",
+      "result_size": null,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6022,
+        "forgejo_agent_task_id": 547,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6022",
+        "pr_head_sha": "",
+        "job_name": "ct-task-fbaa19cf9a334b23f32f49b4a0e494cc",
+        "job_wait_reason": null,
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": null,
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-fbaa19cf9a334b23f32f49b4a0e494cc-stf9z",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"5c89a593dac8322d\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-fbaa19cf9a334b23f32f49b4a0e494cc-stf9z",
+            "reason": "Error",
+            "message": "{\"audit_diagnostic\": \"audit_not_applicable\", \"cleanup_eligible\": false, \"diagnostic\": \"job_terminated\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"signal\": 15, \"stash_empty\": null, \"task_status\": \"pending\", \"unpushed\": null, \"worker_exit_code\": -15, \"workspace_clean\": null}\n",
+            "container": "worker",
+            "exit_code": 143
+          }
+        ]
+      }
+    },
+    {
+      "id": "9b744aee-1217-4840-8c55-a4e9dbe4a2b9",
+      "status": "completed",
+      "title": "Work Forgejo task #6019",
+      "workspace_id": "6f881a4f71dcb66f",
+      "created_at": "2026-09-12 21:04:29.548377+00:00",
+      "updated_at": "2026-09-12 21:32:55.523556+00:00",
+      "started_at": "2026-09-12 21:28:22.355307+00:00",
+      "completed_at": "2026-09-12 21:32:55.471286+00:00",
+      "error": null,
+      "result_size": 3196,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6019,
+        "forgejo_agent_task_id": 544,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6019",
+        "pr_head_sha": "",
+        "job_name": "ct-task-87b2cd2a7cb414b1b28e696d3800abff",
+        "job_wait_reason": null,
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6035",
+          "number": 6035
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-87b2cd2a7cb414b1b28e696d3800abff-282cg",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"6f881a4f71dcb66f\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-87b2cd2a7cb414b1b28e696d3800abff-282cg",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"450d352ab17c1480ee6b66ab2ea6a0671a3013b9\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "e928a63e-7d57-4b16-be2e-595acc0cb72d",
+      "status": "completed",
+      "title": "Work Forgejo task #6027",
+      "workspace_id": "13ba89fcfcf23365",
+      "created_at": "2026-09-12 21:00:24.246262+00:00",
+      "updated_at": "2026-09-12 21:32:41.125797+00:00",
+      "started_at": "2026-09-12 21:28:25.471503+00:00",
+      "completed_at": "2026-09-12 21:32:41.049643+00:00",
+      "error": null,
+      "result_size": 2615,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6027,
+        "forgejo_agent_task_id": 552,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6027",
+        "pr_head_sha": "",
+        "job_name": "ct-task-13ef1aa5eb1d57e1e2c27fd858a68ddf",
+        "job_wait_reason": null,
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6034",
+          "number": 6034
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-13ef1aa5eb1d57e1e2c27fd858a68ddf-szcjq",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"13ba89fcfcf23365\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-13ef1aa5eb1d57e1e2c27fd858a68ddf-szcjq",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"d1c285749a363bbdc3cad080e800f5b7b12053e8\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "63a78001-f3c0-4d92-a98b-bcdb4060924e",
+      "status": "completed",
+      "title": "Work Forgejo task #6011",
+      "workspace_id": "d663b691d5882d18",
+      "created_at": "2026-09-12 20:48:58.024213+00:00",
+      "updated_at": "2026-09-12 21:54:02.416743+00:00",
+      "started_at": "2026-09-12 21:50:49.641059+00:00",
+      "completed_at": "2026-09-12 21:54:02.099670+00:00",
+      "error": null,
+      "result_size": 2135,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6011,
+        "forgejo_agent_task_id": 537,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6011",
+        "pr_head_sha": "",
+        "job_name": "ct-task-8718f5d89d5294c3671d39b434d719b2",
+        "job_wait_reason": null,
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6040",
+          "number": 6040
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-8718f5d89d5294c3671d39b434d719b2-dc7gh",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"d663b691d5882d18\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-8718f5d89d5294c3671d39b434d719b2-dc7gh",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"f6fa2d659ec3c6f7de399748328190e520754877\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "0d023ef5-e1d9-46ea-b2e7-28dc7d41f1a9",
+      "status": "completed",
+      "title": "Work Forgejo task #6013",
+      "workspace_id": "d9db44db5e3a401e",
+      "created_at": "2026-09-12 20:46:41.702629+00:00",
+      "updated_at": "2026-09-12 21:54:34.639692+00:00",
+      "started_at": "2026-09-12 21:51:00.502829+00:00",
+      "completed_at": "2026-09-12 21:54:34.500338+00:00",
+      "error": null,
+      "result_size": 2637,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6013,
+        "forgejo_agent_task_id": 538,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6013",
+        "pr_head_sha": "",
+        "job_name": "ct-task-64ab8e4d524e55c69e2c108fa3b893d8",
+        "job_wait_reason": null,
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6041",
+          "number": 6041
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-64ab8e4d524e55c69e2c108fa3b893d8-2ls5s",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"d9db44db5e3a401e\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-64ab8e4d524e55c69e2c108fa3b893d8-2ls5s",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"55f45d3d75f4e0a2d1c189634dca5b103c826905\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "4f4e9e25-a79b-40a0-86a9-091620498b2c",
+      "status": "completed",
+      "title": "Work Forgejo task #6016",
+      "workspace_id": "5431411c4906c9f7",
+      "created_at": "2026-09-12 20:44:28.972305+00:00",
+      "updated_at": "2026-09-12 21:20:26.210558+00:00",
+      "started_at": "2026-09-12 21:17:24.819415+00:00",
+      "completed_at": "2026-09-12 21:20:26.146323+00:00",
+      "error": null,
+      "result_size": 2234,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6016,
+        "forgejo_agent_task_id": 541,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6016",
+        "pr_head_sha": "",
+        "job_name": "ct-task-607d53fba7ce39257e90216bca14e539",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6033",
+          "number": 6033
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-607d53fba7ce39257e90216bca14e539-675h7",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"5431411c4906c9f7\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-607d53fba7ce39257e90216bca14e539-675h7",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"e520064f20337b5e96a288c8d1013efabb73d8a0\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "58b71bef-2400-4ef9-9d4a-f2cd16cca35e",
+      "status": "completed",
+      "title": "Work Forgejo task #6015",
+      "workspace_id": "c0b6d104bf7d55f1",
+      "created_at": "2026-09-12 20:44:04.725518+00:00",
+      "updated_at": "2026-09-12 21:51:25.881320+00:00",
+      "started_at": "2026-09-12 21:49:49.144869+00:00",
+      "completed_at": "2026-09-12 21:51:24.865936+00:00",
+      "error": null,
+      "result_size": 1855,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6015,
+        "forgejo_agent_task_id": 540,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6015",
+        "pr_head_sha": "",
+        "job_name": "ct-task-2e1aa980139df1a5f48a2c5bd939099b",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6038",
+          "number": 6038
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-2e1aa980139df1a5f48a2c5bd939099b-h5p4x",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"c0b6d104bf7d55f1\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-2e1aa980139df1a5f48a2c5bd939099b-h5p4x",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"80729d202eefab04d5ccbe1b2f4f3b89cc92e484\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "eb06d68c-b47a-4796-9eac-465656fa78d1",
+      "status": "completed",
+      "title": "Work Forgejo task #6014",
+      "workspace_id": "1e6591b1396c2b2c",
+      "created_at": "2026-09-12 20:43:59.760291+00:00",
+      "updated_at": "2026-09-12 21:51:30.389201+00:00",
+      "started_at": "2026-09-12 21:46:58.453293+00:00",
+      "completed_at": "2026-09-12 21:51:30.001304+00:00",
+      "error": null,
+      "result_size": 2415,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6014,
+        "forgejo_agent_task_id": 539,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6014",
+        "pr_head_sha": "",
+        "job_name": "ct-task-f2241832d847fbc8acd264572b7f31d3",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6039",
+          "number": 6039
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-f2241832d847fbc8acd264572b7f31d3-v2b65",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"1e6591b1396c2b2c\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-f2241832d847fbc8acd264572b7f31d3-v2b65",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"61d7576f6ee1d9dbd3d70ec414cbc5f3ab036d19\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "c4f604f4-f0a6-4669-a7df-66bf1a567073",
+      "status": "completed",
+      "title": "Work Forgejo task #6018",
+      "workspace_id": "fd09180c55e713d3",
+      "created_at": "2026-09-12 20:43:36.024616+00:00",
+      "updated_at": "2026-09-12 21:48:24.961756+00:00",
+      "started_at": "2026-09-12 21:46:29.432205+00:00",
+      "completed_at": "2026-09-12 21:48:24.855685+00:00",
+      "error": null,
+      "result_size": 2160,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6018,
+        "forgejo_agent_task_id": 543,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6018",
+        "pr_head_sha": "",
+        "job_name": "ct-task-17a1200baa5a6ad35bba31527caf9321",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6037",
+          "number": 6037
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-17a1200baa5a6ad35bba31527caf9321-z8k64",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"fd09180c55e713d3\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-17a1200baa5a6ad35bba31527caf9321-z8k64",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"1ce9748696648a0397ec92db521e3e2801ccd333\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "9b66afb9-f792-435a-aa96-92f46682f817",
+      "status": "completed",
+      "title": "Work Forgejo task #6017",
+      "workspace_id": "48c9e03fd636744e",
+      "created_at": "2026-09-12 20:43:33.853216+00:00",
+      "updated_at": "2026-09-12 21:46:10.428462+00:00",
+      "started_at": "2026-09-12 21:43:30.194155+00:00",
+      "completed_at": "2026-09-12 21:46:09.873679+00:00",
+      "error": null,
+      "result_size": 2599,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6017,
+        "forgejo_agent_task_id": 542,
+        "pr_number": null,
+        "branch_name": "codetether/issue-6017",
+        "pr_head_sha": "",
+        "job_name": "ct-task-df35bef51a5ed8aca556de688469d383",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6036",
+          "number": 6036
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-df35bef51a5ed8aca556de688469d383-6kdqs",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"5e7ac0b2df946e705626224dc768ea0864f007d1\", \"workspace\": \"48c9e03fd636744e\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-df35bef51a5ed8aca556de688469d383-6kdqs",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"1d28a5510b43248bc52a4c8a79f2e3c96337bac3\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "e390b971-fb32-477d-bbd3-eb44ce3c7c0e",
+      "status": "completed",
+      "title": "Work Forgejo task #5969",
+      "workspace_id": "fe1a0128b715be62",
+      "created_at": "2026-09-11 19:18:21.544462+00:00",
+      "updated_at": "2026-09-11 19:49:46.655001+00:00",
+      "started_at": "2026-09-11 19:45:29.951040+00:00",
+      "completed_at": "2026-09-11 19:49:46.012971+00:00",
+      "error": null,
+      "result_size": 2352,
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 5969,
+        "forgejo_agent_task_id": 512,
+        "pr_number": null,
+        "branch_name": "codetether/issue-5969",
+        "pr_head_sha": "",
+        "job_name": "ct-task-d1af9227ea8b26cec7440af722195951",
+        "job_wait_reason": "job_retention_capacity_exhausted",
+        "job_cleanup_scheduled": null,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6010",
+          "number": 6010
+        },
+        "job_terminal_evidence": [
+          {
+            "pod": "ct-task-d1af9227ea8b26cec7440af722195951-r5g87",
+            "reason": "Completed",
+            "message": "{\"diagnostic\": \"workspace_bootstrapped\", \"head\": \"0aeade02477a6ced209a8a731bcf2ca12311e5e0\", \"workspace\": \"fe1a0128b715be62\"}\n",
+            "container": "workspace-prepare",
+            "exit_code": 0
+          },
+          {
+            "pod": "ct-task-d1af9227ea8b26cec7440af722195951-r5g87",
+            "reason": "Completed",
+            "message": "{\"audit_diagnostic\": \"audit_local_refs_only\", \"cleanup_eligible\": false, \"diagnostic\": \"task_completed\", \"head_sha\": \"9262e0d9cab5b31cc0092b4cada39c66edd7cff7\", \"last_poll_error\": null, \"poll_errors\": 0, \"schema_version\": 1, \"stash_empty\": true, \"task_status\": \"completed\", \"unpushed\": true, \"worker_exit_code\": -15, \"workspace_clean\": true}\n",
+            "container": "worker",
+            "exit_code": 0
+          }
+        ]
+      }
+    }
+  ],
+  "comparison": {
+    "keys": [
+      "total_commits",
+      "commits",
+      "files"
+    ],
+    "merge_base": null,
+    "base_commit": null,
+    "status": null,
+    "ahead_by": null,
+    "behind_by": null,
+    "total_commits": 24
+  },
+  "retained": [
+    {
+      "id": "808c388e-7840-43bc-a745-66204a9e8490",
+      "title": "Work Forgejo task #5960",
+      "status": "completed",
+      "job": "ct-task-d6b426a0b1de17c04da653da2129ea7b",
+      "branch": "codetether/issue-5960",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "44569131-7e76-4da6-b1ba-61832fdfc02e",
+      "title": "Resolve review feedback for PR #5961",
+      "status": "completed",
+      "job": "ct-task-f7ae229091c1428796b5f8918c32192b",
+      "branch": "codetether/issue-5960",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "760e3242-4d95-4c6f-9be2-ba34b20d4ccf",
+      "title": "Work Forgejo task #5962",
+      "status": "completed",
+      "job": "ct-task-3d0510538e3ba4f0db343faf756ff935",
+      "branch": "codetether/issue-5962",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "80d8337f-8c39-4baa-9aec-07a6c3b7bf3f",
+      "title": "Resolve review feedback for PR #5963",
+      "status": "completed",
+      "job": "ct-task-91618a4768e7aca39759e533183cd893",
+      "branch": "codetether/issue-5962",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "a682fc23-552e-4147-bf1d-e46eaa87162f",
+      "title": "Resolve review feedback for PR #5963",
+      "status": "completed",
+      "job": "ct-task-4b1a3da3253f55723fc535fd34c87381",
+      "branch": "codetether/issue-5962",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "6528b1fd-7bde-463c-9692-517066d6a883",
+      "title": "Resolve review feedback for PR #5961",
+      "status": "completed",
+      "job": "ct-task-359e4920db658bd84b7c4cee89764ebc",
+      "branch": "codetether/issue-5960",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "8df7bcde-239f-44d5-88f4-aa7a586b02d8",
+      "title": "Resolve review feedback for PR #5961",
+      "status": "completed",
+      "job": "ct-task-b63c83c9afb98ca364485dd2a5fd8e65",
+      "branch": "codetether/issue-5960",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "d6ed6809-4235-4e6d-8a64-cc0867aa3add",
+      "title": "Resolve review feedback for PR #5963",
+      "status": "completed",
+      "job": "ct-task-c66e71fd244f3e5a7ccfed50bab31aae",
+      "branch": "codetether/issue-5962",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-c66e71fd244f3e5a7ccfed50bab31aae-vtzxp\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"89566b019d5409839d9981532ff9da638b4ea00f\\\", \\\"workspace\\\": \\\"0f43e996ad7467ff\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-c66e71fd244f3e5a7ccfed50bab31aae-vtzxp\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_git_layout_unsupported\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": null, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": null, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": null}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "b3e7f903-72c9-4145-b317-203b51344353",
+      "title": "Work Forgejo task #5964",
+      "status": "completed",
+      "job": "ct-task-54d3e050275cf5989dd9d46f171e3c31",
+      "branch": "codetether/issue-5964",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "4ae0f00f-655f-4dcc-8c1c-2f9f3a3c9ebf",
+      "title": "Work Forgejo task #5966",
+      "status": "completed",
+      "job": "ct-task-32f3391e6d8df201dabcd593db864e4a",
+      "branch": "codetether/issue-5966",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "9a00a545-05e7-483d-a9ab-dfebbf1c4c8f",
+      "title": "Work Forgejo task #5967",
+      "status": "completed",
+      "job": "ct-task-098d1e07f48820600b2dd22da96e0a5b",
+      "branch": "codetether/issue-5967",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-098d1e07f48820600b2dd22da96e0a5b-z9g4x\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"09c7190d9710a49d72cffef44a5fd48019a64687\\\", \\\"workspace\\\": \\\"ca097b2d6564ed45\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-098d1e07f48820600b2dd22da96e0a5b-z9g4x\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"c9c79c383b98ac78ae64b32f350b6289a09dbfed\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "904bfede-5b03-4484-b67c-9f963cf4ceb5",
+      "title": "Work Forgejo task #5968",
+      "status": "completed",
+      "job": "ct-task-3aa76aed2bc2d669e89ef7ffcabee622",
+      "branch": "codetether/issue-5968",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "49111dd6-b8ab-40d0-889b-c37eb7cf7ced",
+      "title": "Work Forgejo task #5970",
+      "status": "failed",
+      "job": "ct-task-ca22c60d5bbfb3309e8d1c44daf9bc93",
+      "branch": "codetether/issue-5970",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "8d422717-2dad-4d4c-a79b-7111e2b326f9",
+      "title": "Work Forgejo task #5981",
+      "status": "completed",
+      "job": "ct-task-0bdd530aff5edab0aec56c0480284d39",
+      "branch": "codetether/issue-5981",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-0bdd530aff5edab0aec56c0480284d39-gxlvq\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"f7212965d888b7645a11c51eee005a847de581b2\\\", \\\"workspace\\\": \\\"cb7039fa72bdad79\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-0bdd530aff5edab0aec56c0480284d39-gxlvq\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"23d57fbd0dfcb1cf6ae8e1cb9deba4e589129dd8\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "a1389ede-e6be-4218-9ec8-3ef85d874bed",
+      "title": "Work Forgejo task #5982",
+      "status": "completed",
+      "job": "ct-task-3e0386d94b03712c275a6c8d1a804077",
+      "branch": "codetether/issue-5982",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-3e0386d94b03712c275a6c8d1a804077-fwvjb\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"e824baf4b5982cc8f79d930b9e30d4e4a15166c7\\\", \\\"workspace\\\": \\\"318485c6a18685e9\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-3e0386d94b03712c275a6c8d1a804077-fwvjb\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"9014f5b4dc5fe46c2cd00b01c826a63758e2b709\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "c50c2103-1abe-4d7f-a8e6-82c0e0222a9c",
+      "title": "Work Forgejo task #5990",
+      "status": "completed",
+      "job": "ct-task-5ff607fede9502d9a6d694f11fabb1bf",
+      "branch": "codetether/issue-5990",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "18d722c1-0ff1-4a64-89f8-d3d6500d7e6c",
+      "title": "Work Forgejo task #5853",
+      "status": "completed",
+      "job": "ct-task-aca5a8e60c493d77b0a1d5cad4b9ea9e",
+      "branch": "codetether/issue-5853",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-aca5a8e60c493d77b0a1d5cad4b9ea9e-6ptdx\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"9cffd4927cc4fba99b4e3b92e1c2f18b9592c272\\\", \\\"workspace\\\": \\\"503231622b09aafa\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-aca5a8e60c493d77b0a1d5cad4b9ea9e-6ptdx\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"a5379e321d4707acc973afa2e65a31c919af8e52\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "56de8dc5-7973-473d-b1ec-16451b0d6d47",
+      "title": "Work Forgejo task #5988",
+      "status": "completed",
+      "job": "ct-task-c1976449943448387080ddb1b4bcd552",
+      "branch": "codetether/issue-5988",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-c1976449943448387080ddb1b4bcd552-dcz9x\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"9cffd4927cc4fba99b4e3b92e1c2f18b9592c272\\\", \\\"workspace\\\": \\\"bd494cdcfee52139\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-c1976449943448387080ddb1b4bcd552-dcz9x\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"bcadae3a76fc3a228c54ddd22575114907c75c75\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "02b0632b-af2b-452e-bf82-b8fa418f31fd",
+      "title": "Work Forgejo task #5991",
+      "status": "completed",
+      "job": "ct-task-47525fbd8604cf6a028e3eb423f97c00",
+      "branch": "codetether/issue-5991",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-47525fbd8604cf6a028e3eb423f97c00-s2v8g\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"8dc527907ec14b21c489646271fde62ff311840e\\\", \\\"workspace\\\": \\\"14937f5df754ecc7\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-47525fbd8604cf6a028e3eb423f97c00-s2v8g\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"51cd8f138217ca0ac552cef739d7ce3ab0fdc793\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "e61de43a-5742-4c62-94d6-ed607cb5e801",
+      "title": "Work Forgejo task #5989",
+      "status": "completed",
+      "job": "ct-task-6b8bb8960fad4592cd7d9c43d38c08d2",
+      "branch": "codetether/issue-5989",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "88164b82-1b2e-49f5-ade1-29358a49e268",
+      "title": "Work Forgejo task #5970",
+      "status": "completed",
+      "job": "ct-task-25d94f96fc8193f46adfe01689ed912a",
+      "branch": "codetether/issue-5970",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-25d94f96fc8193f46adfe01689ed912a-xjnq4\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"8dc527907ec14b21c489646271fde62ff311840e\\\", \\\"workspace\\\": \\\"782db8405d57e9ca\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-25d94f96fc8193f46adfe01689ed912a-xjnq4\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"63e289fd1e61de70cb0fff496b4bd5453a88305d\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "f7dd49c3-752a-4743-ad4b-b52dd429f415",
+      "title": "Work Forgejo task #5971",
+      "status": "completed",
+      "job": "ct-task-ec3376e860cdcebd972b6e4d0d75c3b0",
+      "branch": "codetether/issue-5971",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[]"
+    },
+    {
+      "id": "bc4aba71-f47e-45e3-95a6-8ed0a98d9a8a",
+      "title": "Work Forgejo task #5998",
+      "status": "completed",
+      "job": "ct-task-d80f8468a3d72fa073263c99ef6837c8",
+      "branch": "codetether/issue-5998",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-d80f8468a3d72fa073263c99ef6837c8-nnh89\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"8dc527907ec14b21c489646271fde62ff311840e\\\", \\\"workspace\\\": \\\"f9b8ca6ac806252b\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-d80f8468a3d72fa073263c99ef6837c8-nnh89\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"aedd159a07c6d6decccc428926a8ec13c766a9d1\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "2362688a-fb7e-41fe-bd3a-2f2a573c88e7",
+      "title": "Work Forgejo task #5997",
+      "status": "completed",
+      "job": "ct-task-1c477be3f6525358e94159f5802eca35",
+      "branch": "codetether/issue-5997",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-1c477be3f6525358e94159f5802eca35-jnws5\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"8dc527907ec14b21c489646271fde62ff311840e\\\", \\\"workspace\\\": \\\"01cb03b749fc9160\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-1c477be3f6525358e94159f5802eca35-jnws5\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"105c58565f90b0283aafc63862224be65c930cac\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "e390b971-fb32-477d-bbd3-eb44ce3c7c0e",
+      "title": "Work Forgejo task #5969",
+      "status": "completed",
+      "job": "ct-task-d1af9227ea8b26cec7440af722195951",
+      "branch": "codetether/issue-5969",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-d1af9227ea8b26cec7440af722195951-r5g87\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"0aeade02477a6ced209a8a731bcf2ca12311e5e0\\\", \\\"workspace\\\": \\\"fe1a0128b715be62\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-d1af9227ea8b26cec7440af722195951-r5g87\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"9262e0d9cab5b31cc0092b4cada39c66edd7cff7\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "9b66afb9-f792-435a-aa96-92f46682f817",
+      "title": "Work Forgejo task #6017",
+      "status": "completed",
+      "job": "ct-task-df35bef51a5ed8aca556de688469d383",
+      "branch": "codetether/issue-6017",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-df35bef51a5ed8aca556de688469d383-6kdqs\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"48c9e03fd636744e\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-df35bef51a5ed8aca556de688469d383-6kdqs\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"1d28a5510b43248bc52a4c8a79f2e3c96337bac3\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "c4f604f4-f0a6-4669-a7df-66bf1a567073",
+      "title": "Work Forgejo task #6018",
+      "status": "completed",
+      "job": "ct-task-17a1200baa5a6ad35bba31527caf9321",
+      "branch": "codetether/issue-6018",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-17a1200baa5a6ad35bba31527caf9321-z8k64\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"fd09180c55e713d3\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-17a1200baa5a6ad35bba31527caf9321-z8k64\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"1ce9748696648a0397ec92db521e3e2801ccd333\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "eb06d68c-b47a-4796-9eac-465656fa78d1",
+      "title": "Work Forgejo task #6014",
+      "status": "completed",
+      "job": "ct-task-f2241832d847fbc8acd264572b7f31d3",
+      "branch": "codetether/issue-6014",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-f2241832d847fbc8acd264572b7f31d3-v2b65\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"1e6591b1396c2b2c\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-f2241832d847fbc8acd264572b7f31d3-v2b65\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"61d7576f6ee1d9dbd3d70ec414cbc5f3ab036d19\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "58b71bef-2400-4ef9-9d4a-f2cd16cca35e",
+      "title": "Work Forgejo task #6015",
+      "status": "completed",
+      "job": "ct-task-2e1aa980139df1a5f48a2c5bd939099b",
+      "branch": "codetether/issue-6015",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-2e1aa980139df1a5f48a2c5bd939099b-h5p4x\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"c0b6d104bf7d55f1\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-2e1aa980139df1a5f48a2c5bd939099b-h5p4x\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"80729d202eefab04d5ccbe1b2f4f3b89cc92e484\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "4f4e9e25-a79b-40a0-86a9-091620498b2c",
+      "title": "Work Forgejo task #6016",
+      "status": "completed",
+      "job": "ct-task-607d53fba7ce39257e90216bca14e539",
+      "branch": "codetether/issue-6016",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-607d53fba7ce39257e90216bca14e539-675h7\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"5431411c4906c9f7\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-607d53fba7ce39257e90216bca14e539-675h7\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"e520064f20337b5e96a288c8d1013efabb73d8a0\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "0d023ef5-e1d9-46ea-b2e7-28dc7d41f1a9",
+      "title": "Work Forgejo task #6013",
+      "status": "completed",
+      "job": "ct-task-64ab8e4d524e55c69e2c108fa3b893d8",
+      "branch": "codetether/issue-6013",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-64ab8e4d524e55c69e2c108fa3b893d8-2ls5s\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"d9db44db5e3a401e\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-64ab8e4d524e55c69e2c108fa3b893d8-2ls5s\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"55f45d3d75f4e0a2d1c189634dca5b103c826905\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "63a78001-f3c0-4d92-a98b-bcdb4060924e",
+      "title": "Work Forgejo task #6011",
+      "status": "completed",
+      "job": "ct-task-8718f5d89d5294c3671d39b434d719b2",
+      "branch": "codetether/issue-6011",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-8718f5d89d5294c3671d39b434d719b2-dc7gh\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"d663b691d5882d18\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-8718f5d89d5294c3671d39b434d719b2-dc7gh\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"f6fa2d659ec3c6f7de399748328190e520754877\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "e928a63e-7d57-4b16-be2e-595acc0cb72d",
+      "title": "Work Forgejo task #6027",
+      "status": "completed",
+      "job": "ct-task-13ef1aa5eb1d57e1e2c27fd858a68ddf",
+      "branch": "codetether/issue-6027",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-13ef1aa5eb1d57e1e2c27fd858a68ddf-szcjq\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"13ba89fcfcf23365\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-13ef1aa5eb1d57e1e2c27fd858a68ddf-szcjq\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"d1c285749a363bbdc3cad080e800f5b7b12053e8\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "9b744aee-1217-4840-8c55-a4e9dbe4a2b9",
+      "title": "Work Forgejo task #6019",
+      "status": "completed",
+      "job": "ct-task-87b2cd2a7cb414b1b28e696d3800abff",
+      "branch": "codetether/issue-6019",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-87b2cd2a7cb414b1b28e696d3800abff-282cg\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"6f881a4f71dcb66f\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-87b2cd2a7cb414b1b28e696d3800abff-282cg\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"450d352ab17c1480ee6b66ab2ea6a0671a3013b9\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "e3a92f4a-aae1-4f21-b3c0-4c8eb9d4dd96",
+      "title": "Work Forgejo task #6022",
+      "status": "failed",
+      "job": "ct-task-fbaa19cf9a334b23f32f49b4a0e494cc",
+      "branch": "codetether/issue-6022",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-fbaa19cf9a334b23f32f49b4a0e494cc-stf9z\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"5c89a593dac8322d\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-fbaa19cf9a334b23f32f49b4a0e494cc-stf9z\", \"reason\": \"Error\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_not_applicable\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"job_terminated\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"signal\\\": 15, \\\"stash_empty\\\": null, \\\"task_status\\\": \\\"pending\\\", \\\"unpushed\\\": null, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": null}\\n\", \"container\": \"worker\", \"exit_code\": 143}]"
+    },
+    {
+      "id": "2ece554a-850d-4844-896a-ea1427ddca74",
+      "title": "Work Forgejo task #6021",
+      "status": "completed",
+      "job": "ct-task-7dd12cacf0849ad0267bd5267444b5bc",
+      "branch": "codetether/issue-6021",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-7dd12cacf0849ad0267bd5267444b5bc-59tl5\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"6b363564efa08131\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-7dd12cacf0849ad0267bd5267444b5bc-59tl5\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"45737e296148e2f5588f9b85f69940cb70e394f1\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "42c302d3-421a-4c0f-8556-463748e5406d",
+      "title": "Work Forgejo task #6023",
+      "status": "completed",
+      "job": "ct-task-8b982302eda3fb9fed7fbe6d9b6ebfa2",
+      "branch": "codetether/issue-6023",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-8b982302eda3fb9fed7fbe6d9b6ebfa2-lkh82\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"ab892a35de3737e0\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-8b982302eda3fb9fed7fbe6d9b6ebfa2-lkh82\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"31e4d9bdde77c901b550ed7f26755912ea6bf159\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "d85aebf2-44c4-4d19-ac91-8d44c1a1f345",
+      "title": "Work Forgejo task #6020",
+      "status": "completed",
+      "job": "ct-task-1e11e97194c6069c098e2fcea316360c",
+      "branch": "codetether/issue-6020",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-1e11e97194c6069c098e2fcea316360c-2dpk8\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"a4733d9cfa227500\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-1e11e97194c6069c098e2fcea316360c-2dpk8\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"5a09b4d92ed5ca98ae606563dbd1e4fcd4744f9d\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "5a822e39-6b6b-4cb7-9c42-032db0cd8d19",
+      "title": "Work Forgejo task #6025",
+      "status": "completed",
+      "job": "ct-task-1fd923be6b736c1873abbabcc3684fe1",
+      "branch": "codetether/issue-6025",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-1fd923be6b736c1873abbabcc3684fe1-kxg5d\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"ac74242b2cf93a8f\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-1fd923be6b736c1873abbabcc3684fe1-kxg5d\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"dee9c137b227152d0c5739defffebb2e61ddc274\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    },
+    {
+      "id": "df8be6b5-aca8-4f92-978b-7eb9622b46f2",
+      "title": "Work Forgejo task #6026",
+      "status": "completed",
+      "job": "ct-task-b259960d455435ef820343eb44da4ba8",
+      "branch": "codetether/issue-6026",
+      "repo": "riley/spotlessbinco",
+      "evidence": "[{\"pod\": \"ct-task-b259960d455435ef820343eb44da4ba8-mh2vx\", \"reason\": \"Completed\", \"message\": \"{\\\"diagnostic\\\": \\\"workspace_bootstrapped\\\", \\\"head\\\": \\\"5e7ac0b2df946e705626224dc768ea0864f007d1\\\", \\\"workspace\\\": \\\"0a857224ee9d336a\\\"}\\n\", \"container\": \"workspace-prepare\", \"exit_code\": 0}, {\"pod\": \"ct-task-b259960d455435ef820343eb44da4ba8-mh2vx\", \"reason\": \"Completed\", \"message\": \"{\\\"audit_diagnostic\\\": \\\"audit_local_refs_only\\\", \\\"cleanup_eligible\\\": false, \\\"diagnostic\\\": \\\"task_completed\\\", \\\"head_sha\\\": \\\"3405352953f5fc5eba3c893c3682cae29d524a28\\\", \\\"last_poll_error\\\": null, \\\"poll_errors\\\": 0, \\\"schema_version\\\": 1, \\\"stash_empty\\\": true, \\\"task_status\\\": \\\"completed\\\", \\\"unpushed\\\": true, \\\"worker_exit_code\\\": -15, \\\"workspace_clean\\\": true}\\n\", \"container\": \"worker\", \"exit_code\": 0}]"
+    }
+  ],
+  "queue": [
+    {
+      "id": "db9a4575-7e48-4d90-b403-2749fd907adf",
+      "status": "pending",
+      "title": "Resolve review feedback for PR #6003",
+      "created_at": "2026-09-11 19:17:18.292486+00:00",
+      "updated_at": "2026-09-11 19:17:18.415955+00:00",
+      "stage": "review_recovery",
+      "waiting": "job_retention_capacity_exhausted",
+      "job": "ct-task-a9877362b4fe5bf6d628455f6e6b30c0"
+    },
+    {
+      "id": "31bc7f21-9b31-4444-96cf-0eb972755a76",
+      "status": "pending",
+      "title": "Work Forgejo task #6029",
+      "created_at": "2026-09-12 21:24:58.315261+00:00",
+      "updated_at": "2026-09-12 21:24:58.641837+00:00",
+      "stage": "code",
+      "waiting": "job_retention_capacity_exhausted",
+      "job": "ct-task-9f5078efd467261f3fe3764b619f0b26"
+    },
+    {
+      "id": "9b0f1a26-617f-4383-b302-296d55f811a3",
+      "status": "pending",
+      "title": "Work Forgejo task #6031",
+      "created_at": "2026-09-12 21:28:21.605063+00:00",
+      "updated_at": "2026-09-12 21:28:22.203160+00:00",
+      "stage": "code",
+      "waiting": "job_retention_capacity_exhausted",
+      "job": "ct-task-97a6a8776bba4cfdf1ab8ef75168b601"
+    },
+    {
+      "id": "420aa345-9af2-4fdb-8027-f95a79a3d0c3",
+      "status": "pending",
+      "title": "Work Forgejo task #6030",
+      "created_at": "2026-09-12 21:28:27.791927+00:00",
+      "updated_at": "2026-09-12 21:28:27.923954+00:00",
+      "stage": "code",
+      "waiting": "job_retention_capacity_exhausted",
+      "job": "ct-task-e2483966e09c3d8b1892636420d7e32f"
+    },
+    {
+      "id": "e6a8b1fe-3777-4b13-adfb-886f3ad2d966",
+      "status": "pending",
+      "title": "Work Forgejo task #6032",
+      "created_at": "2026-09-12 21:28:38.172555+00:00",
+      "updated_at": "2026-09-12 21:28:38.363292+00:00",
+      "stage": "code",
+      "waiting": "job_retention_capacity_exhausted",
+      "job": "ct-task-22c89ec543d94e7e6872b9549c2995f5"
+    },
+    {
+      "id": "b19f6187-b7b8-4034-ae72-d70eddc9287b",
+      "status": "pending",
+      "title": "Resolve review feedback for PR #6035",
+      "created_at": "2026-09-12 21:36:15.515301+00:00",
+      "updated_at": "2026-09-12 21:36:15.752344+00:00",
+      "stage": "review_recovery",
+      "waiting": "job_retention_capacity_exhausted",
+      "job": "ct-task-4bd59b9949aff6a95b4dbc96c6882875"
+    },
+    {
+      "id": "edf22b95-7e19-451c-bfa8-a3839a4ddab0",
+      "status": "pending",
+      "title": "Resolve review feedback for PR #6034",
+      "created_at": "2026-09-12 21:36:16.488718+00:00",
+      "updated_at": "2026-09-12 21:36:16.747482+00:00",
+      "stage": "review_recovery",
+      "waiting": "job_retention_capacity_exhausted",
+      "job": "ct-task-e817e7e2049997cb92cbd1445080af39"
+    },
+    {
+      "id": "d6b6c1ff-195c-4653-9388-5c0a58c08dfa",
+      "status": "pending",
+      "title": "Resolve review feedback for PR #6036",
+      "created_at": "2026-09-12 21:49:32.009788+00:00",
+      "updated_at": "2026-09-12 21:49:32.201187+00:00",
+      "stage": "review_recovery",
+      "waiting": "job_retention_capacity_exhausted",
+      "job": "ct-task-175560d9aeca39fd844f25691e603380"
+    },
+    {
+      "id": "aa5cfc2c-331d-4375-b153-572028c46e85",
+      "status": "pending",
+      "title": "Prepare Forgejo task #6047",
+      "created_at": "2026-09-13 05:48:15.005016+00:00",
+      "updated_at": "2026-09-13 05:48:16.851794+00:00",
+      "stage": "prepare",
+      "waiting": "job_retention_capacity_exhausted",
+      "job": "ct-task-2581fc0f3786bd3689769ea34f4317ac"
+    },
+    {
+      "id": "ff41521c-5ba9-4d72-88ad-33cfad611e38",
+      "status": "pending",
+      "title": "Prepare Forgejo task #6048",
+      "created_at": "2026-09-13 05:48:30.467486+00:00",
+      "updated_at": "2026-09-13 05:48:30.841346+00:00",
+      "stage": "prepare",
+      "waiting": "job_retention_capacity_exhausted",
+      "job": "ct-task-cfd7ba96333b12c1aaf020de67708ef0"
+    },
+    {
+      "id": "c9c171b6-0222-4bd0-a493-67ca4198c9e4",
+      "status": "pending",
+      "title": "Prepare Forgejo task #6049",
+      "created_at": "2026-09-13 05:48:36.521509+00:00",
+      "updated_at": "2026-09-13 05:48:36.738995+00:00",
+      "stage": "prepare",
+      "waiting": "job_retention_capacity_exhausted",
+      "job": "ct-task-cc8e3471f8fb1fd9e55956905d0c96b7"
+    },
+    {
+      "id": "d0ee324a-d0c1-4f0c-997b-99be7d6b8c6e",
+      "status": "pending",
+      "title": "Prepare Forgejo task #6050",
+      "created_at": "2026-09-13 05:48:47.982417+00:00",
+      "updated_at": "2026-09-13 05:48:48.121601+00:00",
+      "stage": "prepare",
+      "waiting": "job_retention_capacity_exhausted",
+      "job": "ct-task-650dbd9f177a5cb85f80d265cd342793"
+    }
+  ],
+  "prs": [
+    {
+      "number": 6046,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6046",
+      "created_at": "2026-09-12T22:22:20Z",
+      "updated_at": "2026-09-14T10:14:04Z",
+      "branch": "codetether/issue-6026",
+      "head": "e989f36958b52f22184f319a807b62945ffb0865"
+    },
+    {
+      "number": 6045,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6045",
+      "created_at": "2026-09-12T22:12:57Z",
+      "updated_at": "2026-09-14T10:14:07Z",
+      "branch": "codetether/issue-6025",
+      "head": "470afd618df7d9e7c809e711de85b1da4199627d"
+    },
+    {
+      "number": 6044,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6044",
+      "created_at": "2026-09-12T22:11:06Z",
+      "updated_at": "2026-09-14T10:14:10Z",
+      "branch": "codetether/issue-6020",
+      "head": "e0649f62865ce10b2db20ae9c68c3f9f9cb6bfa1"
+    },
+    {
+      "number": 6043,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6043",
+      "created_at": "2026-09-12T22:05:19Z",
+      "updated_at": "2026-09-14T10:14:15Z",
+      "branch": "codetether/issue-6023",
+      "head": "58df8ef4837e0228d58907e62dd61db1e7ce2875"
+    },
+    {
+      "number": 6042,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6042",
+      "created_at": "2026-09-12T22:02:11Z",
+      "updated_at": "2026-09-14T10:14:13Z",
+      "branch": "codetether/issue-6021",
+      "head": "ea223c6e769f578a3581704842b46e177ddcea76"
+    },
+    {
+      "number": 6041,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6041",
+      "created_at": "2026-09-12T21:55:01Z",
+      "updated_at": "2026-09-14T10:14:16Z",
+      "branch": "codetether/issue-6013",
+      "head": "8df70e41ced10883fc7999989fff5e6f469c86b3"
+    },
+    {
+      "number": 6040,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6040",
+      "created_at": "2026-09-12T21:54:29Z",
+      "updated_at": "2026-09-14T10:14:26Z",
+      "branch": "codetether/issue-6011",
+      "head": "87a755025ea3c27a0a2bb42a9db4dcd0f6badf04"
+    },
+    {
+      "number": 6039,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6039",
+      "created_at": "2026-09-12T21:52:28Z",
+      "updated_at": "2026-09-14T10:14:22Z",
+      "branch": "codetether/issue-6014",
+      "head": "4d3f9e009d85a3cf44dc350f64561511859194c5"
+    },
+    {
+      "number": 6038,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6038",
+      "created_at": "2026-09-12T21:51:57Z",
+      "updated_at": "2026-09-14T10:14:28Z",
+      "branch": "codetether/issue-6015",
+      "head": "53c3acb870471b1743a6012a6a5797e5ab661adc"
+    },
+    {
+      "number": 6037,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6037",
+      "created_at": "2026-09-12T21:48:46Z",
+      "updated_at": "2026-09-14T10:14:19Z",
+      "branch": "codetether/issue-6018",
+      "head": "0644a9b17661e6b4a2a3250567f0e1ce65506d49"
+    },
+    {
+      "number": 6036,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6036",
+      "created_at": "2026-09-12T21:46:31Z",
+      "updated_at": "2026-09-14T10:44:09Z",
+      "branch": "codetether/issue-6017",
+      "head": "9f90889bd10b88205f46555396bbd80bcce2163f"
+    },
+    {
+      "number": 6035,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6035",
+      "created_at": "2026-09-12T21:33:15Z",
+      "updated_at": "2026-09-14T10:44:22Z",
+      "branch": "codetether/issue-6019",
+      "head": "a947ff40444f62a47a7752863fa4a3ba4595706f"
+    },
+    {
+      "number": 6034,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6034",
+      "created_at": "2026-09-12T21:33:01Z",
+      "updated_at": "2026-09-14T10:44:08Z",
+      "branch": "codetether/issue-6027",
+      "head": "849d59fa2023186988ea2d113786db7a57a92620"
+    },
+    {
+      "number": 6033,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6033",
+      "created_at": "2026-09-12T21:21:01Z",
+      "updated_at": "2026-09-14T10:14:23Z",
+      "branch": "codetether/issue-6016",
+      "head": "668f9aee7acae2b41d15778b3ccdc6c5dfdff21e"
+    },
+    {
+      "number": 6010,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6010",
+      "created_at": "2026-09-11T19:50:09Z",
+      "updated_at": "2026-09-11T20:56:38Z",
+      "branch": "codetether/issue-5969",
+      "head": "0cd8f4984ebfaba422ed70af7b08f0a5eef9fe04"
+    },
+    {
+      "number": 6009,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6009",
+      "created_at": "2026-09-11T19:24:45Z",
+      "updated_at": "2026-09-11T19:24:46Z",
+      "branch": "codetether/issue-5997",
+      "head": "105c58565f90b0283aafc63862224be65c930cac"
+    },
+    {
+      "number": 6008,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6008",
+      "created_at": "2026-09-11T19:23:21Z",
+      "updated_at": "2026-09-11T19:23:21Z",
+      "branch": "codetether/issue-5970",
+      "head": "63e289fd1e61de70cb0fff496b4bd5453a88305d"
+    },
+    {
+      "number": 6007,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6007",
+      "created_at": "2026-09-11T19:12:58Z",
+      "updated_at": "2026-09-14T10:14:31Z",
+      "branch": "codetether/issue-5989",
+      "head": "d971e7d30fc3897516135db750756f0af04985f7"
+    },
+    {
+      "number": 6006,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6006",
+      "created_at": "2026-09-11T19:12:08Z",
+      "updated_at": "2026-09-13T01:04:02Z",
+      "branch": "codetether/issue-5998",
+      "head": "421eb16deb8dbd40af2944cb9f57b55aade21225"
+    },
+    {
+      "number": 6005,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6005",
+      "created_at": "2026-09-11T19:07:16Z",
+      "updated_at": "2026-09-14T10:14:27Z",
+      "branch": "codetether/issue-5991",
+      "head": "f019b9f1cdc789458e59227663b17c0101b92729"
+    },
+    {
+      "number": 6004,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6004",
+      "created_at": "2026-09-11T18:59:15Z",
+      "updated_at": "2026-09-11T20:03:03Z",
+      "branch": "codetether/issue-5988",
+      "head": "bcadae3a76fc3a228c54ddd22575114907c75c75"
+    },
+    {
+      "number": 6003,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6003",
+      "created_at": "2026-09-11T18:57:42Z",
+      "updated_at": "2026-09-14T10:44:26Z",
+      "branch": "codetether/issue-5853",
+      "head": "e6cdc4ae26b9143ede32e6792370fd2e04ab5e97"
+    },
+    {
+      "number": 6002,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6002",
+      "created_at": "2026-09-11T18:49:27Z",
+      "updated_at": "2026-09-11T19:43:46Z",
+      "branch": "codetether/issue-5990",
+      "head": "a53789b9be0460789514d3ca8c3190ed91dcf6bc"
+    },
+    {
+      "number": 6000,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6000",
+      "created_at": "2026-09-11T17:00:19Z",
+      "updated_at": "2026-09-11T23:00:16Z",
+      "branch": "codetether/issue-5982",
+      "head": "5086c9e574e77f267fa1c0d9e73ab92fd4dc1303"
+    },
+    {
+      "number": 5999,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5999",
+      "created_at": "2026-09-11T16:59:50Z",
+      "updated_at": "2026-09-14T10:14:48Z",
+      "branch": "codetether/issue-5981",
+      "head": "f106e2c6c3b07cb88c88548ab80b45e8527dd06f"
+    },
+    {
+      "number": 5995,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5995",
+      "created_at": "2026-09-11T16:06:06Z",
+      "updated_at": "2026-09-14T10:14:43Z",
+      "branch": "codetether/issue-5968",
+      "head": "1e224fb98216f2f85ee9e9b48601284d946bccc1"
+    },
+    {
+      "number": 5993,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5993",
+      "created_at": "2026-09-11T15:56:34Z",
+      "updated_at": "2026-09-14T10:14:41Z",
+      "branch": "codetether/issue-5967",
+      "head": "279466eb490351031c6f7351480c792b4170f2e0"
+    },
+    {
+      "number": 5992,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5992",
+      "created_at": "2026-09-11T15:49:52Z",
+      "updated_at": "2026-09-14T10:14:35Z",
+      "branch": "codetether/issue-5966",
+      "head": "c4034b2a375e748f653afe7ce4b948a03b4747f6"
+    },
+    {
+      "number": 5965,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5965",
+      "created_at": "2026-09-11T03:41:50Z",
+      "updated_at": "2026-09-14T10:14:46Z",
+      "branch": "codetether/issue-5964",
+      "head": "6ea30e86a4c739d699872755daed48f2c1ea3f88"
+    },
+    {
+      "number": 5963,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5963",
+      "created_at": "2026-09-10T16:46:53Z",
+      "updated_at": "2026-09-12T20:43:51Z",
+      "branch": "codetether/issue-5962",
+      "head": "93661cd2bc0db1a2f592bedf9495f1521967768e"
+    },
+    {
+      "number": 5961,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5961",
+      "created_at": "2026-09-10T14:24:00Z",
+      "updated_at": "2026-09-11T18:31:45Z",
+      "branch": "codetether/issue-5960",
+      "head": "ca940b92cf17ff7c118c14a0a7698ea76f69be64"
+    },
+    {
+      "number": 5952,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5952",
+      "created_at": "2026-09-09T21:05:09Z",
+      "updated_at": "2026-09-11T02:29:14Z",
+      "branch": "codetether/issue-5947",
+      "head": "3394ee3fc7035e34ec943294e0f22bd1402b0bee"
+    },
+    {
+      "number": 5951,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5951",
+      "created_at": "2026-09-09T21:01:28Z",
+      "updated_at": "2026-09-11T03:05:54Z",
+      "branch": "codetether/issue-5946",
+      "head": "1a77478f10e121e29d290208d8e916b2b682bd54"
+    },
+    {
+      "number": 5950,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5950",
+      "created_at": "2026-09-09T20:56:50Z",
+      "updated_at": "2026-09-11T02:28:35Z",
+      "branch": "codetether/issue-5944",
+      "head": "0b9665b0a7e4f77fd2d3e2723cf382fbb99cd530"
+    },
+    {
+      "number": 5943,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5943",
+      "created_at": "2026-09-09T20:40:19Z",
+      "updated_at": "2026-09-11T02:54:00Z",
+      "branch": "codetether/issue-5938",
+      "head": "5b5b230c7bad9f703503d35bf87862a65f7fb5a1"
+    },
+    {
+      "number": 5942,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5942",
+      "created_at": "2026-09-09T20:39:45Z",
+      "updated_at": "2026-09-11T03:13:48Z",
+      "branch": "codetether/issue-5939",
+      "head": "e89f7ee8071e1ec188465d4e7111b7aea60b01d8"
+    },
+    {
+      "number": 5941,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5941",
+      "created_at": "2026-09-09T20:38:04Z",
+      "updated_at": "2026-09-11T02:50:40Z",
+      "branch": "codetether/issue-5937",
+      "head": "9e009480049d1a3d7defa6601a235db5a1374e9f"
+    },
+    {
+      "number": 5940,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5940",
+      "created_at": "2026-09-09T20:22:39Z",
+      "updated_at": "2026-09-11T02:34:13Z",
+      "branch": "codetether/issue-5936",
+      "head": "5fb49ca5e59825e94917a8d3cebc3438ac8f5221"
+    },
+    {
+      "number": 5934,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5934",
+      "created_at": "2026-09-09T19:28:16Z",
+      "updated_at": "2026-09-11T03:20:36Z",
+      "branch": "codetether/issue-5928",
+      "head": "76b8ab34dc6ea8f5bba68a1fe37dd5944028f4bd"
+    },
+    {
+      "number": 5933,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5933",
+      "created_at": "2026-09-09T19:26:40Z",
+      "updated_at": "2026-09-11T02:20:12Z",
+      "branch": "codetether/issue-5926",
+      "head": "59a13fd02a62a6377c24f7128ae9ea2db88539a2"
+    },
+    {
+      "number": 5932,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5932",
+      "created_at": "2026-09-09T19:26:00Z",
+      "updated_at": "2026-09-11T03:07:41Z",
+      "branch": "codetether/issue-5925",
+      "head": "de1da1be6c1d4afa0d40d1164c01bc4957ce6ea0"
+    },
+    {
+      "number": 5931,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5931",
+      "created_at": "2026-09-09T19:24:33Z",
+      "updated_at": "2026-09-11T02:57:15Z",
+      "branch": "codetether/issue-5929",
+      "head": "d25306ef89edd934ec7792e190f69ece7af7a208"
+    },
+    {
+      "number": 5930,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5930",
+      "created_at": "2026-09-09T19:20:22Z",
+      "updated_at": "2026-09-11T03:17:18Z",
+      "branch": "codetether/issue-5927",
+      "head": "c3a9a7cd7eeb6594e08b35957f9ce6a28a3d540c"
+    },
+    {
+      "number": 5923,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5923",
+      "created_at": "2026-09-09T16:01:56Z",
+      "updated_at": "2026-09-09T16:02:51Z",
+      "branch": "codetether/issue-5922",
+      "head": "341fc5be90c496e9f648eda5a28deab8e892ec76"
+    },
+    {
+      "number": 5920,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5920",
+      "created_at": "2026-09-09T15:39:52Z",
+      "updated_at": "2026-09-14T10:14:38Z",
+      "branch": "codetether/issue-5919",
+      "head": "1aa636006a133c62ba5ddf3062a20bf5b2b1f433"
+    },
+    {
+      "number": 5918,
+      "state": "closed",
+      "merged": true,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5918",
+      "created_at": "2026-09-09T04:47:30Z",
+      "updated_at": "2026-09-09T05:21:54Z",
+      "branch": "codetether/issue-5917",
+      "head": "04e31ef3e060ce19f872adc1419ee8c79288d7e2"
+    },
+    {
+      "number": 5916,
+      "state": "closed",
+      "merged": true,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5916",
+      "created_at": "2026-09-09T04:33:55Z",
+      "updated_at": "2026-09-09T04:38:37Z",
+      "branch": "codetether/issue-5915",
+      "head": "5a363afb8f7b8c0fe28c8f5721c2a50cf1c2a76d"
+    },
+    {
+      "number": 5914,
+      "state": "closed",
+      "merged": true,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5914",
+      "created_at": "2026-09-09T03:55:40Z",
+      "updated_at": "2026-09-09T04:01:24Z",
+      "branch": "codetether/issue-5913",
+      "head": "b9b90b2553141ac1cb99b916ce50886b25635e44"
+    },
+    {
+      "number": 5911,
+      "state": "closed",
+      "merged": true,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5911",
+      "created_at": "2026-09-08T23:58:38Z",
+      "updated_at": "2026-09-09T00:14:59Z",
+      "branch": "codetether/issue-5910",
+      "head": "cacff009cb8103333a92948a1b086982dfc306d6"
+    },
+    {
+      "number": 5909,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5909",
+      "created_at": "2026-09-08T19:32:48Z",
+      "updated_at": "2026-09-14T10:14:34Z",
+      "branch": "codetether/issue-5908",
+      "head": "a69733d3110bdeb4f04e9a992e8ebb8d47489854"
+    },
+    {
+      "number": 5906,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5906",
+      "created_at": "2026-09-08T15:38:19Z",
+      "updated_at": "2026-09-14T10:14:40Z",
+      "branch": "codetether/issue-5905",
+      "head": "cda7ec28bd78ae7e4d3c391ef8784bd696db8b5b"
+    },
+    {
+      "number": 5903,
+      "state": "closed",
+      "merged": true,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5903",
+      "created_at": "2026-09-08T11:56:21Z",
+      "updated_at": "2026-09-08T15:10:55Z",
+      "branch": "codetether/issue-5902",
+      "head": "3f76cebf37a9d6bd4e78bc6fad0cfe5d25cdf628"
+    },
+    {
+      "number": 5901,
+      "state": "closed",
+      "merged": true,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5901",
+      "created_at": "2026-09-08T09:31:27Z",
+      "updated_at": "2026-09-09T05:18:22Z",
+      "branch": "codetether/issue-5900",
+      "head": "58d913f892aecd2790197fdc44bbe9539b42f733"
+    },
+    {
+      "number": 5899,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5899",
+      "created_at": "2026-09-08T05:53:00Z",
+      "updated_at": "2026-09-14T10:14:37Z",
+      "branch": "codetether/issue-5898",
+      "head": "da435860c5424e4efc383f59c064c92960a5cfe5"
+    },
+    {
+      "number": 5897,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5897",
+      "created_at": "2026-09-08T05:29:55Z",
+      "updated_at": "2026-09-14T10:14:31Z",
+      "branch": "codetether/issue-5892",
+      "head": "987c0ffce5d5297e2c4a74b62cc60ec6516817e3"
+    },
+    {
+      "number": 5896,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5896",
+      "created_at": "2026-09-08T05:26:30Z",
+      "updated_at": "2026-09-08T05:29:52Z",
+      "branch": "codetether/issue-5895",
+      "head": "4b4425a83c5afbb1b83024b71d19057395a2dcd1"
+    },
+    {
+      "number": 5874,
+      "state": "closed",
+      "merged": true,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5874",
+      "created_at": "2026-09-07T15:04:07Z",
+      "updated_at": "2026-09-09T05:19:34Z",
+      "branch": "codetether/issue-5863",
+      "head": "f86a6b538a300f076866e54c6668ea5e9fea63d5"
+    },
+    {
+      "number": 5361,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5361",
+      "created_at": "2026-08-10T05:54:24Z",
+      "updated_at": "2026-08-15T18:26:59Z",
+      "branch": "codetether/issue-5304",
+      "head": "85e858ee7bd842177fd86dc385beac5e872e87c2"
+    },
+    {
+      "number": 5360,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5360",
+      "created_at": "2026-08-10T05:35:44Z",
+      "updated_at": "2026-08-15T18:26:59Z",
+      "branch": "codetether/issue-5305",
+      "head": "a23ddb77db3d4dd9f426551afa9870196b0014c9"
+    },
+    {
+      "number": 5359,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5359",
+      "created_at": "2026-08-10T05:23:53Z",
+      "updated_at": "2026-08-14T23:09:38Z",
+      "branch": "codetether/issue-5307",
+      "head": "ac0f6315fb80e60736918745c155381337d9ab21"
+    },
+    {
+      "number": 5357,
+      "state": "closed",
+      "merged": true,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5357",
+      "created_at": "2026-08-10T04:27:03Z",
+      "updated_at": "2026-08-10T23:08:42Z",
+      "branch": "codetether/issue-5309",
+      "head": "684a2fbb5da0eb9ea74a72ba53d74022b1b44575"
+    },
+    {
+      "number": 5356,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5356",
+      "created_at": "2026-08-10T03:06:58Z",
+      "updated_at": "2026-08-14T23:08:53Z",
+      "branch": "codetether/issue-5354",
+      "head": "c7d6fea77ec59c4d76403c8cd14f55ac9cd95147"
+    },
+    {
+      "number": 5355,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5355",
+      "created_at": "2026-08-10T02:39:39Z",
+      "updated_at": "2026-08-14T23:08:55Z",
+      "branch": "codetether/issue-5310",
+      "head": "839609c3ea9aafd25096dc59b9e81cf1433c9c44"
+    },
+    {
+      "number": 5352,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5352",
+      "created_at": "2026-08-10T02:16:13Z",
+      "updated_at": "2026-08-14T23:08:57Z",
+      "branch": "codetether/issue-5312",
+      "head": "572d55760e1f3af20ce56520b42598a9e5c775bc"
+    },
+    {
+      "number": 5351,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5351",
+      "created_at": "2026-08-10T02:16:06Z",
+      "updated_at": "2026-08-14T23:09:05Z",
+      "branch": "codetether/issue-5311",
+      "head": "fa9bf71a013d4bc760d161dab047b423111aee6a"
+    },
+    {
+      "number": 5350,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5350",
+      "created_at": "2026-08-10T01:31:59Z",
+      "updated_at": "2026-08-15T18:27:29Z",
+      "branch": "codetether/issue-5314",
+      "head": "765cde7426444aca83ed641281a7a7e902c44f65"
+    },
+    {
+      "number": 5349,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5349",
+      "created_at": "2026-08-10T01:06:46Z",
+      "updated_at": "2026-08-14T23:08:58Z",
+      "branch": "codetether/issue-5323",
+      "head": "282c98ee984fb76bbf47daf0d8247cb06c89e114"
+    },
+    {
+      "number": 5348,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5348",
+      "created_at": "2026-08-10T01:03:14Z",
+      "updated_at": "2026-08-14T23:09:00Z",
+      "branch": "codetether/issue-5320",
+      "head": "120330d28ad579be694432dc40ac6445b63256e2"
+    },
+    {
+      "number": 5347,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5347",
+      "created_at": "2026-08-09T22:12:20Z",
+      "updated_at": "2026-08-14T23:09:00Z",
+      "branch": "codetether/issue-5319",
+      "head": "c023d6bc02798c1545ebfa843e864c0b2a532555"
+    },
+    {
+      "number": 5345,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5345",
+      "created_at": "2026-08-09T19:36:29Z",
+      "updated_at": "2026-08-14T23:09:08Z",
+      "branch": "codetether/issue-5325",
+      "head": "8e2c30bad034981c915adc1b3df165565d2cfecf"
+    },
+    {
+      "number": 5344,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5344",
+      "created_at": "2026-08-09T19:35:28Z",
+      "updated_at": "2026-08-14T23:09:10Z",
+      "branch": "codetether/issue-5326",
+      "head": "012533c2421f3a8e11cb43161062d7dc90a5aa4e"
+    },
+    {
+      "number": 5343,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5343",
+      "created_at": "2026-08-09T19:33:15Z",
+      "updated_at": "2026-08-14T23:09:07Z",
+      "branch": "codetether/issue-5327",
+      "head": "dd223033724478a733ba29de68e056a044d83706"
+    },
+    {
+      "number": 5342,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5342",
+      "created_at": "2026-08-09T19:31:08Z",
+      "updated_at": "2026-08-14T23:09:02Z",
+      "branch": "codetether/issue-5329",
+      "head": "0beccf465513c559a81cff27cdfe92f2b3469ff3"
+    },
+    {
+      "number": 5341,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5341",
+      "created_at": "2026-08-09T19:26:41Z",
+      "updated_at": "2026-08-14T23:09:07Z",
+      "branch": "codetether/issue-5334",
+      "head": "98a8546e6be3bce1f6f01c62b88cc980b11f0112"
+    },
+    {
+      "number": 5340,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5340",
+      "created_at": "2026-08-09T19:10:18Z",
+      "updated_at": "2026-08-14T23:09:18Z",
+      "branch": "codetether/issue-5337",
+      "head": "26635eb29e52ac77dc3f65035d2c0a59a911df18"
+    },
+    {
+      "number": 5245,
+      "state": "closed",
+      "merged": true,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5245",
+      "created_at": "2026-08-08T18:31:04Z",
+      "updated_at": "2026-08-08T20:41:27Z",
+      "branch": "codetether/issue-5201",
+      "head": "002f8a8ba4404899fdbe3240645050e64eac0fad"
+    },
+    {
+      "number": 5244,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5244",
+      "created_at": "2026-08-08T18:29:31Z",
+      "updated_at": "2026-08-08T20:33:44Z",
+      "branch": "codetether/issue-5199",
+      "head": "67620c214279916cbc0d7265dbe2e67aad1fc420"
+    },
+    {
+      "number": 5242,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5242",
+      "created_at": "2026-08-08T18:16:15Z",
+      "updated_at": "2026-08-14T23:09:40Z",
+      "branch": "codetether/issue-5241",
+      "head": "d724a41a41cabe22ea80de7497377307e04ecc9a"
+    },
+    {
+      "number": 5236,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5236",
+      "created_at": "2026-08-08T17:23:53Z",
+      "updated_at": "2026-08-08T20:34:01Z",
+      "branch": "codetether/issue-5202",
+      "head": "63789cec91dd237ac77672c7f2e4ff314cfaacb4"
+    },
+    {
+      "number": 5235,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5235",
+      "created_at": "2026-08-08T17:10:37Z",
+      "updated_at": "2026-08-08T20:34:18Z",
+      "branch": "codetether/issue-5203",
+      "head": "9e2bb382d613d4ede2b650b31427d251a73769df"
+    },
+    {
+      "number": 5234,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5234",
+      "created_at": "2026-08-08T17:01:39Z",
+      "updated_at": "2026-08-08T20:33:20Z",
+      "branch": "codetether/issue-5230",
+      "head": "24acf1789884fd8095d8a53ba5ddf9afc8bbe1f9"
+    },
+    {
+      "number": 5233,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5233",
+      "created_at": "2026-08-08T16:51:50Z",
+      "updated_at": "2026-08-08T20:38:53Z",
+      "branch": "codetether/issue-5232",
+      "head": "cb7666cecb470292433b592b97ab7d3db46a364b"
+    },
+    {
+      "number": 5227,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5227",
+      "created_at": "2026-08-08T16:14:03Z",
+      "updated_at": "2026-08-08T20:34:41Z",
+      "branch": "codetether/issue-5224",
+      "head": "3f3a4f9e072ee8544230a351c872b2f092fc9a5d"
+    },
+    {
+      "number": 5226,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5226",
+      "created_at": "2026-08-08T16:09:32Z",
+      "updated_at": "2026-08-15T18:33:30Z",
+      "branch": "codetether/issue-5222",
+      "head": "7e3df7c37d4bc70a7da9f71f2915a03da68236c7"
+    },
+    {
+      "number": 5223,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5223",
+      "created_at": "2026-08-08T15:34:26Z",
+      "updated_at": "2026-08-14T23:09:29Z",
+      "branch": "codetether/issue-5219",
+      "head": "52feb2b7bf7e8faaa04ae628b45943f423503368"
+    },
+    {
+      "number": 5220,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5220",
+      "created_at": "2026-08-08T15:26:40Z",
+      "updated_at": "2026-08-08T20:33:10Z",
+      "branch": "codetether/issue-5208",
+      "head": "770fe432517dd83be196fa135b2c892d16e1e1fb"
+    },
+    {
+      "number": 5179,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5179",
+      "created_at": "2026-08-08T07:29:49Z",
+      "updated_at": "2026-08-15T18:29:20Z",
+      "branch": "codetether/issue-5162",
+      "head": "71a6a27cd441f982e174e121299dabe475a67956"
+    },
+    {
+      "number": 5178,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5178",
+      "created_at": "2026-08-08T07:27:19Z",
+      "updated_at": "2026-08-15T18:28:57Z",
+      "branch": "codetether/issue-5167",
+      "head": "cefdf6a8139e3b4ae79766495a049d01d585ae41"
+    },
+    {
+      "number": 5176,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/5176",
+      "created_at": "2026-08-08T07:25:57Z",
+      "updated_at": "2026-08-15T18:28:55Z",
+      "branch": "codetether/issue-5173",
+      "head": "3b24a6ddf388bf8422e1d41e8d0e111e5609593a"
+    },
+    {
+      "number": 4977,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4977",
+      "created_at": "2026-08-06T18:34:57Z",
+      "updated_at": "2026-08-08T20:38:44Z",
+      "branch": "codetether/issue-4975",
+      "head": "bbb5776c2ba6ecaff17fb42f5f62ccf8d45b91f0"
+    },
+    {
+      "number": 4974,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4974",
+      "created_at": "2026-08-06T17:57:27Z",
+      "updated_at": "2026-08-14T23:09:15Z",
+      "branch": "codetether/issue-4973",
+      "head": "80899cbf436a5f2be07c70923ec8de815a9a9dbe"
+    },
+    {
+      "number": 4971,
+      "state": "closed",
+      "merged": true,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4971",
+      "created_at": "2026-08-06T17:07:10Z",
+      "updated_at": "2026-08-06T18:02:19Z",
+      "branch": "codetether/issue-4743",
+      "head": "17e448e576a2a80e74cbe9094d647ee35b4bc843"
+    },
+    {
+      "number": 4942,
+      "state": "closed",
+      "merged": true,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4942",
+      "created_at": "2026-08-06T00:51:04Z",
+      "updated_at": "2026-08-09T21:54:43Z",
+      "branch": "codetether/issue-4939",
+      "head": "20b617db6e3e44388183add5d2fc54a45c8af9cd"
+    },
+    {
+      "number": 4938,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4938",
+      "created_at": "2026-08-05T23:34:32Z",
+      "updated_at": "2026-08-14T23:09:13Z",
+      "branch": "codetether/issue-4931",
+      "head": "01c82c8129c8a47339af5cb938ff918b11456f1b"
+    },
+    {
+      "number": 4929,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4929",
+      "created_at": "2026-08-03T04:33:51Z",
+      "updated_at": "2026-08-14T23:09:22Z",
+      "branch": "codetether/issue-4928",
+      "head": "fcf24306dafb22b37a06dad9e1befaf42be82524"
+    },
+    {
+      "number": 4926,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4926",
+      "created_at": "2026-08-02T22:36:56Z",
+      "updated_at": "2026-08-14T23:09:19Z",
+      "branch": "codetether/issue-4925",
+      "head": "94723262b74cb9663a8fda2f7e9b36ae320d04c5"
+    },
+    {
+      "number": 4918,
+      "state": "closed",
+      "merged": true,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4918",
+      "created_at": "2026-08-02T13:34:56Z",
+      "updated_at": "2026-08-02T13:42:45Z",
+      "branch": "codetether/issue-4915",
+      "head": "793413404f640dcd57364a836f4353d5a2c30a41"
+    },
+    {
+      "number": 4916,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4916",
+      "created_at": "2026-08-02T13:28:45Z",
+      "updated_at": "2026-08-02T13:42:51Z",
+      "branch": "codetether/issue-4914",
+      "head": "b7dec069697f5dc4147cbae31684c354499c5454"
+    },
+    {
+      "number": 4913,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4913",
+      "created_at": "2026-08-02T12:32:43Z",
+      "updated_at": "2026-08-02T13:39:39Z",
+      "branch": "codetether/issue-4910",
+      "head": "78a0b0f276d53e992ef55a495057c46ec7b6d395"
+    },
+    {
+      "number": 4907,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4907",
+      "created_at": "2026-08-02T11:35:26Z",
+      "updated_at": "2026-08-02T13:40:11Z",
+      "branch": "codetether/issue-4901",
+      "head": "550ff394877e53c3afffede2ef14e0e65d2da69b"
+    },
+    {
+      "number": 4906,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4906",
+      "created_at": "2026-08-02T11:33:45Z",
+      "updated_at": "2026-08-02T11:37:51Z",
+      "branch": "codetether/issue-4902",
+      "head": "e054a79302b641ebdd4b0464c0755d10e00e5f03"
+    },
+    {
+      "number": 4905,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4905",
+      "created_at": "2026-08-02T11:31:49Z",
+      "updated_at": "2026-08-02T13:39:42Z",
+      "branch": "codetether/issue-4903",
+      "head": "c64a12b0123820956547ad943330cbf888610fe0"
+    },
+    {
+      "number": 4904,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4904",
+      "created_at": "2026-08-02T11:27:47Z",
+      "updated_at": "2026-08-02T13:39:52Z",
+      "branch": "codetether/issue-4899",
+      "head": "36f2a15676bf43c42704ed020d94609fac2fe776"
+    },
+    {
+      "number": 4898,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4898",
+      "created_at": "2026-08-02T10:35:06Z",
+      "updated_at": "2026-08-02T10:57:17Z",
+      "branch": "codetether/issue-4894",
+      "head": "7cb9328574615f1269c80120a2efc24fd02bda50"
+    },
+    {
+      "number": 4897,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4897",
+      "created_at": "2026-08-02T10:33:47Z",
+      "updated_at": "2026-08-02T11:08:51Z",
+      "branch": "codetether/issue-4893",
+      "head": "3b0927fc3aeb6f6cb1c5e95b4cc66ec2ea901aba"
+    },
+    {
+      "number": 4886,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4886",
+      "created_at": "2026-08-02T08:31:27Z",
+      "updated_at": "2026-08-02T09:25:53Z",
+      "branch": "codetether/issue-4883",
+      "head": "7dd56d72bb19eba859defd4cb971a692e17515a4"
+    },
+    {
+      "number": 4878,
+      "state": "open",
+      "merged": false,
+      "html_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/4878",
+      "created_at": "2026-08-02T04:12:22Z",
+      "updated_at": "2026-08-08T01:34:23Z",
+      "branch": "codetether/issue-4877",
+      "head": "a27a3218dd7feb293f244f9bc27938d595d888cd"
+    }
+  ],
+  "pod": "a2a-server-deployment-green-84dd57c9c9-z6k4b",
+  "jobs": [
+    {
+      "name": "ct-task-098d1e07f48820600b2dd22da96e0a5b",
+      "task": "9a00a545-05e7-483d-a9ab-dfebbf1c4c8f",
+      "created": "2026-09-11T15:44:56Z",
+      "status": {
+        "completionTime": "2026-09-11T15:56:27Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T15:56:27Z",
+            "lastTransitionTime": "2026-09-11T15:56:27Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T15:44:56Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-0bdd530aff5edab0aec56c0480284d39",
+      "task": "8d422717-2dad-4d4c-a79b-7111e2b326f9",
+      "created": "2026-09-11T16:28:42Z",
+      "status": {
+        "completionTime": "2026-09-11T16:59:34Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T16:59:34Z",
+            "lastTransitionTime": "2026-09-11T16:59:34Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T16:28:42Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-13ef1aa5eb1d57e1e2c27fd858a68ddf",
+      "task": "e928a63e-7d57-4b16-be2e-595acc0cb72d",
+      "created": "2026-09-12T21:07:18Z",
+      "status": {
+        "completionTime": "2026-09-12T21:32:49Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T21:32:49Z",
+            "lastTransitionTime": "2026-09-12T21:32:49Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:07:18Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-17a1200baa5a6ad35bba31527caf9321",
+      "task": "c4f604f4-f0a6-4669-a7df-66bf1a567073",
+      "created": "2026-09-12T21:24:50Z",
+      "status": {
+        "completionTime": "2026-09-12T21:48:32Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T21:48:32Z",
+            "lastTransitionTime": "2026-09-12T21:48:32Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:24:50Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-1c477be3f6525358e94159f5802eca35",
+      "task": "2362688a-fb7e-41fe-bd3a-2f2a573c88e7",
+      "created": "2026-09-11T19:06:24Z",
+      "status": {
+        "completionTime": "2026-09-11T19:24:32Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T19:24:32Z",
+            "lastTransitionTime": "2026-09-11T19:24:32Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T19:06:24Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-1e11e97194c6069c098e2fcea316360c",
+      "task": "d85aebf2-44c4-4d19-ac91-8d44c1a1f345",
+      "created": "2026-09-12T21:51:53Z",
+      "status": {
+        "completionTime": "2026-09-12T22:10:56Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T22:10:56Z",
+            "lastTransitionTime": "2026-09-12T22:10:56Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:51:53Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-1fd923be6b736c1873abbabcc3684fe1",
+      "task": "5a822e39-6b6b-4cb7-9c42-032db0cd8d19",
+      "created": "2026-09-12T21:52:59Z",
+      "status": {
+        "completionTime": "2026-09-12T22:12:39Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T22:12:39Z",
+            "lastTransitionTime": "2026-09-12T22:12:39Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:52:59Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-25d94f96fc8193f46adfe01689ed912a",
+      "task": "88164b82-1b2e-49f5-ade1-29358a49e268",
+      "created": "2026-09-11T18:59:40Z",
+      "status": {
+        "completionTime": "2026-09-11T19:22:59Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T19:23:00Z",
+            "lastTransitionTime": "2026-09-11T19:23:00Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T18:59:40Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-2e1aa980139df1a5f48a2c5bd939099b",
+      "task": "58b71bef-2400-4ef9-9d4a-f2cd16cca35e",
+      "created": "2026-09-12T21:28:28Z",
+      "status": {
+        "completionTime": "2026-09-12T21:51:35Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T21:51:35Z",
+            "lastTransitionTime": "2026-09-12T21:51:35Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:28:29Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-32f3391e6d8df201dabcd593db864e4a",
+      "task": "4ae0f00f-655f-4dcc-8c1c-2f9f3a3c9ebf",
+      "created": "2026-09-11T15:39:10Z",
+      "status": {
+        "completionTime": "2026-09-11T15:49:42Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T15:49:42Z",
+            "lastTransitionTime": "2026-09-11T15:49:42Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T15:39:10Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-359e4920db658bd84b7c4cee89764ebc",
+      "task": "6528b1fd-7bde-463c-9692-517066d6a883",
+      "created": "2026-09-10T19:08:08Z",
+      "status": {
+        "completionTime": "2026-09-10T19:17:06Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-10T19:17:06Z",
+            "lastTransitionTime": "2026-09-10T19:17:06Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-10T19:08:08Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-3aa76aed2bc2d669e89ef7ffcabee622",
+      "task": "904bfede-5b03-4484-b67c-9f963cf4ceb5",
+      "created": "2026-09-11T15:49:50Z",
+      "status": {
+        "completionTime": "2026-09-11T16:05:44Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T16:05:44Z",
+            "lastTransitionTime": "2026-09-11T16:05:44Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T15:49:50Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-3d0510538e3ba4f0db343faf756ff935",
+      "task": "760e3242-4d95-4c6f-9be2-ba34b20d4ccf",
+      "created": "2026-09-10T16:39:43Z",
+      "status": {
+        "completionTime": "2026-09-10T16:46:52Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-10T16:46:53Z",
+            "lastTransitionTime": "2026-09-10T16:46:53Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-10T16:39:43Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-3e0386d94b03712c275a6c8d1a804077",
+      "task": "a1389ede-e6be-4218-9ec8-3ef85d874bed",
+      "created": "2026-09-11T16:29:16Z",
+      "status": {
+        "completionTime": "2026-09-11T17:00:00Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T17:00:01Z",
+            "lastTransitionTime": "2026-09-11T17:00:01Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T16:29:16Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-47525fbd8604cf6a028e3eb423f97c00",
+      "task": "02b0632b-af2b-452e-bf82-b8fa418f31fd",
+      "created": "2026-09-11T18:36:08Z",
+      "status": {
+        "completionTime": "2026-09-11T19:01:52Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T19:01:52Z",
+            "lastTransitionTime": "2026-09-11T19:01:52Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T18:36:08Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-4b1a3da3253f55723fc535fd34c87381",
+      "task": "a682fc23-552e-4147-bf1d-e46eaa87162f",
+      "created": "2026-09-10T17:02:57Z",
+      "status": {
+        "completionTime": "2026-09-10T17:09:32Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-10T17:09:32Z",
+            "lastTransitionTime": "2026-09-10T17:09:32Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-10T17:02:57Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-54d3e050275cf5989dd9d46f171e3c31",
+      "task": "b3e7f903-72c9-4145-b317-203b51344353",
+      "created": "2026-09-11T03:26:55Z",
+      "status": {
+        "completionTime": "2026-09-11T03:41:21Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T03:41:21Z",
+            "lastTransitionTime": "2026-09-11T03:41:21Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T03:26:55Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-5ff607fede9502d9a6d694f11fabb1bf",
+      "task": "c50c2103-1abe-4d7f-a8e6-82c0e0222a9c",
+      "created": "2026-09-11T18:24:29Z",
+      "status": {
+        "completionTime": "2026-09-11T18:49:00Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T18:49:00Z",
+            "lastTransitionTime": "2026-09-11T18:49:00Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T18:24:30Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-607d53fba7ce39257e90216bca14e539",
+      "task": "4f4e9e25-a79b-40a0-86a9-091620498b2c",
+      "created": "2026-09-12T21:00:08Z",
+      "status": {
+        "completionTime": "2026-09-12T21:20:35Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T21:20:35Z",
+            "lastTransitionTime": "2026-09-12T21:20:35Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:00:08Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-64ab8e4d524e55c69e2c108fa3b893d8",
+      "task": "0d023ef5-e1d9-46ea-b2e7-28dc7d41f1a9",
+      "created": "2026-09-12T21:28:56Z",
+      "status": {
+        "completionTime": "2026-09-12T21:54:43Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T21:54:43Z",
+            "lastTransitionTime": "2026-09-12T21:54:43Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:28:56Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-6b8bb8960fad4592cd7d9c43d38c08d2",
+      "task": "e61de43a-5742-4c62-94d6-ed607cb5e801",
+      "created": "2026-09-11T18:49:19Z",
+      "status": {
+        "completionTime": "2026-09-11T19:12:39Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T19:12:39Z",
+            "lastTransitionTime": "2026-09-11T19:12:39Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T18:49:19Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-7dd12cacf0849ad0267bd5267444b5bc",
+      "task": "2ece554a-850d-4844-896a-ea1427ddca74",
+      "created": "2026-09-12T21:33:08Z",
+      "status": {
+        "completionTime": "2026-09-12T22:01:46Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T22:01:46Z",
+            "lastTransitionTime": "2026-09-12T22:01:46Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:33:08Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-8718f5d89d5294c3671d39b434d719b2",
+      "task": "63a78001-f3c0-4d92-a98b-bcdb4060924e",
+      "created": "2026-09-12T21:28:57Z",
+      "status": {
+        "completionTime": "2026-09-12T21:54:14Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T21:54:14Z",
+            "lastTransitionTime": "2026-09-12T21:54:14Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:28:57Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-87b2cd2a7cb414b1b28e696d3800abff",
+      "task": "9b744aee-1217-4840-8c55-a4e9dbe4a2b9",
+      "created": "2026-09-12T21:07:18Z",
+      "status": {
+        "completionTime": "2026-09-12T21:33:03Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T21:33:03Z",
+            "lastTransitionTime": "2026-09-12T21:33:03Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:07:18Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-8b982302eda3fb9fed7fbe6d9b6ebfa2",
+      "task": "42c302d3-421a-4c0f-8556-463748e5406d",
+      "created": "2026-09-12T21:46:29Z",
+      "status": {
+        "completionTime": "2026-09-12T22:05:00Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T22:05:01Z",
+            "lastTransitionTime": "2026-09-12T22:05:01Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:46:29Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-91618a4768e7aca39759e533183cd893",
+      "task": "80d8337f-8c39-4baa-9aec-07a6c3b7bf3f",
+      "created": "2026-09-10T16:49:36Z",
+      "status": {
+        "completionTime": "2026-09-10T16:59:54Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-10T16:59:55Z",
+            "lastTransitionTime": "2026-09-10T16:59:55Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-10T16:49:36Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-aca5a8e60c493d77b0a1d5cad4b9ea9e",
+      "task": "18d722c1-0ff1-4a64-89f8-d3d6500d7e6c",
+      "created": "2026-09-11T18:28:00Z",
+      "status": {
+        "completionTime": "2026-09-11T18:57:31Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T18:57:31Z",
+            "lastTransitionTime": "2026-09-11T18:57:31Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T18:28:00Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-b259960d455435ef820343eb44da4ba8",
+      "task": "df8be6b5-aca8-4f92-978b-7eb9622b46f2",
+      "created": "2026-09-12T22:15:04Z",
+      "status": {
+        "completionTime": "2026-09-12T22:22:13Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T22:22:13Z",
+            "lastTransitionTime": "2026-09-12T22:22:13Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T22:15:04Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-b63c83c9afb98ca364485dd2a5fd8e65",
+      "task": "8df7bcde-239f-44d5-88f4-aa7a586b02d8",
+      "created": "2026-09-10T19:36:11Z",
+      "status": {
+        "completionTime": "2026-09-10T19:43:48Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-10T19:43:48Z",
+            "lastTransitionTime": "2026-09-10T19:43:48Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-10T19:36:11Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-c1976449943448387080ddb1b4bcd552",
+      "task": "56de8dc5-7973-473d-b1ec-16451b0d6d47",
+      "created": "2026-09-11T18:28:01Z",
+      "status": {
+        "completionTime": "2026-09-11T18:58:53Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T18:58:53Z",
+            "lastTransitionTime": "2026-09-11T18:58:53Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T18:28:01Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-c66e71fd244f3e5a7ccfed50bab31aae",
+      "task": "d6ed6809-4235-4e6d-8a64-cc0867aa3add",
+      "created": "2026-09-10T19:41:20Z",
+      "status": {
+        "completionTime": "2026-09-10T19:48:25Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-10T19:48:25Z",
+            "lastTransitionTime": "2026-09-10T19:48:25Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-10T19:41:20Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-ca22c60d5bbfb3309e8d1c44daf9bc93",
+      "task": "49111dd6-b8ab-40d0-889b-c37eb7cf7ced",
+      "created": "2026-09-11T16:06:01Z",
+      "status": {
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T16:16:21Z",
+            "lastTransitionTime": "2026-09-11T16:16:21Z",
+            "message": "Job has reached the specified backoff limit",
+            "reason": "BackoffLimitExceeded",
+            "status": "True",
+            "type": "Failed"
+          }
+        ],
+        "failed": 1,
+        "ready": 0,
+        "startTime": "2026-09-11T16:06:01Z",
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-d1af9227ea8b26cec7440af722195951",
+      "task": "e390b971-fb32-477d-bbd3-eb44ce3c7c0e",
+      "created": "2026-09-11T19:37:32Z",
+      "status": {
+        "completionTime": "2026-09-11T19:49:56Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T19:49:56Z",
+            "lastTransitionTime": "2026-09-11T19:49:56Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T19:37:32Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-d6b426a0b1de17c04da653da2129ea7b",
+      "task": "808c388e-7840-43bc-a745-66204a9e8490",
+      "created": "2026-09-10T14:13:06Z",
+      "status": {
+        "completionTime": "2026-09-10T14:23:53Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-10T14:23:53Z",
+            "lastTransitionTime": "2026-09-10T14:23:53Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-10T14:13:06Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-d80f8468a3d72fa073263c99ef6837c8",
+      "task": "bc4aba71-f47e-45e3-95a6-8ed0a98d9a8a",
+      "created": "2026-09-11T18:49:54Z",
+      "status": {
+        "completionTime": "2026-09-11T19:11:56Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T19:11:56Z",
+            "lastTransitionTime": "2026-09-11T19:11:56Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T18:49:54Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-df35bef51a5ed8aca556de688469d383",
+      "task": "9b66afb9-f792-435a-aa96-92f46682f817",
+      "created": "2026-09-12T21:20:54Z",
+      "status": {
+        "completionTime": "2026-09-12T21:46:19Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T21:46:19Z",
+            "lastTransitionTime": "2026-09-12T21:46:19Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:20:54Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-ec3376e860cdcebd972b6e4d0d75c3b0",
+      "task": "f7dd49c3-752a-4743-ad4b-b52dd429f415",
+      "created": "2026-09-11T19:00:54Z",
+      "status": {
+        "completionTime": "2026-09-11T19:20:57Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-11T19:20:58Z",
+            "lastTransitionTime": "2026-09-11T19:20:58Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-11T19:00:54Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-f2241832d847fbc8acd264572b7f31d3",
+      "task": "eb06d68c-b47a-4796-9eac-465656fa78d1",
+      "created": "2026-09-12T21:25:21Z",
+      "status": {
+        "completionTime": "2026-09-12T21:51:39Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T21:51:39Z",
+            "lastTransitionTime": "2026-09-12T21:51:39Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-12T21:25:21Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-f7ae229091c1428796b5f8918c32192b",
+      "task": "44569131-7e76-4da6-b1ba-61832fdfc02e",
+      "created": "2026-09-10T14:26:40Z",
+      "status": {
+        "completionTime": "2026-09-10T14:33:35Z",
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-10T14:33:35Z",
+            "lastTransitionTime": "2026-09-10T14:33:35Z",
+            "status": "True",
+            "type": "Complete"
+          }
+        ],
+        "ready": 0,
+        "startTime": "2026-09-10T14:26:40Z",
+        "succeeded": 1,
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    },
+    {
+      "name": "ct-task-fbaa19cf9a334b23f32f49b4a0e494cc",
+      "task": "e3a92f4a-aae1-4f21-b3c0-4c8eb9d4dd96",
+      "created": "2026-09-12T21:33:06Z",
+      "status": {
+        "conditions": [
+          {
+            "lastProbeTime": "2026-09-12T21:52:27Z",
+            "lastTransitionTime": "2026-09-12T21:52:27Z",
+            "message": "Job has reached the specified backoff limit",
+            "reason": "BackoffLimitExceeded",
+            "status": "True",
+            "type": "Failed"
+          }
+        ],
+        "failed": 1,
+        "ready": 0,
+        "startTime": "2026-09-12T21:33:06Z",
+        "terminating": 0,
+        "uncountedTerminatedPods": {}
+      },
+      "ttl": null
+    }
+  ]
+}

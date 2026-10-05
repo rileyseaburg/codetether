@@ -1,0 +1,319 @@
+{
+  "agentIdentity": {
+    "enabled": true
+  },
+  "app": {
+    "description": "Production CodeTether A2A coordination server",
+    "enhanced": true,
+    "logLevel": "INFO",
+    "name": "CodeTether Server"
+  },
+  "auth": {
+    "enabled": true,
+    "tokens": {}
+  },
+  "autoscaling": {
+    "enabled": false
+  },
+  "blueGreen": {
+    "enabled": true,
+    "images": {
+      "blue": {
+        "image": "us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp:main-de6dcbf"
+      },
+      "green": {
+        "image": "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-eb2051a212a2"
+      }
+    },
+    "legacyReplicaCount": 0,
+    "mode": "bluegreen",
+    "replicas": {
+      "blue": 0,
+      "green": 2
+    },
+    "rolloutId": {
+      "blue": "",
+      "green": "main-eb2051a212a2",
+      "legacy": ""
+    },
+    "serviceColor": "green"
+  },
+  "commonLabels": {
+    "app.kubernetes.io/managed-by": "argocd",
+    "app.kubernetes.io/part-of": "codetether"
+  },
+  "docs": {
+    "enabled": false
+  },
+  "env": {
+    "A2A_AGENT_DESCRIPTION": "Production CodeTether A2A coordination server",
+    "A2A_AGENT_DOCS_URL": "https://docs.codetether.run",
+    "A2A_AGENT_NAME": "CodeTether Server",
+    "A2A_AGENT_ORG": "CodeTether",
+    "A2A_AGENT_ORG_URL": "https://codetether.run",
+    "A2A_AGENT_URL": "https://api.codetether.run",
+    "A2A_HOST": "0.0.0.0",
+    "A2A_LOG_LEVEL": "INFO",
+    "A2A_PORT": "8000",
+    "A2A_SCHEMA_INIT_ON_STARTUP": "false",
+    "CODETETHER_DASHBOARD_URL": "https://codetether.run",
+    "CODETETHER_TASK_CLAIM_ORDER": "newest",
+    "FORGEJO_AUTOMATION_PAUSED_PRS": "riley/spotlessbinco#5873",
+    "FORGEJO_AUTO_MERGE_REQUIRED_CHECKS": "{\"riley/spotlessbinco\":[\n  \"Dev Image Builds / build-and-push (pull_request)\",\n  \"Dev Image Builds / Build and push Dev Rust backend (pull_request)\",\n  \"Dev Image Builds / build-and-push-dev-api (pull_request)\",\n  \"Dev Image Builds / Build and push Dev Fastify API (pull_request)\",\n  \"Secret Scan / gitleaks (pull_request)\",\n  \"CodeTether / Harvester Review\"\n]}",
+    "FORGEJO_REVIEW_RECOVERY_REPOS": "riley/spotlessbinco",
+    "FORGEJO_REVIEW_SAFE_WORKER": "harvester-pr-review",
+    "FORGEJO_SINGLE_REVIEW_REPOS": "riley/spotlessbinco",
+    "FORGEJO_STATUS_REMEDIATION_ENABLED": "false",
+    "GITHUB_APP_ACTIVE_WORK_ENABLED": "false",
+    "GITHUB_APP_AUTO_MERGE_ENABLED": "false",
+    "GITHUB_APP_DENY_REPOS": "",
+    "GITHUB_APP_MODEL_REF": "openai-codex/gpt-6-astra-fast:high",
+    "GITHUB_APP_STATUS_PUBLISHER": "off",
+    "HARVESTER_JOB_ALLOWED_NODES": "k8s-worker-1,k8s-worker-2,k8s-worker-3,k8s-worker-4",
+    "HARVESTER_JOB_EXCLUDED_NODES": "kube-worker-08,node7,storage-node,spotless-tv-gpu",
+    "HARVESTER_JOB_MAX_ACTIVE": "8",
+    "HARVESTER_JOB_MAX_ACTIVE_READONLY": "4",
+    "HARVESTER_JOB_MAX_RETAINED": "40",
+    "HARVESTER_JOB_NAMESPACE": "a2a-system",
+    "HARVESTER_JOB_REPOS": "riley/spotlessbinco",
+    "HARVESTER_JOB_TEMPLATE": "a2a-server-task-job-template",
+    "HARVESTER_JOB_TTL": "60",
+    "MARKETING_SITE_URL": "http://codetether-marketing.a2a-server.svc.cluster.local:3000",
+    "MCP_HTTP_ENABLED": "true",
+    "MCP_HTTP_HOST": "0.0.0.0",
+    "MCP_HTTP_PORT": "9000",
+    "WORKER_INFRA_CACHE_TTL_SECONDS": "30",
+    "WORKER_INFRA_NODE_MAP": ""
+  },
+  "envFromSecret": {
+    "A2A_AUTH_TOKENS": "a2a-server-auth-tokens",
+    "KEYCLOAK_AGENT_REALM": "codetether-identity-provisioner",
+    "KEYCLOAK_CLIENT_SECRET": "a2a-server-keycloak-auth",
+    "KEYCLOAK_PROVISIONER_CLIENT_ID": "codetether-identity-provisioner",
+    "KEYCLOAK_PROVISIONER_CLIENT_SECRET": "codetether-identity-provisioner",
+    "KEYCLOAK_PROVISIONER_REALM": "codetether-identity-provisioner"
+  },
+  "existingEnvFromSecrets": [
+    "harvester-api-keys"
+  ],
+  "externalPostgresql": {
+    "existingSecret": "a2a-server-database",
+    "secretKey": "DATABASE_URL"
+  },
+  "forgejo": {
+    "apiUrl": "https://forgejo.quantum-forge.io/api/v1",
+    "botUsername": "codetether-bot",
+    "existingSecret": "a2a-server-forgejo"
+  },
+  "githubApp": {
+    "existingSecret": ""
+  },
+  "harvester": {
+    "defaultModel": "openai-codex/gpt-6-astra-fast:high",
+    "defaultProvider": "openai-codex",
+    "enabled": true,
+    "extraArgs": [],
+    "extraEnv": [
+      {
+        "name": "CODETETHER_OPENAI_CODEX_ALLOW_CHATGPT_BACKEND",
+        "value": "1"
+      }
+    ],
+    "image": {
+      "pullPolicy": "IfNotPresent",
+      "repository": "registry.quantum-forge.net/cluster-ci-cache/codetether-worker",
+      "tag": "4.7.5-dev.49-forgejo-ro-599230d97ec3"
+    },
+    "providerSecrets": {
+      "envFrom": [
+        {
+          "secretRef": {
+            "name": "harvester-api-keys"
+          }
+        }
+      ]
+    },
+    "replicaCount": 0,
+    "tokenSecret": {
+      "key": "CODETETHER_TOKEN",
+      "name": "a2a-server-worker-token"
+    },
+    "vault": {
+      "address": "http://vault.vault.svc.cluster.local:8200",
+      "audience": "vault",
+      "authMount": "kubernetes",
+      "enabled": true,
+      "mount": "secret",
+      "role": "codetether-harvester",
+      "secretsPath": "codetether/providers",
+      "tokenSecret": {
+        "addressKey": "VAULT_ADDR",
+        "name": "",
+        "tokenKey": "VAULT_TOKEN"
+      }
+    }
+  },
+  "image": {
+    "pullPolicy": "Always",
+    "repository": "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp",
+    "tag": "main-eb2051a212a2"
+  },
+  "imagePullSecrets": [
+    {
+      "name": "registry-credentials"
+    }
+  ],
+  "ingress": {
+    "annotations": {
+      "cert-manager.io/cluster-issuer": "cloudflare-issuer",
+      "nginx.ingress.kubernetes.io/cors-allow-credentials": "true",
+      "nginx.ingress.kubernetes.io/cors-allow-headers": "DNT, User-Agent, X-Requested-With, If-None-Match, If-Modified-Since, Content-Type, Range, Authorization, X-Tenant-ID, X-API-Key",
+      "nginx.ingress.kubernetes.io/cors-allow-methods": "GET, PUT, POST, DELETE, PATCH, OPTIONS",
+      "nginx.ingress.kubernetes.io/cors-allow-origin": "https://codetether.run, https://docs.codetether.run, https://quantum-forge.codetether.run",
+      "nginx.ingress.kubernetes.io/cors-max-age": "86400",
+      "nginx.ingress.kubernetes.io/enable-cors": "true",
+      "nginx.ingress.kubernetes.io/force-ssl-redirect": "true",
+      "nginx.ingress.kubernetes.io/ssl-redirect": "true"
+    },
+    "className": "nginx",
+    "enabled": true,
+    "hosts": [
+      {
+        "host": "api.codetether.run",
+        "paths": [
+          {
+            "path": "/",
+            "pathType": "Prefix",
+            "port": 8000
+          }
+        ]
+      }
+    ],
+    "tls": [
+      {
+        "hosts": [
+          "api.codetether.run"
+        ],
+        "secretName": "a2a-server-tls"
+      }
+    ]
+  },
+  "knative": {
+    "enabled": false
+  },
+  "livekit": {
+    "enabled": false
+  },
+  "marketing": {
+    "enabled": false
+  },
+  "monitoring": {
+    "serviceMonitor": {
+      "enabled": false
+    }
+  },
+  "networkPolicy": {
+    "enabled": false
+  },
+  "opa": {
+    "enabled": false
+  },
+  "podDisruptionBudget": {
+    "enabled": false
+  },
+  "postgresql": {
+    "enabled": false
+  },
+  "redis": {
+    "enabled": true,
+    "resources": {
+      "limits": {
+        "memory": "256Mi"
+      },
+      "requests": {
+        "memory": "128Mi"
+      }
+    }
+  },
+  "resources": {
+    "limits": {
+      "cpu": "2000m",
+      "memory": "4Gi"
+    },
+    "requests": {
+      "cpu": "500m",
+      "memory": "1Gi"
+    }
+  },
+  "reviewHarvester": {
+    "allowChatGPTBackend": true,
+    "enabled": false
+  },
+  "secret": {
+    "create": false
+  },
+  "service": {
+    "port": 8000,
+    "targetPort": 8000,
+    "type": "ClusterIP"
+  },
+  "spiffe": {
+    "allowTokenLegacy": true,
+    "audience": "a2a-server",
+    "bundle": {
+      "configMap": "spire-bundle",
+      "key": "bundle.spiffe",
+      "namespace": "spire"
+    },
+    "enabled": true,
+    "issuer": "https://oidc-discovery.codetether.io",
+    "jwksUrl": "https://spire-spiffe-oidc-discovery-provider.spire.svc.cluster.local/keys",
+    "trustDomain": "codetether.io",
+    "workerIds": [
+      "spiffe://codetether.io/ns/a2a-system/sa/a2a-server-harvester"
+    ],
+    "workloadApi": {
+      "enabled": true
+    }
+  },
+  "taskJobs": {
+    "enabled": true
+  },
+  "temporal": {
+    "address": "temporal-frontend.temporal.svc.cluster.local:7233",
+    "enabled": true,
+    "namespace": "codetether-prod",
+    "replicas": 1,
+    "secretRef": "a2a-server-forgejo",
+    "taskQueue": "codetether-forgejo-agent"
+  },
+  "tolerations": [
+    {
+      "effect": "NoSchedule",
+      "key": "node.kubernetes.io/disk-pressure",
+      "operator": "Exists"
+    }
+  ],
+  "volumeMounts": [
+    {
+      "mountPath": "/app/a2a_server/github_app/router.py",
+      "name": "github-app-hotfix",
+      "readOnly": true,
+      "subPath": "router.py"
+    }
+  ],
+  "volumes": [
+    {
+      "configMap": {
+        "items": [
+          {
+            "key": "router.py",
+            "path": "router.py"
+          }
+        ],
+        "name": "codetether-github-app-hotfix-20260506"
+      },
+      "name": "github-app-hotfix"
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+# ============================================
+# CodeTether Worker Dockerfile (Rust binary)
+# ============================================
+# Multi-stage build: compiles inside Docker so the binary's glibc matches
+# the runtime image.  Both builder and runtime use Debian bookworm (glibc 2.36).
+#
+# Usage:
+#   docker build -f docker/Dockerfile.worker -t codetether-worker .
+#   docker run -e A2A_SERVER_URL=https://api.codetether.run \
+#              -e ANTHROPIC_API_KEY=sk-ant-... \
+#              codetether-worker
+#
+
+# ─── Builder stage ──────────────────────────────────────────────────
+# rust:1.89-bookworm is based on Debian 12 (bookworm, glibc 2.36)
+FROM rust:1.89-bookworm AS builder
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        pkg-config \
+        libssl-dev \
+        libasound2-dev \
+        g++ \
+        protobuf-compiler \
+        libprotobuf-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Copy policies (needed at compile time via include_str! — path relative to src/server/)
+COPY policies ./policies
+
+# Copy tetherscript examples (needed at compile time via include_str! — path relative to src/)
+COPY codetether-agent/examples ./examples
+
+# Copy the Cargo workspace
+COPY codetether-agent/Cargo.toml codetether-agent/Cargo.lock ./
+COPY codetether-agent/vendor ./vendor
+COPY codetether-agent/crates ./crates
+COPY codetether-agent/src ./src
+COPY codetether-agent/build.rs ./build.rs
+COPY codetether-agent/proto ./proto
+
+# Build release binary (linked against bookworm's glibc 2.36)
+RUN cargo build --release && \
+    strip target/release/codetether
+
+# ─── Runtime stage ──────────────────────────────────────────────────
+# Use the Rust bookworm image for the worker runtime as well. The harvester runs
+# production coding tasks, so the runtime needs validation tooling, not only the
+# compiled CodeTether binary.
+FROM rust:1.89-bookworm
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        gh \
+        jq \
+        nodejs \
+        npm \
+        python3 \
+        python-is-python3 \
+        ripgrep \
+        build-essential \
+        pkg-config \
+        libssl-dev \
+        libasound2-dev \
+        protobuf-compiler \
+        libprotobuf-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/usr/local/cargo/bin:${PATH}"
+RUN rustup component add rustfmt clippy && \
+    ln -sf /usr/local/cargo/bin/cargo /usr/local/bin/cargo && \
+    ln -sf /usr/local/cargo/bin/rustc /usr/local/bin/rustc && \
+    ln -sf /usr/local/cargo/bin/rustup /usr/local/bin/rustup && \
+    ln -sf /usr/local/cargo/bin/rustfmt /usr/local/bin/rustfmt && \
+    ln -sf /usr/local/cargo/bin/cargo-fmt /usr/local/bin/cargo-fmt && \
+    ln -sf /usr/local/cargo/bin/cargo-clippy /usr/local/bin/cargo-clippy && \
+    ln -sf /usr/local/cargo/bin/clippy-driver /usr/local/bin/clippy-driver
+
+# Copy binary from builder (built against matching glibc).
+# Keep both paths: historical Knative worker templates invoke /app/codetether,
+# while local Docker entrypoints resolve codetether from PATH.
+COPY --from=builder /build/target/release/codetether /usr/local/bin/codetether
+RUN mkdir -p /app && ln -sf /usr/local/bin/codetether /app/codetether
+
+# Create non-root user matching the Kubernetes securityContext (runAsUser: 1000,
+# runAsGroup: 0). Several tools call getpwuid(3), so UID 1000 must exist in
+# /etc/passwd even when the pod securityContext overrides the image user.
+RUN useradd --uid 1000 --gid 0 --shell /bin/bash --create-home worker
+USER worker
+WORKDIR /home/worker
+
+# Environment defaults
+ENV A2A_SERVER_URL=https://api.codetether.run
+ENV A2A_WORKER_NAME=docker-worker
+ENV CODETETHER_LOG_LEVEL=info
+
+# Health check: codetether binary exists and responds
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD codetether --version || exit 1
+
+# Run codetether in A2A worker mode
+ENTRYPOINT ["codetether", "a2a"]
+CMD ["--server", "${A2A_SERVER_URL}", "--auto-approve", "all", "--name", "${A2A_WORKER_NAME}"]

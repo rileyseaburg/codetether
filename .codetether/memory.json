@@ -1,0 +1,206 @@
+[
+  {
+    "id": "69f0e26c-3311-44bc-9027-7302e7e2c96c",
+    "belief_key": "this-goal-persists-across-turns-ending-this-turn-does-not-require-shrinking-the-objective-to-what-fits-now",
+    "claim": "This goal persists across turns. Ending this turn does not require shrinking the objective to what fits now.",
+    "confidence": 0.75,
+    "evidence_refs": [
+      "pod-succeeded"
+    ],
+    "asserted_by": "session:e1c1b29f-4691-4aef-acc6-75d2dee2a7d7",
+    "confirmed_by": [],
+    "contested_by": [],
+    "contradicts": [],
+    "created_at": "2026-10-05T03:00:04.167095599Z",
+    "updated_at": "2026-10-05T03:00:04.167095599Z",
+    "review_after": "2026-11-04T03:00:04.167095599Z",
+    "status": "active"
+  },
+  {
+    "id": "b460084c-0e6a-46d0-adac-67204d9d9f34",
+    "belief_key": "keep-the-full-objective-intact-if-it-cannot-be-finished-now-make-concrete-progress-toward-the-real-requested-end-state-leave-the-goal-active-and-do-not-redefine-success-around-a-smaller-or-easier-task",
+    "claim": "Keep the full objective intact. If it cannot be finished now, make concrete progress toward the real requested end state, leave the goal active, and do not redefine success around a smaller or easier task.",
+    "confidence": 0.75,
+    "evidence_refs": [
+      "pod-succeeded"
+    ],
+    "asserted_by": "session:e1c1b29f-4691-4aef-acc6-75d2dee2a7d7",
+    "confirmed_by": [],
+    "contested_by": [],
+    "contradicts": [],
+    "created_at": "2026-10-05T03:00:04.167110569Z",
+    "updated_at": "2026-10-05T03:00:04.167110569Z",
+    "review_after": "2026-11-04T03:00:04.167110569Z",
+    "status": "active"
+  },
+  {
+    "id": "35af5928-ea06-4c35-bba5-a8fc850ec0b3",
+    "belief_key": "temporary-rough-edges-are-acceptable-while-the-work-is-moving-in-the-right-direction-completion-still-requires-the-requested-end-state-to-be-true-and-verified",
+    "claim": "Temporary rough edges are acceptable while the work is moving in the right direction. Completion still requires the requested end state to be true and verified.",
+    "confidence": 0.75,
+    "evidence_refs": [
+      "pod-succeeded"
+    ],
+    "asserted_by": "session:e1c1b29f-4691-4aef-acc6-75d2dee2a7d7",
+    "confirmed_by": [],
+    "contested_by": [],
+    "contradicts": [],
+    "created_at": "2026-10-05T03:00:04.167118679Z",
+    "updated_at": "2026-10-05T03:00:04.167118679Z",
+    "review_after": "2026-11-04T03:00:04.167118679Z",
+    "status": "active"
+  },
+  {
+    "id": "79260d79-13b1-4242-bbfa-0ddd1dd812f7",
+    "belief_key": "tokens-used-3515",
+    "claim": "Tokens used: 3515",
+    "confidence": 0.75,
+    "evidence_refs": [
+      "pod-succeeded"
+    ],
+    "asserted_by": "session:e1c1b29f-4691-4aef-acc6-75d2dee2a7d7",
+    "confirmed_by": [],
+    "contested_by": [],
+    "contradicts": [],
+    "created_at": "2026-10-05T03:00:04.167127679Z",
+    "updated_at": "2026-10-05T03:00:04.167127679Z",
+    "review_after": "2026-11-04T03:00:04.167127679Z",
+    "status": "active"
+  },
+  {
+    "id": "91b7f9db-d0af-4edb-86a0-51e10ef4dbc5",
+    "belief_key": "token-budget-none",
+    "claim": "Token budget: none",
+    "confidence": 0.75,
+    "evidence_refs": [
+      "pod-succeeded"
+    ],
+    "asserted_by": "session:e1c1b29f-4691-4aef-acc6-75d2dee2a7d7",
+    "confirmed_by": [],
+    "contested_by": [],
+    "contradicts": [],
+    "created_at": "2026-10-05T03:00:04.167137899Z",
+    "updated_at": "2026-10-05T03:00:04.167137899Z",
+    "review_after": "2026-11-04T03:00:04.167137899Z",
+    "status": "active"
+  },
+  {
+    "id": "713f2a3d-d443-40ba-af0f-aeffd2d702f2",
+    "belief_key": "tokens-remaining-unbounded",
+    "claim": "Tokens remaining: unbounded",
+    "confidence": 0.75,
+    "evidence_refs": [
+      "pod-succeeded"
+    ],
+    "asserted_by": "session:e1c1b29f-4691-4aef-acc6-75d2dee2a7d7",
+    "confirmed_by": [],
+    "contested_by": [],
+    "contradicts": [],
+    "created_at": "2026-10-05T03:00:04.167150459Z",
+    "updated_at": "2026-10-05T03:00:04.167150459Z",
+    "review_after": "2026-11-04T03:00:04.167150459Z",
+    "status": "active"
+  },
+  {
+    "id": "41d912e0-1c7f-42b5-8457-1e03a0a5afea",
+    "belief_key": "optimize-each-turn-for-movement-toward-the-requested-end-state-not-for-the-smallest-stable-looking-subset-or-easiest-passing-change",
+    "claim": "Optimize each turn for movement toward the requested end state, not for the smallest stable-looking subset or easiest passing change.",
+    "confidence": 0.75,
+    "evidence_refs": [
+      "pod-succeeded"
+    ],
+    "asserted_by": "session:e1c1b29f-4691-4aef-acc6-75d2dee2a7d7",
+    "confirmed_by": [],
+    "contested_by": [],
+    "contradicts": [],
+    "created_at": "2026-10-05T03:00:04.167159939Z",
+    "updated_at": "2026-10-05T03:00:04.167159939Z",
+    "review_after": "2026-11-04T03:00:04.167159939Z",
+    "status": "active"
+  },
+  {
+    "id": "c251e337-28d7-4654-b35e-40a6311d4323",
+    "belief_key": "do-not-substitute-a-narrower-safer-smaller-merely-compatible-or-easier-to-test-solution-because-it-is-more-likely-to-pass-current-tests",
+    "claim": "Do not substitute a narrower, safer, smaller, merely compatible, or easier-to-test solution because it is more likely to pass current tests.",
+    "confidence": 0.75,
+    "evidence_refs": [
+      "pod-succeeded"
+    ],
+    "asserted_by": "session:e1c1b29f-4691-4aef-acc6-75d2dee2a7d7",
+    "confirmed_by": [],
+    "contested_by": [],
+    "contradicts": [],
+    "created_at": "2026-10-05T03:00:04.167169149Z",
+    "updated_at": "2026-10-05T03:00:04.167169149Z",
+    "review_after": "2026-11-04T03:00:04.167169149Z",
+    "status": "active"
+  },
+  {
+    "id": "2e8f25ca-9369-4a9f-99d9-b2c733372773",
+    "belief_key": "treat-alignment-as-movement-toward-the-requested-end-state-an-edit-is-aligned-only-if-it-makes-the-requested-final-state-more-true-useful-looking-behavior-that-preserves-a-different-end-state-is-misaligned",
+    "claim": "Treat alignment as movement toward the requested end state. An edit is aligned only if it makes the requested final state more true; useful-looking behavior that preserves a different end state is misaligned.",
+    "confidence": 0.75,
+    "evidence_refs": [
+      "pod-succeeded"
+    ],
+    "asserted_by": "session:e1c1b29f-4691-4aef-acc6-75d2dee2a7d7",
+    "confirmed_by": [],
+    "contested_by": [],
+    "contradicts": [],
+    "created_at": "2026-10-05T03:00:04.167179649Z",
+    "updated_at": "2026-10-05T03:00:04.167179649Z",
+    "review_after": "2026-11-04T03:00:04.167179649Z",
+    "status": "active"
+  },
+  {
+    "id": "43b8070e-1ca7-4288-8317-ee70a78d18cd",
+    "belief_key": "derive-concrete-requirements-from-the-objective-and-any-referenced-files-plans-specifications-issues-or-user-instructions",
+    "claim": "Derive concrete requirements from the objective and any referenced files, plans, specifications, issues, or user instructions.",
+    "confidence": 0.75,
+    "evidence_refs": [
+      "pod-succeeded"
+    ],
+    "asserted_by": "session:e1c1b29f-4691-4aef-acc6-75d2dee2a7d7",
+    "confirmed_by": [],
+    "contested_by": [],
+    "contradicts": [],
+    "created_at": "2026-10-05T03:00:04.167191319Z",
+    "updated_at": "2026-10-05T03:00:04.167191319Z",
+    "review_after": "2026-11-04T03:00:04.167191319Z",
+    "status": "active"
+  },
+  {
+    "id": "24e18793-9cd0-42a8-9f40-ed8736229087",
+    "belief_key": "preserve-the-original-scope-do-not-redefine-success-around-the-work-that-already-exists",
+    "claim": "Preserve the original scope; do not redefine success around the work that already exists.",
+    "confidence": 0.75,
+    "evidence_refs": [
+      "pod-succeeded"
+    ],
+    "asserted_by": "session:e1c1b29f-4691-4aef-acc6-75d2dee2a7d7",
+    "confirmed_by": [],
+    "contested_by": [],
+    "contradicts": [],
+    "created_at": "2026-10-05T03:00:04.167200949Z",
+    "updated_at": "2026-10-05T03:00:04.167200949Z",
+    "review_after": "2026-11-04T03:00:04.167200949Z",
+    "status": "active"
+  },
+  {
+    "id": "a3294f67-7b00-4cd2-a0eb-678659b937f7",
+    "belief_key": "for-every-explicit-requirement-numbered-item-named-artifact-command-test-gate-invariant-and-deliverable-identify-the-authoritative-evidence-that-would-prove-it-then-inspect-the-relevant-current-state-sources-files-command-output-test-results-pr-state-rendered-artifacts-runtime-behavior-or-other-authoritative-evidence",
+    "claim": "For every explicit requirement, numbered item, named artifact, command, test, gate, invariant, and deliverable, identify the authoritative evidence that would prove it, then inspect the relevant current-state sources: files, command output, test results, PR state, rendered artifacts, runtime behavior, or other authoritative evidence.",
+    "confidence": 0.75,
+    "evidence_refs": [
+      "pod-succeeded"
+    ],
+    "asserted_by": "session:e1c1b29f-4691-4aef-acc6-75d2dee2a7d7",
+    "confirmed_by": [],
+    "contested_by": [],
+    "contradicts": [],
+    "created_at": "2026-10-05T03:00:04.167210369Z",
+    "updated_at": "2026-10-05T03:00:04.167210369Z",
+    "review_after": "2026-11-04T03:00:04.167210369Z",
+    "status": "active"
+  }
+]

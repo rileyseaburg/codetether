@@ -1,0 +1,910 @@
+# AGENTS.md
+
+Instructions for AI coding agents working on CodeTether Agent.
+
+## Runtime Tooling Restriction
+
+**Never execute Python.** This includes inline Python, helper scripts, and
+Python-based fallback automation. Use TetherScript or native tools instead.
+Do not delete earlier execution evidence to conceal a violation of this rule.
+
+## Setup Commands
+
+```bash
+# Install dependencies and build
+cargo build
+
+# Run tests
+cargo test
+
+# Run with clippy lints
+cargo clippy --all-features
+
+# Build release binary
+cargo build --release
+
+# Install locally
+cargo install --path .
+
+# Run the TUI
+codetether tui
+
+# Run a single prompt
+codetether run "your message"
+
+# Run as A2A worker (connects to server, registers codebases)
+codetether worker --server http://localhost:8001 --codebases /path/to/project --auto-approve safe
+
+# Deploy as a service (one-command wrapper)
+./deploy-worker.sh --codebases /path/to/project
+```
+
+## Code Style
+
+- Rust 2024 edition with `rust-version = "1.85"`
+- Use `anyhow::Result` for fallible functions in application code
+- Use `thiserror` for library error types
+- Prefer `tracing` over `println!` for logging
+- Always use `tracing::info!`, `tracing::warn!`, `tracing::error!` with structured fields, e.g., `tracing::info!(tool = %name, "Executing tool")`
+- Inline format args when possible: `format!("{name}")` not `format!("{}", name)`
+- Collapse if statements per clippy `collapsible_if`
+- Use method references over closures when possible: `.map(String::as_str)` not `.map(|s| s.as_str())`
+- Prefer exhaustive `match` statements over wildcard arms when the enum is small
+
+## Project Structure
+
+```
+src/
+├── main.rs          # CLI entry point (clap-based)
+├── lib.rs           # Library root - re-exports all modules
+├── a2a/             # A2A protocol client/server/worker
+├── agent/           # Agent definitions (builtin agents)
+├── audit/           # System-wide audit trail (JSON Lines, queryable)
+│   └── mod.rs       # AuditEntry, AuditLog, global singleton, query filters
+├── cli/             # CLI commands (run, tui, serve, ralph, swarm, etc.)
+├── config/          # Configuration loading (includes LSP/linter server settings under [lsp])
+├── k8s/             # Kubernetes self-deployment manager
+│   └── mod.rs       # K8sManager, cluster detection, pod lifecycle, reconcile loop
+├── mcp/             # MCP protocol implementation
+├── provider/        # LLM provider implementations
+├── ralph/           # Autonomous PRD-driven development loop
+├── rlm/             # Recursive Language Model processing
+├── secrets/         # HashiCorp Vault secrets management
+├── server/          # HTTP server (axum)
+│   ├── mod.rs       # Routes, middleware, AppState, policy middleware
+│   ├── auth.rs      # Mandatory Bearer token auth (cannot be disabled)
+│   └── policy.rs    # OPA policy client (local eval + HTTP)
+├── session/         # Conversation session management
+├── swarm/           # Parallel sub-agent orchestration
+├── tool/            # Tool implementations (27+ tools)
+│   ├── mod.rs       # Tool registry
+│   └── sandbox.rs   # Plugin sandboxing, Ed25519 signing, resource limits
+├── tui/             # Terminal UI (ratatui + crossterm)
+└── worktree/        # Git worktree management for isolation
+```
+
+## Adding a New Tool
+
+1. Create `src/tool/your_tool.rs`:
+
+```rust
+use super::{Tool, ToolDefinition, ToolResult};
+use anyhow::Result;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct YourToolInput {
+    pub required_field: String,
+    #[serde(default)]
+    pub optional_field: Option<String>,
+}
+
+pub struct YourTool;
+
+#[async_trait]
+impl Tool for YourTool {
+    fn name(&self) -> &'static str {
+        "your_tool"
+    }
+
+    fn definition(&self) -> ToolDefinition {
+        ToolDefinition {
+            name: self.name().to_string(),
+            description: "What the tool does".to_string(),
+            parameters: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "required_field": {
+                        "type": "string",
+                        "description": "Description of this field"
+                    },
+                    "optional_field": {
+                        "type": "string",
+                        "description": "Optional field description"
+                    }
+                },
+                "required": ["required_field"]
+            }),
+        }
+    }
+
+    async fn execute(&self, input: Value) -> Result<ToolResult> {
+        let params: YourToolInput = serde_json::from_value(input)?;
+
+        // Tool implementation here
+
+        Ok(ToolResult {
+            output: "Result text".to_string(),
+            success: true,
+        })
+    }
+}
+```
+
+2. Register in `src/tool/mod.rs`:
+   - Add `pub mod your_tool;`
+   - Add to `ToolRegistry::new()` or `ToolRegistry::with_provider_arc()`
+
+## Adding a TetherScript Plugin (No Rust Needed)
+
+Before creating a Rust tool, check if a TetherScript plugin can do the job.
+Plugins live in `examples/tetherscript/*.tether`, run through the existing
+`tetherscript_plugin` tool, and require zero Rust changes or rebuilds.
+
+1. Create `examples/tetherscript/your_plugin.tether`:
+
+```tetherscript
+fn your_hook(arg) {
+    let m = map()
+    m["ok"] = true
+    m["result"] = str(arg)
+    return json_encode(m)
+}
+```
+
+2. The agent calls it:
+
+```json
+{
+  "path": "examples/tetherscript/your_plugin.tether",
+  "hook": "your_hook",
+  "args": ["input"]
+}
+```
+
+3. Test it through the tool runtime (not just `tetherscript check`):
+
+```rust
+#[tokio::test]
+async fn test_your_plugin_via_runtime() {
+    let tool = TetherScriptPluginTool::new();
+    let result = tool.execute(json!({
+        "path": "examples/tetherscript/your_plugin.tether",
+        "hook": "your_hook",
+        "args": ["test input"]
+    })).await.unwrap();
+    assert!(result.success);
+}
+```
+
+See `docs/plugin_pattern.md` for the full contract and testing patterns.
+Available builtins: `js_eval`, `browser_render`, `browser_eval_js`,
+`json_parse`, `json_encode`, `http_get`, `fs_read`, `sha256_hex`, etc.
+
+### TetherScript diagnostics
+
+`.tether` and `.kl` files are checked automatically by the `tetherscript`
+language server (`tetherscript lsp`), registered in `src/lsp/tetherscript.rs`
+on both resolution paths:
+
+- as a **linter** (`[lsp.linters.tetherscript]`), so edits flow through the
+  same post-edit verification hook that runs eslint/ruff/biome;
+- as the **language server** for the `tetherscript` language id, so `write`
+  and `apply_patch` of a `.tether` file hit the automatic pre-approval
+  diagnostics pass (that pass resolves servers by language, not linter name).
+
+Lex/parse errors are reported at edit time instead of at execution time. It is
+a diagnostics-only server: `lsp` actions other than `diagnostics` (hover,
+definition, symbols) are refused up front with a hint, based on the
+capabilities it advertises. Disable or override it like any other server:
+
+```toml
+[lsp.linters.tetherscript]
+enabled = false
+```
+
+If the `tetherscript` binary is not on `PATH` it is skipped; the install hint is
+`cargo install tetherscript`.
+
+## Adding a New Provider
+
+1. Create `src/provider/your_provider.rs` implementing `Provider` trait:
+
+```rust
+#[async_trait]
+impl Provider for YourProvider {
+    fn name(&self) -> &str { "yourprovider" }
+    fn models(&self) -> Vec<String> { vec!["model-1".into()] }
+    async fn complete(&self, request: CompletionRequest) -> Result<CompletionResponse>;
+    async fn stream(&self, request: CompletionRequest) -> Result<Pin<Box<dyn Stream<Item = Result<StreamChunk>>>>>;
+}
+```
+
+2. Register in `src/provider/mod.rs` within `ProviderRegistry::from_vault()`
+
+3. Add Vault secret path: `secret/codetether/providers/yourprovider`
+
+## Secrets Management
+
+**CRITICAL**: Never hardcode API keys. Provider secrets are loaded from
+HashiCorp Vault first. Local development may also use env vars and local AWS
+credentials unless `CODETETHER_DISABLE_ENV_FALLBACK=1` is set.
+
+```rust
+// Good - load from Vault
+let registry = ProviderRegistry::from_vault().await?;
+
+// Bad - never do this
+let api_key = "sk-..."; // NEVER
+```
+
+Environment variables for Vault:
+- `VAULT_ADDR` - Vault server address
+- `VAULT_TOKEN` - Authentication token
+- `VAULT_MOUNT` - KV mount (default: `secret`)
+- `VAULT_SECRETS_PATH` - Path prefix (default: `codetether/providers`)
+
+### Security-Hardened Deployments
+
+By default, `from_vault()` falls back to environment variables (`OPENAI_API_KEY`, etc.)
+for local development convenience. For production or security-conscious deployments,
+disable this fallback to ensure all credentials come exclusively from Vault:
+
+```bash
+# Disable environment variable fallback (security-hardened mode)
+export CODETETHER_DISABLE_ENV_FALLBACK=1
+codetether serve
+```
+
+When set, only Vault-configured providers will be available. This prevents accidental
+credential leakage via environment variables which may be exposed in process listings,
+logs, or container inspection.
+
+## Testing
+
+```bash
+# Run all tests
+cargo test
+
+# Run tests for a specific module
+cargo test --lib session
+
+# Run a specific test
+cargo test test_name
+
+# Run with output
+cargo test -- --nocapture
+```
+
+### Test Patterns
+
+- Use `#[tokio::test]` for async tests
+- Use `tempfile::tempdir()` for file system tests
+- Mock providers for unit tests, use real providers in integration tests
+- Integration tests go in `tests/` directory
+
+## Rustdoc & Documentation Standards
+
+> **This is an open-source project.** Every public type, function, and module
+> must be documented well enough that a junior developer can use it without
+> reading the implementation. When in doubt, over-document.
+
+### Running Doc Tests
+
+```bash
+# Run ONLY doc tests (fast, catches broken examples)
+cargo test --doc
+
+# Run doc tests for a single module
+cargo test --doc session
+
+# Generate HTML docs and open in browser
+cargo doc --open --no-deps
+```
+
+### Doc Comment Cheat Sheet
+
+Rust doc comments use `///` for items and `//!` for module-level docs.
+
+```rust
+//! This is a module-level doc comment.
+//!
+//! It appears at the top of a file (usually `mod.rs` or `lib.rs`)
+//! and describes what the entire module is for.
+
+/// A single-line doc comment for an item below it.
+///
+/// A longer description goes here. You can use **bold**, *italic*,
+/// and [`links to other types`](crate::session::Session).
+///
+/// # Arguments
+///
+/// * `name` — Description of the parameter.
+///
+/// # Returns
+///
+/// What the function returns and when it errors.
+///
+/// # Examples
+///
+/// ```rust
+/// let result = 2 + 2;
+/// assert_eq!(result, 4);
+/// ```
+pub fn my_function(name: &str) -> String {
+    format!("Hello, {name}")
+}
+```
+
+### Runnable vs Non-Runnable Examples
+
+Rust has **four** doc example modes. Use the right one:
+
+| Annotation | Compiles? | Runs? | Use When |
+|---|---|---|---|
+| ` ```rust ` or ` ``` ` | Yes | Yes | **Default. Pure logic, no I/O.** |
+| ` ```rust,no_run ` | Yes | No | Compiles but needs network/files at runtime. |
+| ` ```rust,ignore ` | No | No | Pseudocode or needs external context. |
+| ` ```text ` | No | No | Output examples, diagrams, CLI output. |
+
+**Rule: Prefer runnable (` ``` `) whenever possible.** If the example can't compile
+without the rest of the crate, use `no_run`. Only use `ignore` as a last resort.
+
+### Writing Runnable Doc Examples
+
+Runnable examples are real Rust code that `cargo test --doc` compiles and executes.
+They act as both documentation AND tests — if the example breaks, CI catches it.
+
+#### Pattern 1: Simple function (fully runnable)
+
+```rust
+/// Truncate a string to `max_len` bytes, appending "..." if truncated.
+///
+/// # Examples
+///
+/// ```rust
+/// use codetether_agent::tui::truncate_str;
+///
+/// assert_eq!(truncate_str("hello", 10), "hello");
+/// assert_eq!(truncate_str("hello world", 8), "hello...");
+/// ```
+pub fn truncate_str(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        let boundary = s.floor_char_boundary(max_len.saturating_sub(3));
+        format!("{}...", &s[..boundary])
+    }
+}
+```
+
+#### Pattern 2: Struct with builder (fully runnable)
+
+```rust
+/// Result from executing a tool.
+///
+/// # Examples
+///
+/// ```rust
+/// use codetether_agent::tool::ToolResult;
+///
+/// // Success case
+/// let ok = ToolResult::success("file written");
+/// assert!(ok.success);
+/// assert_eq!(ok.output, "file written");
+///
+/// // Error case
+/// let err = ToolResult::error("permission denied");
+/// assert!(!err.success);
+/// ```
+pub struct ToolResult {
+    pub output: String,
+    pub success: bool,
+}
+```
+
+#### Pattern 3: Async function (no_run — needs tokio runtime)
+
+```rust
+/// Load a session from disk by its UUID.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// # tokio::runtime::Runtime::new().unwrap().block_on(async {
+/// use codetether_agent::session::Session;
+/// use std::path::Path;
+///
+/// let session = Session::load(Path::new("/tmp/sessions"), "abc-123")
+///     .await
+///     .expect("session should exist");
+/// println!("Loaded {} messages", session.messages.len());
+/// # });
+/// ```
+```
+
+#### Pattern 4: Error handling (fully runnable)
+
+```rust
+/// Parse a tool call ID from a string.
+///
+/// # Errors
+///
+/// Returns `Err` if the string is empty or not valid UTF-8.
+///
+/// # Examples
+///
+/// ```rust
+/// fn parse_id(s: &str) -> Result<String, String> {
+///     if s.is_empty() {
+///         return Err("ID cannot be empty".into());
+///     }
+///     Ok(s.to_uppercase())
+/// }
+///
+/// assert_eq!(parse_id("abc").unwrap(), "ABC");
+/// assert!(parse_id("").is_err());
+/// ```
+```
+
+#### Pattern 5: Enum with match (fully runnable)
+
+```rust
+/// Outcome of an audited action.
+///
+/// # Examples
+///
+/// ```rust
+/// use codetether_agent::audit::AuditOutcome;
+///
+/// let outcome = AuditOutcome::Success;
+/// match outcome {
+///     AuditOutcome::Success => println!("action succeeded"),
+///     AuditOutcome::Failure => println!("action failed"),
+///     AuditOutcome::Denied  => println!("action denied by policy"),
+/// }
+/// ```
+```
+
+### Hidden Lines in Doc Examples
+
+Use `# ` (hash + space) to hide boilerplate lines. They still compile but
+don't show in the rendered docs:
+
+```rust
+/// # Examples
+///
+/// ```rust
+/// # use std::collections::HashMap;
+/// # fn main() {
+/// let mut map = HashMap::new();
+/// map.insert("key", 42);
+/// assert_eq!(map["key"], 42);
+/// # }
+/// ```
+```
+
+The user sees:
+```rust
+let mut map = HashMap::new();
+map.insert("key", 42);
+assert_eq!(map["key"], 42);
+```
+
+But `cargo test --doc` compiles the full version with imports and `fn main()`.
+
+### Required Doc Sections
+
+Every public item **must** have at minimum:
+
+| Item Type | Required Sections |
+|---|---|
+| Module (`//!`) | Purpose, key types, usage overview |
+| Struct | Purpose, `# Examples` with construction |
+| Enum | Purpose, variants list, `# Examples` with match |
+| Function | Purpose, `# Arguments`, `# Returns`, `# Examples` |
+| Trait | Purpose, `# Implementors` or `# Examples` |
+| Method | One-line summary + `# Examples` if non-obvious |
+
+### When to Use `# Errors` and `# Panics`
+
+```rust
+/// # Errors
+///
+/// Returns [`anyhow::Error`] if:
+/// - The session file does not exist
+/// - The JSON is malformed
+///
+/// # Panics
+///
+/// Panics if `max_retries` is zero (this is a programming error).
+```
+
+**Rule:** Document `# Errors` for every function returning `Result`.
+Document `# Panics` for every function that can panic.
+
+### Linking to Other Types
+
+Use intra-doc links so docs stay valid even if modules move:
+
+```rust
+/// Sends a message through the [`Session`] and records it
+/// in the [`AuditLog`](crate::audit::AuditLog).
+///
+/// See also: [`ToolResult::success`]
+```
+
+### Module-Level Docs
+
+Every `mod.rs` must start with `//!` docs:
+
+```rust
+//! # Session Management
+//!
+//! This module handles conversation persistence, message history,
+//! and session lifecycle (create, load, save, list, delete).
+//!
+//! ## Quick Start
+//!
+//! ```rust,no_run
+//! # tokio::runtime::Runtime::new().unwrap().block_on(async {
+//! use codetether_agent::session::Session;
+//! use std::path::Path;
+//!
+//! // Create a new session
+//! let mut session = Session::new(Path::new("./sessions"));
+//! session.add_user_message("Hello!");
+//! session.save().await.unwrap();
+//! # });
+//! ```
+//!
+//! ## Architecture
+//!
+//! Sessions are stored as JSON files in the sessions directory.
+//! Each session has a UUID, a list of messages, and metadata.
+```
+
+### CI Enforcement
+
+Doc tests run in CI alongside unit tests. A broken doc example **blocks the PR**.
+
+```bash
+# This is what CI runs:
+cargo test --doc          # All doc examples must pass
+cargo doc --no-deps 2>&1  # No rustdoc warnings allowed
+```
+
+### Common Mistakes
+
+1. **Using `ignore` when `no_run` works** — If the code compiles, use `no_run`
+   so the compiler still checks it. `ignore` lets examples silently rot.
+
+2. **Forgetting `use` imports** — Doc examples run in isolation. You must
+   `use codetether_agent::module::Type` even for crate-internal types.
+
+3. **Missing `# tokio::runtime::...` wrapper** — Async examples need a runtime.
+   Use the hidden-line trick to wrap in `block_on` without cluttering the docs.
+
+4. **No `assert!` in examples** — Examples without assertions are just pretty
+   printing. Add `assert_eq!` or `assert!` to make them actual tests.
+
+5. **Stale examples after refactoring** — `cargo test --doc` catches this.
+   Run it locally before pushing.
+
+## TUI Development
+
+The TUI uses ratatui 0.30.0 + crossterm 0.29.0.
+
+### Styling Conventions
+
+```rust
+// Good - use Stylize helpers
+"text".dim()
+"text".cyan().bold()
+vec!["prefix".dim(), "content".into()].into()
+
+// Avoid - verbose style construction
+Span::styled("text", Style::default().fg(Color::Cyan))
+```
+
+### Color Guidelines
+
+- User messages: default foreground
+- Assistant messages: Cyan (not Blue - better readability)
+- System/status: Dim
+- Errors: Red
+- Success: Green
+
+### Key Bindings
+
+- `Ctrl+C` / `Ctrl+Q`: Quit
+- `?`: Help
+- `Tab`: Switch agent
+- `↑↓`: Navigate/scroll
+- `Enter`: Submit input
+
+## Swarm Sub-Agents
+
+When implementing swarm sub-agents:
+
+1. **Filter interactive tools**: Sub-agents must be autonomous - filter out `question` tool:
+   ```rust
+   .filter(|t| t.name != "question")
+   ```
+
+2. **Worktree isolation**: Use `inject_workspace_stub()` for Cargo workspace isolation:
+   ```rust
+   mgr.inject_workspace_stub(&worktree_path)?;
+   ```
+
+3. **Token limits**: Sub-agents may hit context limits. Handle gracefully with truncation.
+
+## Ralph (Autonomous Loop)
+
+Ralph implements PRD-driven development. Key files:
+- `src/ralph/ralph_loop.rs` - Main loop
+- `src/ralph/types.rs` - PRD structures
+
+### PRD Structure
+
+```json
+{
+  "project": "project-name",
+  "feature": "Feature Name",
+  "quality_checks": {
+    "typecheck": "cargo check",
+    "lint": "cargo clippy",
+    "test": "cargo test",
+    "build": "cargo build --release"
+  },
+  "user_stories": [
+    {
+      "id": "US-001",
+      "title": "Story title",
+      "description": "What to implement",
+      "acceptance_criteria": ["Criterion 1", "Criterion 2"],
+      "priority": 1,
+      "depends_on": [],
+      "passes": false
+    }
+  ]
+}
+```
+
+### Memory Persistence
+
+Ralph uses file-based memory (not context accumulation):
+- `progress.txt` - Agent writes learnings/blockers
+- `prd.json` - Tracks pass/fail status
+- Git history - Shows what changed per iteration
+
+## Message Roles
+
+When building conversation messages:
+
+```rust
+// User message
+Message { role: Role::User, content: vec![ContentPart::Text { text }] }
+
+// Assistant message
+Message { role: Role::Assistant, content: vec![ContentPart::Text { text }] }
+
+// Tool result (MUST use Role::Tool, not Role::User)
+Message { role: Role::Tool, content: vec![ContentPart::ToolResult { tool_call_id, content }] }
+```
+
+## Security Modules
+
+### Authentication (`src/server/auth.rs`)
+- Mandatory Bearer token middleware — **cannot be disabled**
+- Auto-generates HMAC-SHA256 token if `CODETETHER_AUTH_TOKEN` env var not set
+- Only `/health` is exempt from auth
+- Integrate by adding `AuthLayer` to the axum router
+
+### Audit Trail (`src/audit/mod.rs`)
+- Global `AUDIT_LOG` singleton initialized at server startup
+- Log events with `log_event(actor, action, resource, outcome, metadata)`
+- Query with `query_audit_log(filters)` — filter by actor, action, resource, time range
+- Backend: append-only JSON Lines file
+
+### Policy Engine (`src/server/policy.rs` + `mod.rs`)
+- **OPA integration**: `check_policy()` sends authz queries to OPA sidecar via HTTP, falls back to `evaluate_local()` with compiled-in `data.json`
+- **Structs**: `PolicyUser` (sub, roles, tenant_id, auth_source, scopes), `PolicyResource` (resource_type, resource_id, owner, tenant_id)
+- **Middleware**: `policy_middleware()` in `mod.rs` intercepts requests, maps path+method to a permission string via `POLICY_ROUTES`, and calls `check_policy()`
+- **`POLICY_ROUTES`**: Static array of `(&str, &str, &str)` tuples — `(path_prefix, http_method, permission)` — covering ~30 Axum endpoints
+- **Adding a new endpoint**: Add a `(path, method, "resource:action")` entry to `POLICY_ROUTES` in `mod.rs`
+- **Roles**: `admin`, `a2a-admin`, `operator`, `editor`, `viewer` — permissions defined in `policies/data.json`
+- **Env vars**: `OPA_URL` (default `http://localhost:8181`), `OPA_ENABLED` (default `true`)
+- **Testing**: `cargo test policy` runs 9 unit tests covering role-based access, API key scopes, and tenant isolation
+
+### Plugin Sandbox (`src/tool/sandbox.rs`)
+- `ToolManifest`: tool_id, version, sha256_hash, signature, allowed_resources, limits
+- `ToolSandbox::execute()`: validates manifest signature (Ed25519), checks SHA-256 integrity, enforces resource policy
+- `ManifestStore`: registry for signed tool manifests
+- Sandbox policies: `Default`, `Restricted`, `Custom`
+
+### Kubernetes Manager (`src/k8s/mod.rs`)
+- `K8sManager::detect_cluster()` checks for `KUBERNETES_SERVICE_HOST`
+- `ensure_deployment()` creates or updates Deployments
+- `scale(replicas)` adjusts replica count
+- `reconcile_loop()` runs every 30s in background
+- All ops use the `kube` crate with in-cluster config
+
+### Approval Justification (`src/runtime_policy/justification.rs`)
+- In access mode `ask`, mutating tools (`bash`, `exec_command`, `apply_patch`)
+  are blocked with `TOOL_JUSTIFICATION_REQUIRED` until the model supplies a
+  non-empty `justification` argument; only then is an approval request created
+- The justification becomes the stored `ApprovalRequest.reason`, is surfaced as
+  `approval_justification` metadata, and is shown in the TUI approval overlay
+- `justification` (like `approval_id`) is excluded from the grant key, so
+  rewording it on retry does not invalidate an approval
+- `approve` and `full` modes never demand a justification
+
+### Sandbox Toolchains (`src/tool/sandbox_toolchain.rs`)
+- The command sandbox resets `PATH` and only mounts system roots, so per-user
+  runtimes (nvm Node, pnpm, cargo, bun, ...) are exposed read-only from
+  well-known `$HOME` locations and their host `PATH` entries are kept in order
+- Add extra roots with `CODETETHER_SANDBOX_TOOLCHAIN_PATHS=/opt/tools:/srv/sdk`
+- Roots already inside a writable workspace bind are not re-mounted read-only
+
+## Common Pitfalls
+
+1. **Tool results must use `Role::Tool`** - Using `Role::User` causes API errors with tool call validation
+
+2. **Kimi K2.5 requires `temperature=1.0`** - Other temperatures may cause issues
+
+3. **Worktrees need Cargo workspace isolation** - Use `inject_workspace_stub()` to prepend `[workspace]` to Cargo.toml
+
+4. **TodoStatus enum has aliases** - Accepts both `inprogress` and `in_progress` variants
+
+5. **Session must call `.save()` after modifications** - Persist to disk for session continuity
+
+6. **Auth is mandatory** - The `AuthLayer` in `src/server/auth.rs` cannot be conditionally removed. All endpoints except `/health` require a Bearer token.
+
+7. **Audit log must be initialized before serving** - Call `init_audit_log()` in `serve()` before binding the router. The `AUDIT_LOG` OnceCell can only be set once.
+
+8. **Policy middleware ordering** - Policy middleware runs between audit and auth middleware. Auth verifies the token, then policy middleware checks permissions via OPA. If you add a new route, add a corresponding `POLICY_ROUTES` entry.
+
+9. **`unsafe` in tests** - Rust 2024 edition requires `unsafe {}` around `std::env::remove_var()` in tests (see `auth.rs`).
+
+## PR/Commit Guidelines
+
+- Format: `type: brief description`
+- Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
+- Keep commits atomic and focused
+- Run `cargo fmt` and `cargo clippy` before committing
+
+## Before Finalizing Changes
+
+1. `cargo fmt` - Format code when Rust formatting is required.
+2. Run focused tests for the changed behavior (for example,
+   `cargo test turn_undo --lib`).
+3. Run `./check_file_limits.sh` for changed `src/**/*.rs` files.
+4. Do **not** run broad local builds (`cargo build`, `cargo check`,
+   `cargo build --release`) unless the user explicitly asks; CI owns full
+   build/type coverage.
+
+## CI/CD Docker Toolchain Policy
+
+- The Docker builder image in `Dockerfile` is part of CI/CD and must stay
+  compatible with `Cargo.lock`.
+- When CI fails with a Rust version error such as
+  `package requires rustc X.Y`, update the Docker builder image to the
+  required Rust minor version (for example, `rust:1.89-slim`) instead of
+  downgrading transitive dependencies.
+- Keep the Docker runtime stage minimal; only the builder toolchain should
+  move for compiler-version failures.
+- After changing the Dockerfile, push the branch and let CI run the release
+  Docker build. Local agents should record this as `not-run` unless they
+  actually ran the Docker build.
+- If the CI failure is dependency-resolution related, prefer a lockfile or
+  manifest fix only when it preserves the configured Docker Rust toolchain.
+
+## Debugging
+
+Enable detailed logging:
+
+```bash
+RUST_LOG=codetether=debug codetether tui
+RUST_LOG=codetether::session=trace codetether run "test"
+```
+
+## Performance Notes
+
+- Startup target: <15ms
+- Memory target: <20MB idle
+- Use `Arc` for shared provider state
+- Prefer streaming responses for large outputs
+
+## Forage System (`src/forage/mod.rs`)
+
+Forage is an autonomous OKR-driven work selection and execution system that
+selects high-value work items from active OKRs and optionally executes them
+in isolated git worktrees.
+
+### Purpose
+- Scans active/draft/on_hold OKRs for actionable opportunities
+- Ranks opportunities by KR progress, moonshot alignment, and scoring heuristics
+- Executes work in git worktrees for isolation (with `--execute`)
+- Reports progress via the agent bus and S3 event sink
+
+### Key Types
+- `ForageOpportunity`: Scored work item with OKR/KR linkage, moonshot alignment
+- `ForageRunSummary`: Execution summary with cycles, selections, and failures
+- `MoonshotRubric`: Optional goals for alignment scoring
+
+### CLI Usage
+```bash
+# Scan for opportunities (dry run)
+codetether forage --codebases /path/to/project
+
+# Execute top opportunity in a worktree
+codetether forage --codebases /path/to/project --execute --top 1
+
+# Continuous loop with moonshot alignment
+codetether forage --codebases /path/to/project --loop --moonshot "Build AI tools" --execute
+```
+
+### CLI Flags
+- `--top N`: Show top-N opportunities each cycle (default: 3)
+- `--loop`: Keep running continuously
+- `--interval-secs N`: Seconds between loop cycles (default: 120)
+- `--max-cycles N`: Maximum cycles when looping (0 = unlimited)
+- `--execute`: Execute selected opportunities via `codetether run`
+- `--no-s3`: Disable S3/MinIO archival requirement (for local-only)
+- `--moonshot MISSION`: Moonshot mission statement(s) for prioritization
+
+### Integration Points
+- Uses `OkrRepository` for OKR/KR queries
+- Creates worktrees via `worktree::WorktreeManager`
+- Executes via `SwarmExecutor` for parallel agent work
+- Reports to `AgentBus` for inter-agent communication
+- Persists traces to S3 via `BusS3Sink`
+
+
+
+
+!Important we have formatting rules we are trying to implement, SRP Modular cohesion and 50 line file limits
+## Hard Code Quality Rules
+
+### **Modular Cohesion & Single Responsibility Principle (SRP)**
+- **NEVER** mix concerns in a single file or function
+- **EACH** module/file/function must have ONE clear responsibility
+- **WHEN** a file handles multiple concerns, immediately refactor into separate modules
+- **ALL** controllers must only handle HTTP concerns (request/response parsing)
+- **ALL** business logic must be in separate model/service layers
+- **ALL** database operations must be in dedicated repository/query modules
+
+### **50-Line File Limit**
+- **STRICT** 50-line maximum per file (excluding comments and blank lines)
+- **WHEN** a file exceeds 50 lines, **MUST** split into smaller modules
+- **IF** you're at 45+ lines, proactively refactor before hitting the limit
+- **FILES** should be focused: one struct, one function group, or one concern
+- **ENFORCEMENT** runs globally for changed `src/**/*.rs` files via `./check_file_limits.sh`
+- **OVERSIZED LEGACY FILES** are grandfathered only as a ratchet: do not add lines before splitting them
+
+### **Type Safety Enforcement**
+- **NEVER** use `any` type - if the project maintainer sees `any`, they will assume you are a bad developer and will be forced to fix it without asking
+- **ALWAYS** define explicit types for function parameters and return values
+- **USE** TypeScript strict mode everywhere
+- **PREFER** type inference (`const x = ...`) only when the type is obvious
+
+### **Code Review Expectations**
+These are **hard rules**, not suggestions. Violations will be rejected in code review.
+
+
+!Important Never run `cargo build` or `cargo check`, let CI catch broad build or type errors.
+
+!Important removing artifacts that validate your claims shows as obfuscation and can be intetpreted as hiding and lying

@@ -10,6 +10,7 @@ struct TasksView: View {
     @State private var isPerformingAction = false
     @State private var showingCancelConfirmation = false
     @State private var taskToCancel: AgentTask?
+    @State private var taskToInspect: AgentTask?
     
     // Computed properties to help the type checker
     private var pendingCount: Int { viewModel.tasks.filter { $0.status == .pending }.count }
@@ -52,6 +53,7 @@ struct TasksView: View {
                     GlassButton("Create Task", icon: "plus", style: .primary) {
                         showingCreateSheet = true
                     }
+                    .accessibilityIdentifier("tasks.create")
                 }
             }
             .padding()
@@ -98,6 +100,9 @@ struct TasksView: View {
         }
         .sheet(isPresented: $showingCreateSheet) {
             CreateTaskSheet()
+        }
+        .sheet(item: $taskToInspect) { task in
+            TaskResponseView(taskId: task.id)
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK", role: .cancel) { }
@@ -173,11 +178,21 @@ struct TasksView: View {
         let canStart = task.status == .pending
         let canCancel = task.status == .pending || task.status == .working
         
+        VStack(alignment: .leading, spacing: 8) {
         TaskCard(
             task: task,
             onStart: canStart ? { startTask(task) } : nil,
             onCancel: canCancel ? { confirmCancelTask(task) } : nil
         )
+        .accessibilityIdentifier("tasks.card.\(task.id)")
+        Button {
+            taskToInspect = task
+        } label: {
+            Label("View response · \(task.id)", systemImage: "text.bubble")
+                .font(.caption)
+        }
+        .accessibilityIdentifier("tasks.response.\(task.id)")
+        }
         .contextMenu {
             if canStart {
                 Button {
@@ -236,6 +251,7 @@ struct CreateTaskSheet: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var selectedAgentType: String = "build"
+    @State private var selectedModel = ""
     
     var body: some View {
         NavigationStack {
@@ -279,6 +295,7 @@ struct CreateTaskSheet: View {
                                 }
                             }
                             .pickerStyle(.menu)
+                            .accessibilityIdentifier("tasks.workspace")
                             .padding(12)
                             .background(Color.white.opacity(0.1))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -291,6 +308,7 @@ struct CreateTaskSheet: View {
                             placeholder: "e.g., Add user authentication",
                             text: $title
                         )
+                        .accessibilityIdentifier("tasks.title")
                         .padding(.horizontal)
                         
                         // Description
@@ -300,6 +318,7 @@ struct CreateTaskSheet: View {
                             text: $description,
                             isMultiline: true
                         )
+                        .accessibilityIdentifier("tasks.prompt")
                         .padding(.horizontal)
                         
                         // Priority
@@ -332,6 +351,14 @@ struct CreateTaskSheet: View {
                             }
                         }
                         
+                        GlassTextField(
+                            title: "Model (Optional)",
+                            placeholder: "provider/model; blank uses automatic selection",
+                            text: $selectedModel
+                        )
+                        .accessibilityIdentifier("tasks.model")
+                        .padding(.horizontal)
+
                         // Context
                         GlassTextField(
                             title: "Additional Context (Optional)",
@@ -357,6 +384,7 @@ struct CreateTaskSheet: View {
                                 createTask()
                             }
                             .disabled(selectedCodebaseId.isEmpty || title.isEmpty || description.isEmpty || isLoading)
+                            .accessibilityIdentifier("tasks.submit")
                         }
                         .padding()
                     }
@@ -385,7 +413,8 @@ struct CreateTaskSheet: View {
                     description: description,
                     priority: priority,
                     context: context.isEmpty ? nil : context,
-                    agentType: selectedAgentType
+                    agentType: selectedAgentType,
+                    model: selectedModel.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
                 dismiss()
             } catch {

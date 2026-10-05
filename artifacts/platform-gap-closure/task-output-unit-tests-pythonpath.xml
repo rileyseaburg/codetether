@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="0.535" timestamp="2026-10-05T15:48:25.244561+00:00" hostname="ubuntu-dev"><testcase classname="" name="tests.test_task_output" time="0.000"><error message="collection failure">tests/test_task_output.py:12: in &lt;module&gt;
+    from a2a_server import database, policy, task_output
+&lt;frozen importlib._bootstrap&gt;:1412: in _handle_fromlist
+    ???
+a2a_server/__init__.py:53: in __getattr__
+    return import_module('.' + name, __name__)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+a2a_server/database.py:38: in &lt;module&gt;
+    raise RuntimeError(
+E   RuntimeError: DATABASE_URL (or A2A_DATABASE_URL) environment variable is required. Example: postgresql://user:pass@host:5432/dbname</error></testcase></testsuite></testsuites>

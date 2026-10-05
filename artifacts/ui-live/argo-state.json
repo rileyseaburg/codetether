@@ -1,0 +1,19 @@
+{
+  "level": "live deployment/Argo",
+  "apps": [
+    {
+      "name": "codetether-marketing",
+      "namespace": "a2a-server",
+      "sync": "Synced",
+      "health": "Healthy",
+      "revision": "f4055dde383b81740b1e13d5bbce56ba21e9b2f4"
+    },
+    {
+      "name": "codetether-a2a-server",
+      "namespace": "a2a-system",
+      "sync": "OutOfSync",
+      "health": "Healthy",
+      "revision": "4e0fe718d79953fd39a6105a32e0ace92a9e73ca"
+    }
+  ]
+}

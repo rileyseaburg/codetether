@@ -1,0 +1,87 @@
+{
+  "source": {
+    "helm": {
+      "releaseName": "codetether",
+      "valuesObject": {
+        "apiProxy": {
+          "backendPort": 8000,
+          "backendService": "codetether-a2a-server",
+          "enabled": true
+        },
+        "enabled": true,
+        "env": {
+          "A2A_API_BACKEND": "http://codetether-a2a-server.a2a-server.svc.cluster.local:8000",
+          "AUTH_TRUST_HOST": "true",
+          "AUTH_URL": "https://quantum-forge.codetether.run",
+          "CONTACT_NOTIFICATION_EMAIL": "riley@spotlessbinco.com",
+          "KEYCLOAK_CLIENT_ID": "a2a-monitor",
+          "KEYCLOAK_ISSUER": "https://auth.quantum-forge.io/realms/quantum-forge",
+          "NEXTAUTH_URL": "https://quantum-forge.codetether.run",
+          "SENDGRID_API_KEY": "",
+          "SENDGRID_FROM_EMAIL": "noreply@codetether.run"
+        },
+        "image": {
+          "pullPolicy": "IfNotPresent",
+          "repository": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing",
+          "tag": "keycloak-direct-20260706042620-dcf4475"
+        },
+        "imagePullSecrets": [
+          {
+            "name": "registry-credentials"
+          }
+        ],
+        "ingress": {
+          "annotations": {
+            "cert-manager.io/cluster-issuer": "cloudflare-issuer",
+            "nginx.ingress.kubernetes.io/ssl-redirect": "true"
+          },
+          "className": "nginx",
+          "enabled": true,
+          "host": "codetether.run",
+          "tls": {
+            "secretName": "codetether-marketing-tls"
+          }
+        },
+        "keycloak": {
+          "secretName": "keycloak-client-secret"
+        },
+        "replicaCount": 1,
+        "resources": {
+          "limits": {
+            "cpu": "500m",
+            "memory": "512Mi"
+          },
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          }
+        },
+        "rolloutId": "qf-auth-202605270346",
+        "service": {
+          "port": 3000,
+          "targetPort": 3000,
+          "type": "ClusterIP"
+        }
+      }
+    },
+    "path": "chart/a2a-server/charts/marketing",
+    "repoURL": "git@github.com:rileyseaburg/codetether.git",
+    "targetRevision": "f4055dde383b81740b1e13d5bbce56ba21e9b2f4"
+  },
+  "syncPolicy": {
+    "automated": {
+      "prune": true,
+      "selfHeal": true
+    },
+    "syncOptions": [
+      "CreateNamespace=true",
+      "ServerSideApply=true",
+      "ApplyOutOfSyncOnly=true",
+      "PruneLast=true"
+    ]
+  },
+  "destination": {
+    "namespace": "a2a-server",
+    "server": "https://kubernetes.default.svc"
+  }
+}

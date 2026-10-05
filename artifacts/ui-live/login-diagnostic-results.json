@@ -1,0 +1,44 @@
+{
+  "level": "live integration: changed local UI with real remote services",
+  "base": "http://localhost:3001",
+  "started": "2026-09-06T19:50:05.120Z",
+  "stage": "keycloak-login",
+  "checks": [
+    {
+      "check": "real OAuth authorization",
+      "origin": "https://auth.quantum-forge.io",
+      "path": "/realms/quantum-forge/protocol/openid-connect/auth",
+      "clientId": "a2a-monitor",
+      "redirectUri": "http://localhost:3001/api/auth/callback/keycloak",
+      "pkce": true,
+      "statePresent": true
+    }
+  ],
+  "requests": [
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "https://auth.quantum-forge.io",
+      "path": "/realms/quantum-forge/protocol/openid-connect/auth",
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "identityProviderText": "QUANTUM-FORGE\nSign in to your account\nEmail\nInvalid username or password.\nPassword\nRemember me\nForgot Password?\nSign In\nOr sign in with\nGitHub\nGoogle\nNew user? Register",
+  "error": {
+    "name": "TimeoutError",
+    "message": "page.waitForURL: Timeout 60000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================"
+  },
+  "page": "https://auth.quantum-forge.io/realms/quantum-forge/login-actions/authenticate",
+  "alerts": []
+}

@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "a2a-server.fullname" . }}
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with include "a2a-server.annotations" . }}
+    {{- . | nindent 4 }}
+    {{- end }}
+    {{- if .Values.blueGreen.enabled }}
+    bluegreen/mode: {{ .Values.blueGreen.mode | quote }}
+    bluegreen/active-color: {{ .Values.blueGreen.serviceColor | quote }}
+    {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- if eq .Values.service.type "ExternalName" }}
+  externalName: {{ required "service.externalName is required when service.type is ExternalName" .Values.service.externalName | quote }}
+  {{- end }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+    # MCP is now integrated on the same port under /mcp/* paths
+    # No separate MCP port needed
+  {{- if ne .Values.service.type "ExternalName" }}
+  selector:
+    {{- if and .Values.blueGreen.enabled (eq .Values.blueGreen.mode "bluegreen") }}
+    {{- include "a2a-server.blueGreenSelectorLabels" . | nindent 4 }}
+    color: {{ .Values.blueGreen.serviceColor | quote }}
+    app.kubernetes.io/component: server
+    {{- else }}
+    {{- include "a2a-server.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+    {{- end }}
+  {{- end }}

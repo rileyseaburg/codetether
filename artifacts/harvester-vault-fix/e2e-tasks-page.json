@@ -1,0 +1,12 @@
+{
+  "url": "https://quantum-forge.codetether.run/dashboard/tasks",
+  "totalRows": 100,
+  "rowIndex": 1,
+  "rowText": "Reply with exactly the single word PONG and nothing else. Do not use any tools. ... build • 5:52:43 AM completed Normal",
+  "detail": {
+    "hasTaskId": false,
+    "hasCompleted": true,
+    "hasModel": true,
+    "hasPongResult": 4
+  }
+}

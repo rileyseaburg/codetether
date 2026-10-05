@@ -1,0 +1,10 @@
+[
+  {
+    "name": "codetether-marketing-65f976658f-56hz6",
+    "namespace": "a2a-server",
+    "image": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing:ui-a1d68a889bd3",
+    "imageId": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing@sha256:96c02d1812ae83977361370ef9acdd57ed02497001694e2bc42deb3dc9f5dbab",
+    "ready": true,
+    "restarts": 0
+  }
+]

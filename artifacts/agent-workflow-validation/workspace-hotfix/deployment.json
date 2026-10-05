@@ -1,0 +1,13 @@
+{
+  "namespace": "a2a-system",
+  "configMap": "codetether-workspace-registry-20261005",
+  "beforeSha256": "9dfb18a4cd81a144b3f640d440189dabe12fc64e94b24593514aa2d9cc119cf0",
+  "afterSha256": "7495a65f609c3d6d538aeb621536c0019e9d7cdd738fa0449a16040db78f22c9",
+  "precedence": [
+    "local fallback",
+    "Redis",
+    "PostgreSQL"
+  ],
+  "cancellationAwaited": true,
+  "repositoryFileModified": false
+}

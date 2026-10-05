@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: audit-probe-cleanup
+  namespace: a2a-system
+  labels:
+    app.kubernetes.io/purpose: zero-trust-audit-cleanup
+data:
+  cancel.py: |
+    """Cancel queued task_run e9358922 created by the audit's anonymous probe."""
+
+    import asyncio
+
+    from a2a_server.database import get_pool
+
+
+    RUN_ID = 'e9358922-847f-4dbf-8175-63ad5b2cf6ba'
+    TASK_ID = '464b856d-18de-48b7-bb7f-604bf002b664'
+
+
+    async def main() -> None:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            before = await conn.fetchrow(
+                'SELECT status, task_id FROM task_runs WHERE id = $1', RUN_ID
+            )
+            print('before:', dict(before) if before else None)
+            if before and str(before['task_id']) != TASK_ID:
+                print('task mismatch; not touching')
+                return
+            result = await conn.execute(
+                "UPDATE task_runs SET status = 'cancelled', updated_at = NOW() "
+                "WHERE id = $1 AND status = 'queued'",
+                RUN_ID,
+            )
+            print('update:', result)
+            after = await conn.fetchval(
+                'SELECT status FROM task_runs WHERE id = $1', RUN_ID
+            )
+            print('after:', after)
+
+
+    asyncio.run(main())
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: audit-probe-cleanup
+  namespace: a2a-system
+  labels:
+    app.kubernetes.io/purpose: zero-trust-audit-cleanup
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: a2a-server
+      imagePullSecrets:
+        - name: harbor-regcred
+        - name: registry-credentials
+      containers:
+        - name: cleanup
+          image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:issue-context-f4c760c48aad
+          command: ["python3", "/cleanup/cancel.py"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-database
+                  key: DATABASE_URL
+          volumeMounts:
+            - name: cleanup
+              mountPath: /cleanup
+              readOnly: true
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+      volumes:
+        - name: cleanup
+          configMap:
+            name: audit-probe-cleanup

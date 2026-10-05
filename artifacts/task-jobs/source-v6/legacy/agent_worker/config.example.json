@@ -1,0 +1,29 @@
+{
+    "server_url": "https://api.codetether.run",
+    "worker_name": "my-worker",
+    "poll_interval": 5,
+    "agent_bin": null,
+    "agent_storage_path": null,
+    "session_message_sync_max_sessions": 10,
+    "session_message_sync_max_messages": 200,
+    "redis_url": "redis://localhost:6379",
+    "codebases": [
+        {
+            "name": "my-project",
+            "path": "/path/to/your/project",
+            "description": "Description of your project"
+        }
+    ],
+    "capabilities": [
+        "codetether",
+        "build",
+        "deploy",
+        "test"
+    ],
+    "_comment_email": "Email notification settings (optional)",
+    "sendgrid_api_key": null,
+    "sendgrid_from_email": "noreply@yourdomain.com",
+    "notification_email": "you@example.com",
+    "email_inbound_domain": "inbound.codetether.run",
+    "email_reply_prefix": "task"
+}

@@ -1,0 +1,24 @@
+{
+  "target": "https://codetether.run/dashboard",
+  "url": "https://quantum-forge.codetether.run/login?callbackUrl=%2Fdashboard",
+  "title": "CodeTether - Production A2A Coordination Platform",
+  "bodyText": "CodeTether Sign in to account Don't have an account? Sign up for a free trial. Continue with Quantum Forge SSO Sign in with your Keycloak account Email address Continue to Keycloak",
+  "probe": {
+    "hits": {
+      "openai-codex": false,
+      "cerebras": false,
+      "openrouter": false,
+      "bedrock": false,
+      "Sign in": true,
+      "Login": false,
+      "Keycloak": true,
+      "model": false
+    },
+    "inputs": [
+      "Continue with Quantum Forge SSO",
+      "Continue to Keycloak",
+      "Open chat"
+    ]
+  },
+  "netlog": []
+}

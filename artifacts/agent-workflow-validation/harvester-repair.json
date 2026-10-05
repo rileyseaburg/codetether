@@ -1,0 +1,10 @@
+{
+  "application": "codetether-a2a-server",
+  "previousReplicas": 1,
+  "replicas": 1,
+  "targetedOnly": true,
+  "taskJobsUnchanged": true,
+  "workspaceCleanupDisabled": true,
+  "tokenSecret": "a2a-server-ios-worker-auth",
+  "changedAt": "2026-10-05T20:37:02.962Z"
+}

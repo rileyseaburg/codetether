@@ -1,0 +1,18 @@
+{
+  "taskId": "3df87692-22b0-4a17-8efe-18b37033fb75",
+  "phoneOrigin": false,
+  "file": "/home/riley/A2A-Server-MCP/artifacts/ios-e2e-web/backend-rehearsal/site/index.html",
+  "url": "http://192.168.50.101:8768/",
+  "status": 200,
+  "sha256": "4a22b70ffb09b3cdd904cb34291a8cfd9136c8e73c1eacecaf9acaf2c6e8dafc",
+  "service": {
+    "unit": "codetether-ios-backend-rehearsal.service",
+    "pid": 893866,
+    "state": "active"
+  },
+  "responseMatchesArtifact": true,
+  "indexStatus": 200,
+  "otherPathStatus": 404,
+  "contentType": "text/html; charset=utf-8",
+  "verifiedAt": "2026-10-05T13:18:51.824Z"
+}

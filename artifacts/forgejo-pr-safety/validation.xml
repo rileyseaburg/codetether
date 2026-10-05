@@ -1,0 +1,616 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="16" skipped="0" tests="102" time="5.633" timestamp="2026-09-07T15:30:54.747763+00:00" hostname="ubuntu-dev"><testcase classname="tests.test_forgejo_automation_safety" name="test_status_edits_require_explicit_opt_in" time="0.002" /><testcase classname="tests.test_forgejo_automation_safety" name="test_pause_matches_only_named_request" time="0.001" /><testcase classname="tests.test_forgejo_automation_safety" name="test_bot_does_not_repair_its_own_review_gate[CodeTether PR Review / CodeTether Review (pull_request_target)]" time="0.001" /><testcase classname="tests.test_forgejo_automation_safety" name="test_bot_does_not_repair_its_own_review_gate[codetether/review]" time="0.001" /><testcase classname="tests.test_forgejo_automation_safety" name="test_bot_does_not_repair_its_own_review_gate[CodeTether Review]" time="0.001" /><testcase classname="tests.test_forgejo_automation_safety" name="test_disabled_status_path_does_no_discovery" time="0.005" /><testcase classname="tests.test_forgejo_automation_safety" name="test_paused_writer_is_rejected_before_database" time="0.002" /><testcase classname="tests.test_forgejo_automation_safety" name="test_different_checks_and_heads_cannot_spawn_parallel_writers" time="0.382" /><testcase classname="tests.test_forgejo_task_completion" name="test_posts_completed_forgejo_terminal_comment" time="0.003" /><testcase classname="tests.test_forgejo_task_completion" name="test_skips_duplicate_forgejo_terminal_comment" time="0.001" /><testcase classname="tests.test_forgejo_task_completion" name="test_terminal_hook_routes_forgejo_task" time="0.009" /><testcase classname="tests.test_forgejo_task_completion" name="test_review_terminal_signal_without_verdict_sends_empty_string" time="0.002" /><testcase classname="tests.test_forgejo_webhooks" name="test_failed_status_webhook_queues_matching_pr_remediation" time="0.008" /><testcase classname="tests.test_forgejo_webhooks" name="test_status_webhook_ignores_success_and_self_status[payload0-non-failed-or-self-status]" time="0.005" /><testcase classname="tests.test_forgejo_webhooks" name="test_status_webhook_ignores_success_and_self_status[payload1-non-failed-or-self-status]" time="0.008" /><testcase classname="tests.test_forgejo_webhooks" name="test_status_webhook_paginates_open_pr_heads" time="0.007" /><testcase classname="tests.test_forgejo_webhooks" name="test_status_webhook_ignores_unmatched_sha" time="0.007" /><testcase classname="tests.test_forgejo_webhooks" name="test_status_webhook_rejects_non_list_pulls" time="0.006" /><testcase classname="tests.test_forgejo_webhooks" name="test_rejects_invalid_signature" time="0.008" /><testcase classname="tests.test_forgejo_webhooks" name="test_ignores_bot_authored_comment" time="0.006" /><testcase classname="tests.test_forgejo_webhooks" name="test_non_fix_mention_is_durable_before_guidance" time="0.012" /><testcase classname="tests.test_forgejo_webhooks" name="test_actionable_issue_is_acknowledged_only_after_receipt" time="0.007" /><testcase classname="tests.test_forgejo_webhooks" name="test_opened_issue_body_is_normalized_as_actionable_context" time="0.001" /><testcase classname="tests.test_forgejo_webhooks" name="test_issue_dispatch_isolates_workspace_by_work_branch" time="0.002" /><testcase classname="tests.test_forgejo_webhooks" name="test_pr_comment_is_normalized_as_pr" time="0.013" /><testcase classname="tests.test_forgejo_webhooks" name="test_edited_existing_mention_does_not_retrigger" time="0.006" /><testcase classname="tests.test_forgejo_webhooks" name="test_active_task_uses_database_pool[row0-True]" time="0.002" /><testcase classname="tests.test_forgejo_webhooks" name="test_active_task_uses_database_pool[None-False]" time="0.002" /><testcase classname="tests.test_forgejo_webhooks" name="test_configured_forgejo_host_is_allowed_without_credential_injection" time="0.001" /><testcase classname="tests.test_forgejo_webhooks" name="test_signed_agent_control_signals_temporal" time="0.005" /><testcase classname="tests.test_forgejo_webhooks" name="test_agent_control_rejects_bad_signature_and_expiry" time="0.005" /><testcase classname="tests.test_forgejo_webhooks" name="test_agent_control_rejects_unknown_action" time="0.005" /><testcase classname="tests.test_forgejo_automation" name="test_vcs_automation_defaults_to_requested_openai_codex_model" time="0.001" /><testcase classname="tests.test_forgejo_automation" name="test_publish_review_is_semantic_and_idempotent" time="0.001" /><testcase classname="tests.test_forgejo_automation" name="test_publish_review_comments_when_bot_cannot_approve_own_pr" time="0.001" /><testcase classname="tests.test_forgejo_automation" name="test_publish_review_does_not_mask_unrelated_forgejo_error" time="0.002" /><testcase classname="tests.test_forgejo_automation" name="test_review_request_rejects_bots_and_requests_human" time="0.001" /><testcase classname="tests.test_forgejo_automation" name="test_changes_requested_creates_exactly_one_fix" time="0.001" /><testcase classname="tests.test_forgejo_automation" name="test_failed_third_party_status_creates_deduped_fix" time="0.002"><failure message="AssertionError: assert '/repos/owner/repo/pulls/5' == '/repos/owner/repo/pulls/12'&#10;  &#10;  - /repos/owner/repo/pulls/12&#10;  ?                         ^^&#10;  + /repos/owner/repo/pulls/5&#10;  ?                         ^">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ef5a07814f0&gt;
+
+    @pytest.mark.asyncio
+    async def test_failed_third_party_status_creates_deduped_fix(monkeypatch):
+        monkeypatch.setenv('FORGEJO_STATUS_REMEDIATION_ENABLED', 'true')
+        dispatched = []
+    
+        class Connection:
+            async def fetchrow(self, query, *params):
+                assert "forgejo_work_key'" in query
+                return None
+    
+        install_database(monkeypatch, Connection())
+    
+        async def fake_ensure(ctx, clone_url, branch, token):
+            assert (ctx['repo'], branch, token) == (
+                'owner/repo',
+                'feature',
+                'token',
+            )
+            return 'ws-status'
+    
+        async def fake_target():
+            return {
+                'target_agent_name': 'harvester',
+                'required_capabilities': ['persistent-workspace'],
+            }
+    
+        async def fake_dispatch(**kwargs):
+            dispatched.append(kwargs)
+            return 'status-fix-1'
+    
+        async def current_pr(method, base, path, payload=None):
+            assert method == 'GET'
+            assert path == '/repos/owner/repo/pulls/12'
+            return PR
+    
+        monkeypatch.setattr(automation, 'forgejo_json', current_pr)
+        monkeypatch.setattr(forgejo_webhooks, '_ensure_workspace', fake_ensure)
+        monkeypatch.setattr(forgejo_webhooks, '_token', lambda: 'token')
+        monkeypatch.setattr(
+            'a2a_server.github_app.routing.resolve_task_target', fake_target
+        )
+        monkeypatch.setattr(
+            'a2a_server.persistent_worker_pool.create_and_dispatch_task',
+            fake_dispatch,
+        )
+        status = {
+            'status': 'failure',
+            'context': 'tests',
+            'description': 'unit tests failed',
+            'target_url': 'https://forge.example/actions/1',
+            'creator': {'login': 'forgejo-actions'},
+        }
+&gt;       task_id = await automation.create_status_remediation_task(
+            base='https://forge.example/api/v1',
+            repo='owner/repo',
+            pr=PR,
+            status=status,
+        )
+
+tests/test_forgejo_automation.py:318: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_automation.py:433: in create_status_remediation_task
+    current = await forgejo_json(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+method = 'GET', base = 'https://forge.example/api/v1'
+path = '/repos/owner/repo/pulls/5', payload = None
+
+    async def current_pr(method, base, path, payload=None):
+        assert method == 'GET'
+&gt;       assert path == '/repos/owner/repo/pulls/12'
+E       AssertionError: assert '/repos/owner/repo/pulls/5' == '/repos/owner/repo/pulls/12'
+E         
+E         - /repos/owner/repo/pulls/12
+E         ?                         ^^
+E         + /repos/owner/repo/pulls/5
+E         ?                         ^
+
+tests/test_forgejo_automation.py:298: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_automation" name="test_code_completion_creates_review_and_terminal_comment" time="0.002" /><testcase classname="tests.test_forgejo_automation" name="test_review_completion_publishes_and_queues_fix_once" time="0.001" /><testcase classname="tests.test_forgejo_automation" name="test_issue_code_completion_discovers_created_pr_by_branch" time="0.001" /><testcase classname="tests.test_forgejo_automation" name="test_forgejo_post_clone_uses_durable_dispatch" time="0.002" /><testcase classname="tests.test_forgejo_automation" name="test_forgejo_work_key_is_first_class" time="0.001" /><testcase classname="tests.test_forgejo_automation" name="test_failure_reconciler_ignores_non_list_pulls" time="0.002" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_missing_run_repaired_once[polling-pending]" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_missing_run_repaired_once[polling-queued]" time="0.002" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_missing_run_repaired_once[fire_and_forget-pending]" time="0.007" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_missing_run_repaired_once[fire_and_forget-queued]" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_any_existing_run_suppresses_creation[queued]" time="0.004" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_any_existing_run_suppresses_creation[running]" time="0.002" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_any_existing_run_suppresses_creation[completed]" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_any_existing_run_suppresses_creation[failed]" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_any_existing_run_suppresses_creation[cancelled]" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_terminal_or_started_work_is_never_requeued[updates0]" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_terminal_or_started_work_is_never_requeued[updates1]" time="0.005" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_terminal_or_started_work_is_never_requeued[updates2]" time="0.004" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_terminal_or_started_work_is_never_requeued[updates3]" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_terminal_or_started_work_is_never_requeued[updates4]" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_terminal_or_started_work_is_never_requeued[updates5]" time="0.005" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_terminal_or_started_work_is_never_requeued[updates6]" time="0.002" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_terminal_or_started_work_is_never_requeued[updates7]" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_terminal_or_started_work_is_never_requeued[updates8]" time="0.002" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_concurrent_replays_share_work_lock" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_failed_recovery_is_not_reported_as_success" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_missing_task_fails_closed" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_missing_database_fails_closed" time="0.003" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_github_dedupe_behavior_is_unchanged" time="0.002" /><testcase classname="tests.test_persistent_worker_partial_dispatch" name="test_new_task_keeps_normal_dispatch_path" time="0.002" /><testcase classname="tests.test_forgejo_inbox" name="test_concurrent_receipts_commit_one_immutable_payload" time="0.066"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06eebc0&gt;
+
+    async def test_concurrent_receipts_commit_one_immutable_payload(db):
+&gt;       receipts = await asyncio.gather(
+            *(inbox.accept('issues', CONTEXT, BASE) for _ in range(16))
+        )
+
+tests/test_forgejo_inbox.py:97: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a0506de0&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_independent_comment_is_not_silenced_by_old_claim" time="0.100"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06edfc0&gt;
+
+    async def test_independent_comment_is_not_silenced_by_old_claim(db):
+        async with db.acquire() as conn:
+            from a2a_server.forgejo_delivery_claim import ensure_table
+    
+            await ensure_table(conn)
+            await conn.execute(
+                "INSERT INTO forgejo_webhook_deliveries (delivery_key,repo,issue_number,event) VALUES ('owner/repo#5863:issues:body','owner/repo',5863,'issues')"
+            )
+&gt;       body = await inbox.accept('issues', CONTEXT, BASE)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_forgejo_inbox.py:119: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a0783cb0&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_failure_retries_without_any_new_webhook_and_reuses_plan" time="0.059"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06eec80&gt;
+provider = (&lt;AsyncMock id='139593423843024'&gt;, &lt;AsyncMock id='139593424778448'&gt;, &lt;AsyncMock id='139593425648336'&gt;)
+
+    async def test_failure_retries_without_any_new_webhook_and_reuses_plan(
+        db, provider
+    ):
+        prepare, dispatch, ack = provider
+        dispatch.side_effect = [
+            RuntimeError('vault unavailable'),
+            {'accepted': True},
+        ]
+&gt;       identity = (await inbox.accept('issues', CONTEXT, BASE))['delivery_id']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_forgejo_inbox.py:135: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a0507b00&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_ack_failure_keeps_handoff_checkpoint_and_never_redispatches" time="0.054"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06ef640&gt;
+provider = (&lt;AsyncMock id='139593421702592'&gt;, &lt;AsyncMock id='139593426930672'&gt;, &lt;AsyncMock id='139593422454320'&gt;)
+
+    async def test_ack_failure_keeps_handoff_checkpoint_and_never_redispatches(
+        db, provider
+    ):
+        _, dispatch, ack = provider
+        ack.side_effect = [None, RuntimeError('lost response'), None]
+&gt;       identity = (await inbox.accept('issues', CONTEXT, BASE))['delivery_id']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_forgejo_inbox.py:155: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a05badb0&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_concurrent_workers_serialize_distinct_comments_for_same_issue" time="0.051"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06ef7c0&gt;
+
+    async def test_concurrent_workers_serialize_distinct_comments_for_same_issue(
+        db,
+    ):
+&gt;       first = (await inbox.accept('issues', CONTEXT, BASE))['delivery_id']
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_forgejo_inbox.py:167: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a05b80b0&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_prior_native_workflow_blocks_next_mention_until_terminal" time="0.076"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06ee2c0&gt;
+provider = (&lt;AsyncMock id='139593422445152'&gt;, &lt;AsyncMock id='139593424007104'&gt;, &lt;AsyncMock id='139593421708784'&gt;)
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ef5a05b8530&gt;
+
+    async def test_prior_native_workflow_blocks_next_mention_until_terminal(
+        db, provider, monkeypatch
+    ):
+&gt;       identity = (await inbox.accept('issues', CONTEXT, BASE))['delivery_id']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_forgejo_inbox.py:182: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a05065a0&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_connection_death_releases_lock_without_releasing_receipt" time="0.064"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06eec80&gt;
+
+    async def test_connection_death_releases_lock_without_releasing_receipt(db):
+&gt;       identity = (await inbox.accept('issues', CONTEXT, BASE))['delivery_id']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_forgejo_inbox.py:205: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a0505ac0&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_cancelled_dispatch_stays_retryable" time="0.093"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06ed6c0&gt;
+provider = (&lt;AsyncMock id='139593424238736'&gt;, &lt;AsyncMock id='139593422396576'&gt;, &lt;AsyncMock id='139593422398112'&gt;)
+
+    async def test_cancelled_dispatch_stays_retryable(db, provider):
+        provider[1].side_effect = asyncio.CancelledError()
+&gt;       identity = (await inbox.accept('issues', CONTEXT, BASE))['delivery_id']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_forgejo_inbox.py:225: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a05acda0&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_ack_marker_reconciles_response_loss_and_pagination" time="0.004" /><testcase classname="tests.test_forgejo_inbox" name="test_recovery_is_dry_run_by_default_and_idempotent_when_requested" time="0.113"><failure message="assert (False)">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06ed900&gt;
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ef5a07b6570&gt;
+
+    async def test_recovery_is_dry_run_by_default_and_idempotent_when_requested(
+        db, monkeypatch
+    ):
+        from a2a_server import forgejo_inbox_recovery as recovery
+        from a2a_server.forgejo_delivery_claim import ensure_table
+    
+        key = 'owner/repo#5863:issues:body'
+        monkeypatch.setenv('FORGEJO_API_URL', BASE)
+        async with db.acquire() as conn:
+            await ensure_table(conn)
+            await conn.execute(
+                """
+                INSERT INTO forgejo_webhook_deliveries
+                    (delivery_key,repo,issue_number,event) VALUES ($1,'owner/repo',5863,'issues')
+            """,
+                key,
+            )
+    
+        async def provider_get(method, base, path):
+            assert method == 'GET'
+            if '/agent/tasks?' in path:
+                return {'tasks': []}
+            if path.endswith('/issues/5863'):
+                return {
+                    'number': 5863,
+                    'body': CONTEXT['body'],
+                    'state': 'open',
+                    'user': {'login': 'owner'},
+                }
+            assert path == '/repos/owner/repo'
+            return {'full_name': 'owner/repo'}
+    
+        monkeypatch.setattr(recovery.hooks, 'forgejo_json', provider_get)
+&gt;       planned = await recovery.recover(key)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_forgejo_inbox.py:290: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox_recovery.py:29: in recover
+    legacy = await conn.fetchrow(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a079a750&gt;
+sql = '\n            SELECT repo, issue_number, event FROM forgejo_webhook_deliveries\n            WHERE delivery_key = $1\n        '
+task_id = 'owner/repo#5863:issues:body'
+
+    async def fetchrow(self, sql, task_id):
+&gt;       assert state['transaction'] and state['locked']
+E       assert (False)
+
+tests/test_persistent_worker_partial_dispatch.py:64: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_temporal_replay_does_not_restart_terminal_workflow" time="0.003" /><testcase classname="tests.test_forgejo_inbox" name="test_reported_still_not_working_is_an_actionable_retry" time="0.001" /><testcase classname="tests.test_forgejo_inbox" name="test_intake_fails_closed_when_database_unavailable" time="0.003"><failure message="assert False">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ef5a6a2da30&gt;
+
+    async def test_intake_fails_closed_when_database_unavailable(monkeypatch):
+        from fastapi import HTTPException
+    
+        monkeypatch.setattr(database, 'get_pool', AsyncMock(return_value=None))
+        with pytest.raises(HTTPException) as failure:
+&gt;           await inbox.accept('issues', CONTEXT, BASE)
+
+tests/test_forgejo_inbox.py:362: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a6a2d1f0&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_raw_webhook_secrets_do_not_enter_receipt" time="0.072"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06ede40&gt;
+
+    async def test_raw_webhook_secrets_do_not_enter_receipt(db):
+        secret = 'sensitive-sentinel-not-for-inbox'
+        ctx = {
+            **CONTEXT,
+            'headers': {'Authorization': secret},
+            'repo_data': {'token': secret},
+        }
+&gt;       identity = (await inbox.accept('issues', ctx, BASE))['delivery_id']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_forgejo_inbox.py:373: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a07b4fb0&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_native_retry_cannot_resume_over_successor_receipt" time="0.063"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06ee200&gt;
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ef5a079ae70&gt;
+
+    async def test_native_retry_cannot_resume_over_successor_receipt(
+        db, monkeypatch
+    ):
+        from fastapi import HTTPException
+    
+&gt;       first = (await inbox.accept('issues', CONTEXT, BASE))['delivery_id']
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_forgejo_inbox.py:382: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a079b470&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_nonactionable_comment_does_not_supersede_native_retry" time="0.069"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06efd00&gt;
+
+    async def test_nonactionable_comment_does_not_supersede_native_retry(db):
+&gt;       first = (await inbox.accept('issues', CONTEXT, BASE))['delivery_id']
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_forgejo_inbox.py:420: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a07b7650&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_temporal_requires_configured_base_before_provider_mutations" time="0.002" /><testcase classname="tests.test_forgejo_inbox" name="test_signed_http_request_commits_before_disconnected_worker_runs" time="0.115"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06eda80&gt;
+provider = (&lt;AsyncMock id='139593424306256'&gt;, &lt;AsyncMock id='139593421701584'&gt;, &lt;AsyncMock id='139593421702928'&gt;)
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ef5a07f2330&gt;
+
+    async def test_signed_http_request_commits_before_disconnected_worker_runs(
+        db, provider, monkeypatch
+    ):
+        import hashlib
+        import hmac
+    
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+    
+        from a2a_server import forgejo_webhooks as hooks
+    
+        monkeypatch.setenv('FORGEJO_WEBHOOK_SECRET', 'local-test-secret')
+        monkeypatch.setenv('FORGEJO_API_URL', BASE)
+        app = FastAPI()
+        app.include_router(hooks.forgejo_webhook_router)
+        raw = json.dumps(
+            {
+                'action': 'opened',
+                'issue': {
+                    'number': 5863,
+                    'body': CONTEXT['body'],
+                    'user': {'login': 'owner'},
+                },
+                'repository': {'full_name': CONTEXT['repo']},
+            }
+        ).encode()
+        headers = {
+            'X-Forgejo-Event': 'issues',
+            'X-Forgejo-Signature': hmac.new(
+                b'local-test-secret', raw, hashlib.sha256
+            ).hexdigest(),
+        }
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url='http://test'
+        ) as client:
+&gt;           response = await client.post(
+                '/v1/webhooks/forgejo', content=raw, headers=headers
+            )
+
+tests/test_forgejo_inbox.py:485: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_transports/asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+.venv/lib/python3.12/site-packages/fastapi/applications.py:1139: in __call__
+    await super().__call__(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/applications.py:107: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+.venv/lib/python3.12/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+.venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/routing.py:736: in app
+    await route.handle(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/routing.py:290: in handle
+    await self.app(scope, receive, send)
+.venv/lib/python3.12/site-packages/fastapi/routing.py:120: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+.venv/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+.venv/lib/python3.12/site-packages/fastapi/routing.py:106: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/fastapi/routing.py:430: in app
+    raw_response = await run_endpoint_function(
+.venv/lib/python3.12/site-packages/fastapi/routing.py:316: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+a2a_server/forgejo_webhooks.py:633: in handle_forgejo_webhook
+    return await accept(event, ctx, base)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a05bbc80&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_temporal_legacy_lookup_and_activity_fence_use_real_postgres" time="0.098"><failure message="assert False">db = &lt;asyncpg.pool.Pool object at 0x7ef5a06efc40&gt;
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7ef5a6a2d8e0&gt;
+
+    async def test_temporal_legacy_lookup_and_activity_fence_use_real_postgres(
+        db, monkeypatch
+    ):
+        from a2a_server.temporal import activities
+        from a2a_server.temporal.models import (
+            ForgejoAgentWorkflowInput,
+            ForgejoStageRequest,
+        )
+    
+        monkeypatch.setenv('FORGEJO_API_URL', BASE)
+&gt;       identity = (await inbox.accept('issues', CONTEXT, BASE))['delivery_id']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_forgejo_inbox.py:508: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/forgejo_inbox.py:104: in accept
+    await ensure_schema(conn)
+a2a_server/forgejo_inbox.py:37: in ensure_schema
+    async with conn.transaction():
+/usr/lib/python3.12/contextlib.py:210: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;test_persistent_worker_partial_dispatch.harness.&lt;locals&gt;.Connection object at 0x7ef5a6a2f0b0&gt;
+
+    @asynccontextmanager
+    async def transaction(self):
+&gt;       assert state['locked']
+E       assert False
+
+tests/test_persistent_worker_partial_dispatch.py:52: AssertionError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_router_lifespan_runs_pump_even_without_configured_base" time="0.008" /><testcase classname="tests.test_forgejo_review_remediation" name="test_start_stores_prompt_in_forgejo_not_temporal" time="0.007" /><testcase classname="tests.test_forgejo_review_remediation" name="test_start_requires_temporal" time="0.002" /><testcase classname="tests.test_forgejo_review_remediation" name="test_request_rejects_count_mismatch" time="0.002" /><testcase classname="tests.test_forgejo_review_remediation" name="test_request_rejects_untrusted_routing_fields[repository-../outside]" time="0.002" /><testcase classname="tests.test_forgejo_review_remediation" name="test_request_rejects_untrusted_routing_fields[head_sha-not-a-sha]" time="0.001" /><testcase classname="tests.test_forgejo_review_remediation" name="test_request_rejects_untrusted_routing_fields[target_agent_name-worker name with spaces]" time="0.002" /><testcase classname="tests.test_forgejo_review_remediation" name="test_request_rejects_untrusted_routing_fields[resume_session_id-../../session]" time="0.004" /><testcase classname="tests.test_forgejo_review_remediation" name="test_request_rejects_untrusted_routing_fields[author_provenance_id-unverified]" time="0.001" /><testcase classname="tests.test_forgejo_review_remediation" name="test_request_rejects_untrusted_routing_fields[finding_ids-value5]" time="0.001" /><testcase classname="tests.test_forgejo_review_remediation" name="test_request_rejects_untrusted_routing_fields[finding_ids-value6]" time="0.001" /><testcase classname="tests.test_forgejo_review_remediation" name="test_endpoint_rejects_missing_ingest_token" time="0.002" /><testcase classname="tests.test_forgejo_review_remediation" name="test_endpoint_accepts_configured_ingest_token" time="0.001" /><testcase classname="tests.test_forgejo_review_remediation" name="test_activity_resumes_author_session_and_preserves_checklist" time="0.085" /></testsuite></testsuites>

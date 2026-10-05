@@ -1,0 +1,60 @@
+[Unit]
+Description=CodeTether A2A Worker - SSE-based task executor
+Documentation=https://github.com/rileyseaburg/A2A-Server-MCP
+After=network-online.target
+Wants=network-online.target
+
+# Restart burst protection
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=a2a-worker
+Group=a2a-worker
+
+# Environment defaults
+Environment=A2A_SERVER_URL=https://api.codetether.run
+Environment=A2A_WORKER_NAME=%H
+Environment=A2A_AUTO_APPROVE=safe
+Environment=A2A_CODEBASES=/opt/codetether-worker/codebases
+Environment=CODETETHER_LOG_LEVEL=info
+# Load overrides from env file (LLM keys, Vault, custom server URL, etc.)
+EnvironmentFile=-/etc/codetether-worker/env
+
+# Working directory
+WorkingDirectory=/opt/codetether-worker
+
+# Command: run codetether in A2A worker mode
+# --server: A2A server SSE endpoint
+# --auto-approve: auto-approve policy (all/safe/none)
+# --name: worker identity for heartbeat
+# --codebases: comma-separated paths to codebases this worker owns
+ExecStart=/opt/codetether-worker/bin/codetether worker \
+    --server ${A2A_SERVER_URL} \
+    --auto-approve ${A2A_AUTO_APPROVE} \
+    --name ${A2A_WORKER_NAME} \
+    --codebases ${A2A_CODEBASES}
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=no
+ReadWritePaths=/opt/codetether-worker
+PrivateTmp=true
+
+# Resource limits - Rust binary is more efficient than Python+Node
+MemoryMax=1G
+CPUQuota=200%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=codetether-worker
+
+[Install]
+WantedBy=multi-user.target

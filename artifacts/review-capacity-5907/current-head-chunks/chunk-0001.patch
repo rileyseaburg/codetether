@@ -1,0 +1,4527 @@
+diff --git a/.npmrc b/.npmrc
+index 9a7688e172..78384a3358 100644
+--- a/.npmrc
++++ b/.npmrc
+@@ -1,3 +1,7 @@
++; Use public npm by default. Unscoped private exceptions are handled with pnpm
++; overrides so normal public tarballs do not have to pass through Verdaccio.
++registry=https://registry.npmjs.org/
++
+ ; Route packages in the `@rileyseaburg` scope to private registry
+ @rileyseaburg:registry=https://npm.quantum-forge.io/
+ 
+@@ -33,4 +37,4 @@ store-dir=${HOME}/ci-cache/pnpm/store
+ cache-dir=${HOME}/ci-cache/pnpm/cache
+ 
+ ; Other unsupported configuration options are being ignored by npm
+-verify-deps-before-run=false
++verify-deps-before-run=false
+\ No newline at end of file
+diff --git a/api/package.json b/api/package.json
+index afbd3124b7..ecd11f6ed8 100644
+--- a/api/package.json
++++ b/api/package.json
+@@ -74,7 +74,7 @@
+     "@orpc/openapi-client": "1.11.3",
+     "@orpc/server": "1.11.3",
+     "@orpc/zod": "1.11.3",
+-    "@rileyseaburg/facebook-business-api-sdk": "1.4.0",
++    "@rileyseaburg/facebook-business-api-sdk": "1.4.1",
+     "@rileyseaburg/tiktok-business-api-sdk": "7.1.1",
+     "@sendgrid/mail": "^8.1.6",
+     "@temporalio/client": "1.20.3",
+@@ -87,7 +87,7 @@
+     "dotenv": "17.2.3",
+     "drizzle-orm": "^0.45.2",
+     "drizzle-zod": "^0.6.1",
+-    "facebook-nodejs-business-sdk": "23.0.1",
++    "facebook-nodejs-business-sdk": "26.0.1",
+     "fast-xml-parser": "^5.10.1",
+     "fastify": "^5.8.5",
+     "fastify-plugin": "5.0.1",
+diff --git a/api/src/exterior-quote/bookingAvailabilityContract.ts b/api/src/exterior-quote/bookingAvailabilityContract.ts
+new file mode 100644
+index 0000000000..38f7f57957
+--- /dev/null
++++ b/api/src/exterior-quote/bookingAvailabilityContract.ts
+@@ -0,0 +1,16 @@
++import { z } from 'zod';
++import { exterior_quote_paymentsSelectSchema } from '../db/drizzle/zod.js';
++import { BookingAvailabilityOutputSchema } from './bookingSchemas.js';
++
++/** Adds the actual quote price to the customer consent display.
++ * Price and currency come from the generated payment record contract.
++ * @example `const availability = CustomerBookingAvailabilitySchema.parse(response);`
++ */
++export const CustomerBookingAvailabilitySchema = BookingAvailabilityOutputSchema.extend({
++  amountQuotedCents: exterior_quote_paymentsSelectSchema.shape.amount_quoted_cents,
++  currency: exterior_quote_paymentsSelectSchema.shape.currency,
++});
++
++/** Customer availability including the real pending payment amount.
++ * @example `const availability: CustomerBookingAvailability = response;` */
++export type CustomerBookingAvailability = z.infer<typeof CustomerBookingAvailabilitySchema>;
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingAvailabilityRepository.ts b/api/src/exterior-quote/bookingAvailabilityRepository.ts
+index 87abb1119e..3d6be52de2 100644
+--- a/api/src/exterior-quote/bookingAvailabilityRepository.ts
++++ b/api/src/exterior-quote/bookingAvailabilityRepository.ts
+@@ -1,15 +1,10 @@
+-import { query } from '../db/query.js';
+-import type { BookingAvailabilityOutput, BookingAuthorizationInput, BookingSlot } from './bookingSchemas.js';
++import { readBookingAvailabilitySlots } from './bookingAvailabilitySlots.js';
++import type { BookingAuthorizationInput, BookingSlot } from './bookingSchemas.js';
++import type { CustomerBookingAvailability } from './bookingAvailabilityContract.js';
+ import type { BookingContext } from './bookingContextRepository.js';
+ import { findAuthorizedBooking } from './bookingContextRepository.js';
+ import { toBookingSlot } from './bookingSlot.js';
+ 
+-interface AvailableSlotRow {
+-  service_start: Date;
+-  arrival_window_end: Date;
+-  service_date: string;
+-}
+-
+ /**
+  * Read customer-visible slots from the canonical PostgreSQL capacity function.
+  *
+@@ -23,31 +18,32 @@ interface AvailableSlotRow {
+  */
+ export async function getExteriorBookingAvailability(
+   input: BookingAuthorizationInput,
+-): Promise<BookingAvailabilityOutput | null> {
++): Promise<CustomerBookingAvailability | null> {
+   const booking = await findAuthorizedBooking(input);
+   if (!booking) return null;
+ 
+-  const result = await query<AvailableSlotRow>(`
+-    SELECT service_start,arrival_window_end,service_date::text
+-    FROM available_service_booking_slots($1)
+-  `, [booking.bookingId]);
++  const slots = await readBookingAvailabilitySlots(booking.bookingId);
+ 
+   return {
+     quoteId: booking.quoteId,
++    amountQuotedCents: booking.amountQuotedCents,
++    currency: booking.currency,
+     serviceName: booking.serviceName,
+     budgetedMinutes: booking.budgetedMinutes,
+     timezone: booking.timezone,
+     reservationMinutes: booking.holdDurationMinutes,
+-    slots: result.rows.map((row) => toBookingSlot({
+-      start: row.service_start,
+-      end: row.arrival_window_end,
+-      date: row.service_date,
++    slots: slots.map((row) => toBookingSlot({
++      start: row.start,
++      end: row.end,
++      date: row.date,
+       timezone: booking.timezone,
+     })),
+     selectedSlot: activeSelectedSlot(booking),
+   };
+ }
+ 
++/** Returns only a still-active held window.
++ * @example `const selected = activeSelectedSlot(booking);` */
+ function activeSelectedSlot(booking: BookingContext): BookingSlot | null {
+   if (
+     booking.status !== 'held'
+@@ -65,6 +61,8 @@ function activeSelectedSlot(booking: BookingContext): BookingSlot | null {
+   });
+ }
+ 
++/** Formats a service date in its capacity pool's timezone.
++ * @example `localDate(new Date('2026-09-08T14:00:00Z'), 'America/Chicago');` */
+ function localDate(value: Date, timezone: string): string {
+   const parts = new Intl.DateTimeFormat('en-CA', {
+     timeZone: timezone,
+@@ -75,4 +73,4 @@ function localDate(value: Date, timezone: string): string {
+   const valueFor = (type: Intl.DateTimeFormatPartTypes) => parts
+     .find((part) => part.type === type)?.value ?? '';
+   return `${valueFor('year')}-${valueFor('month')}-${valueFor('day')}`;
+-}
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingAvailabilitySlots.ts b/api/src/exterior-quote/bookingAvailabilitySlots.ts
+new file mode 100644
+index 0000000000..c56b9cee57
+--- /dev/null
++++ b/api/src/exterior-quote/bookingAvailabilitySlots.ts
+@@ -0,0 +1,31 @@
++import { sql } from 'drizzle-orm';
++import { requireBookingDatabase, type BookingDatabase } from './bookingDatabase.js';
++import type { BookingContext } from './bookingContextRepository.js';
++
++/** Normalizes the capacity function's timestamp decoding across database drivers.
++ * @example `capacityTimestamp('2026-09-08T14:00:00Z');`
++ */
++function capacityTimestamp(value: unknown): Date {
++  const date = value instanceof Date ? value
++    : typeof value === 'string' ? new Date(value) : undefined;
++  if (!date || !Number.isFinite(date.getTime())) throw new TypeError('Invalid capacity slot timestamp');
++  return date;
++}
++
++/** Reads the canonical capacity function through bound Drizzle expressions.
++ * Scheduling rules remain in the existing database function, not in this reader.
++ * @example `const slots = await readBookingAvailabilitySlots(booking.bookingId);`
++ */
++export async function readBookingAvailabilitySlots(
++  bookingId: BookingContext['bookingId'],
++  db: BookingDatabase = requireBookingDatabase(), requestedStart?: Date,
++) {
++  const query = db.select({
++    start: sql`slots.service_start`.mapWith(capacityTimestamp),
++    serviceEnd: sql`slots.service_end`.mapWith(capacityTimestamp),
++    end: sql`slots.arrival_window_end`.mapWith(capacityTimestamp),
++    date: sql<string>`slots.service_date::text`,
++  }).from(sql`available_service_booking_slots(${bookingId}) AS slots`);
++  return requestedStart ? query.where(sql`slots.service_start = ${requestedStart.toISOString()}::timestamptz`).limit(1)
++    : query;
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingChargeCompletion.ts b/api/src/exterior-quote/bookingChargeCompletion.ts
+new file mode 100644
+index 0000000000..f50eeb6893
+--- /dev/null
++++ b/api/src/exterior-quote/bookingChargeCompletion.ts
+@@ -0,0 +1,51 @@
++import { eq } from 'drizzle-orm';
++import { service_bookings } from '../db/drizzle/schema.js';
++import { requireBookingDatabase } from './bookingDatabase.js';
++import { recordPaidBooking } from './recordPaidBooking.js';
++import { issueBookingReceipt } from './bookingReceipt.js';
++import { recordBookingChargeTelemetry } from './bookingChargeTelemetry.js';
++import type { chargeAcknowledgedBooking } from './bookingChargeGuard.js';
++import type { AuthorizeBookingChargeInput, AuthorizeBookingChargeOutput } from './bookingChargeSchemas.js';
++
++/** Reports payment and confirmed booking separately after provider confirmation.
++ * A finalization/receipt outage never invites the customer to pay a second time.
++ * @example `const outcome = await completeBookingCharge(input, authorized);`
++ */
++export async function completeBookingCharge(
++  input: AuthorizeBookingChargeInput,
++  authorized: Awaited<ReturnType<typeof chargeAcknowledgedBooking>>,
++): Promise<AuthorizeBookingChargeOutput> {
++  const { booking, held, charged } = authorized;
++  const result = { success: false, stripePaymentIntentId: charged.id,
++    amountChargedCents: charged.amount_received || null, paymentStatus: charged.status,
++    serviceStartsAt: null, receiptNumber: null, receiptEmailSent: false };
++  if (charged.status !== 'succeeded') {
++    await recordBookingChargeTelemetry(input, charged.id, 'non_succeeded_status');
++    return { ...result, message: charged.status === 'processing'
++      ? 'Your payment is processing. Do not submit another payment.'
++      : 'Payment is not confirmed. Review the checkout payment method.' };
++  }
++  let confirmed = false;
++  let receipt: Awaited<ReturnType<typeof issueBookingReceipt>> | null = null;
++  try {
++    await recordPaidBooking({ stripePaymentIntentId: charged.id,
++      amountPaidCents: charged.amount_received, estimatedDurationMinutes: booking.budgetedMinutes });
++    const [saved] = await requireBookingDatabase().select({
++      status: service_bookings.status, start: service_bookings.arrival_window_starts_at,
++    }).from(service_bookings).where(eq(service_bookings.id, booking.bookingId));
++    confirmed = saved?.status === 'confirmed' && Boolean(saved.start)
++      && new Date(saved.start!).getTime() === held.getTime();
++  } catch (error) {
++    console.error('[Booking] Paid booking finalization needs operations review:', error);
++  }
++  try { receipt = await issueBookingReceipt(booking.quoteId, charged.id, charged.amount_received); }
++  catch (error) { console.error('[Booking] Paid booking receipt needs delivery recovery:', error); }
++  await recordBookingChargeTelemetry(input, charged.id, undefined, charged, booking.bookingId);
++  return { ...result, success: confirmed, amountChargedCents: charged.amount_received,
++    serviceStartsAt: confirmed ? held.toISOString() : null,
++    receiptNumber: receipt?.receiptNumber ?? null, receiptEmailSent: receipt?.emailSent ?? false,
++    message: confirmed ? (receipt?.emailSent ? 'Payment collected and service booked. Your receipt was emailed.'
++      : 'Payment collected and service booked. Receipt delivery requires follow-up; do not pay again.')
++      : 'Payment collected; the service time requires operations review. Do not pay again.',
++  };
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingChargeGuard.ts b/api/src/exterior-quote/bookingChargeGuard.ts
+new file mode 100644
+index 0000000000..874f9876d5
+--- /dev/null
++++ b/api/src/exterior-quote/bookingChargeGuard.ts
+@@ -0,0 +1,53 @@
++import { ORPCError } from '@orpc/server';
++import { eq, sql } from 'drizzle-orm';
++import { service_bookings } from '../db/drizzle/schema.js';
++import { requireBookingDatabase } from './bookingDatabase.js';
++import { findBookingRecord } from './bookingContextRead.js';
++import { bookingServiceDate } from './bookingServiceDate.js';
++import { chargeQuotePaymentIntent } from './bookingChargeProvider.js';
++import { findSavedPaymentMethod } from './savedPaymentMethod.js';
++import { UnattachedPaymentMethodError } from './bookingChargeErrors.js';
++import { recordBookingChargeTelemetry } from './bookingChargeTelemetry.js';
++import type { AuthorizeBookingChargeInput } from './bookingChargeSchemas.js';
++
++/** Charges only an unexpired, acknowledged hold while reschedule/decline are locked out.
++ * Capacity-day locking prevents another hold claiming a slot during confirmation.
++ * The existing intent and quoted amount are read from the same authorized record.
++ * @example `const result = await chargeAcknowledgedBooking(input);`
++ */
++export async function chargeAcknowledgedBooking(input: AuthorizeBookingChargeInput) {
++  const result = await requireBookingDatabase().transaction(async tx => {
++    const booking = await findBookingRecord(input, tx, false, true);
++    if (!booking) throw new ORPCError('NOT_FOUND', { message: 'This secure checkout is no longer available.' });
++    const held = booking.arrivalWindowStartsAt;
++    if (booking.status !== 'held' || !held || !booking.stripePaymentIntentId) {
++      throw new ORPCError('CONFLICT', { message: 'Choose a service time before authorizing payment.' });
++    }
++    if (held.getTime() !== new Date(input.acknowledgedStart).getTime()) {
++      throw new ORPCError('CONFLICT', { message: 'The service window changed. Review it before paying.' });
++    }
++    const key = `service-booking:${booking.capacityPoolId}:${bookingServiceDate(held, booking.timezone)}`;
++    await tx.select({ locked: sql`pg_advisory_xact_lock(hashtextextended(${key}, 0))` })
++      .from(service_bookings).where(eq(service_bookings.id, booking.bookingId));
++    const [window] = await tx.select({ valid: sql<boolean>`${service_bookings.hold_expires_at} > clock_timestamp()` })
++      .from(service_bookings).where(eq(service_bookings.id, booking.bookingId));
++    if (!window?.valid) throw new ORPCError('CONFLICT', { message: 'Your service-time hold expired. Select a new window.' });
++    await tx.update(service_bookings).set({
++      hold_expires_at: sql`greatest(${service_bookings.hold_expires_at}, clock_timestamp() + make_interval(mins => ${booking.holdDurationMinutes}))`,
++      updated_at: sql`now()`, version: sql`${service_bookings.version} + 1`,
++    }).where(eq(service_bookings.id, booking.bookingId));
++    const saved = await findSavedPaymentMethod(booking.quoteId);
++    try {
++      const charged = await chargeQuotePaymentIntent(booking.stripePaymentIntentId, saved, booking.amountQuotedCents);
++      return { ok: true as const, booking, held, charged };
++    } catch (error) {
++      await recordBookingChargeTelemetry(input, booking.stripePaymentIntentId, 'provider_error');
++      const message = error instanceof UnattachedPaymentMethodError ? 'Add a payment method before authorizing this charge.'
++        : `Payment could not be confirmed: ${error instanceof Error ? error.message : 'Stripe response unavailable.'}`;
++      // Commit the extended hold even when Stripe's response is uncertain.
++      return { ok: false as const, failure: new ORPCError('CONFLICT', { message }) };
++    }
++  });
++  if (!result.ok) throw result.failure;
++  return result;
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingChargeProcedure.ts b/api/src/exterior-quote/bookingChargeProcedure.ts
+index f7dde28cac..ec6bacf16f 100644
+--- a/api/src/exterior-quote/bookingChargeProcedure.ts
++++ b/api/src/exterior-quote/bookingChargeProcedure.ts
+@@ -1,84 +1,10 @@
+-import { ORPCError, os } from '@orpc/server';
+-import { findAuthorizedBooking } from './bookingContextRepository.js';
++import { os } from '@orpc/server';
+ import {
+   AuthorizeBookingChargeInputSchema,
+   AuthorizeBookingChargeOutputSchema,
+-  type AuthorizeBookingChargeInput,
+ } from './bookingChargeSchemas.js';
+-import {
+-  chargeQuotePaymentIntent,
+-  findQuotePaymentIntent,
+-} from './bookingChargeRepository.js';
+-import { UnattachedPaymentMethodError } from './bookingChargeErrors.js';
+-import { findSavedPaymentMethod } from './savedPaymentMethod.js';
+-import { recordPaidBooking } from './recordPaidBooking.js';
+-import { issueBookingReceipt } from './bookingReceipt.js';
+-import { enqueueCompatibilityEvent } from '../tracking/compatibilityOutbox.js';
+-import { withTransaction } from '../db/transaction.js';
+-
+-/**
+- * Persists one failed service-calendar charge in Unified Analytics and the
+- * funnel facet without exposing the provider's error text.
+- *
+- * Failure telemetry is non-critical after the booking workflow has already
+- * determined its customer response, so an analytics outage is logged and does
+- * not replace the actionable payment error.
+- *
+- * @example
+- * ```ts
+- * const input = AuthorizeBookingChargeInputSchema.parse({
+- *   quoteRequestId: 85,
+- *   credential: 'pi_123_secret_456',
+- *   acknowledgedStart: '2026-08-08T14:00:00.000Z',
+- * });
+- * await queueBookingPaymentFailure(input, 'pi_123', 'provider_error');
+- * ```
+- */
+-async function queueBookingPaymentFailure(
+-  input: AuthorizeBookingChargeInput,
+-  paymentIntentId: string,
+-  failureStage: string,
+-): Promise<void> {
+-  const sourceEventId = `payment_failed_${paymentIntentId}_${Date.now()}`;
+-  const metadata = {
+-    source: 'service_calendar',
+-    service_type: 'exterior_cleaning',
+-    failure_stage: failureStage,
+-    funnel_id: input.funnelId,
+-    step_id: input.stepId,
+-    offer_id: input.offerId,
+-    test_id: input.testId,
+-    ab_variant: input.abVariant,
+-  };
+-  try {
+-    await withTransaction(async (tx) => {
+-      await enqueueCompatibilityEvent({
+-        eventType: 'payment_failed',
+-        eventId: sourceEventId,
+-        sessionId: input.sessionId,
+-        pageUrl: input.pageUrl,
+-        timestamp: Date.now(),
+-        transactionId: paymentIntentId,
+-        analyticsConsent: input.analyticsConsent,
+-        advertisingConsent: input.advertisingConsent,
+-        metadata,
+-      }, tx);
+-      await tx(
+-        // TODO Remove all the sql and replace it with proper prcedures from RustyRoad
+-`INSERT INTO funnel_events
+-           (funnel_id,step_id,event_type,test_id,variant,offer_id,source,meta,
+-            source_event_id,event_origin)
+-         VALUES ($1,$2,'checkout_error',$3,$4,$5,'service_calendar',$6,$7,'server')
+-         ON CONFLICT (source_event_id) WHERE source_event_id IS NOT NULL DO NOTHING`,
+-        [input.funnelId ?? null, input.stepId ?? null, input.testId ?? null,
+-          input.abVariant ?? null, input.offerId ?? null, JSON.stringify(metadata),
+-          sourceEventId],
+-      );
+-    });
+-  } catch (error) {
+-    console.error('[Unified Analytics] Failed to queue exterior booking payment failure:', error);
+-  }
+-}
++import { chargeAcknowledgedBooking } from './bookingChargeGuard.js';
++import { completeBookingCharge } from './bookingChargeCompletion.js';
+ 
+ /**
+  * Charges the quote's existing payment intent for an acknowledged service window.
+@@ -95,125 +21,14 @@ async function queueBookingPaymentFailure(
+  * A successful charge issues a receipt and emails it, because collecting money
+  * immediately obliges the customer to receive proof of what was purchased and when
+  * the service is scheduled.
++ *
++ * @example `await client.exteriorQuotes.authorizeBookingCharge(input);`
+  */
+ export const authorizeExteriorBookingCharge = os
+   .route({ method: 'POST', path: '/orpc/exterior-quotes/authorize-booking-charge' })
+   .input(AuthorizeBookingChargeInputSchema)
+   .output(AuthorizeBookingChargeOutputSchema)
+   .handler(async ({ input }) => {
+-    const booking = await findAuthorizedBooking(input);
+-    if (!booking) {
+-      throw new ORPCError('NOT_FOUND', {
+-        message: 'This secure checkout is no longer available.',
+-      });
+-    }
+-    const held = booking.arrivalWindowStartsAt;
+-    if (!held) {
+-      throw new ORPCError('CONFLICT', {
+-        message: 'Choose a service time before authorizing payment.',
+-      });
+-    }
+-    if (held.getTime() !== new Date(input.acknowledgedStart).getTime()) {
+-      throw new ORPCError('CONFLICT', {
+-        message: 'The reserved service time changed. Review the new time and confirm again.',
+-      });
+-    }
+-    const intent = await findQuotePaymentIntent(booking.quoteId);
+-    if (!intent) {
+-      throw new ORPCError('CONFLICT', {
+-        message: 'No payment is pending for this quote.',
+-      });
+-    }
+-    const saved = await findSavedPaymentMethod(booking.quoteId);
+-    const charged = await chargeQuotePaymentIntent(intent.stripePaymentIntentId, saved)
+-      .catch(async (error: unknown) => {
+-        await queueBookingPaymentFailure(input, intent.stripePaymentIntentId, 'provider_error');
+-        if (error instanceof UnattachedPaymentMethodError) {
+-          throw new ORPCError('CONFLICT', {
+-            message: 'Add a payment method before authorizing this charge.',
+-          });
+-        }
+-        // Surface the provider's own decline reason so a failed charge is
+-        // actionable instead of an opaque server error.
+-        const reason = error instanceof Error ? error.message : String(error);
+-        throw new ORPCError('CONFLICT', {
+-          message: `The payment method on file could not be charged: ${reason}`,
+-        });
+-      });
+-    if (charged.status !== 'succeeded') {
+-      await queueBookingPaymentFailure(input, charged.id, 'non_succeeded_status');
+-      return {
+-        success: false,
+-        message: 'The payment method on file could not be charged.',
+-        stripePaymentIntentId: charged.id,
+-        amountChargedCents: null,
+-        serviceStartsAt: held.toISOString(),
+-        receiptNumber: null,
+-        receiptEmailSent: false,
+-      };
+-    }
+-    const recorded = await recordPaidBooking({
+-      stripePaymentIntentId: charged.id,
+-      amountPaidCents: charged.amount_received,
+-      estimatedDurationMinutes: booking.budgetedMinutes,
+-    });
+-    const receipt = await issueBookingReceipt(
+-      booking.quoteId,
+-      charged.id,
+-      charged.amount_received,
+-    );
+-    const sourceEventId = `payment_${charged.id}`;
+-    const eventMetadata = {
+-      source: 'service_calendar',
+-      service_type: 'exterior_cleaning',
+-      booking_id: booking.bookingId,
+-      funnel_id: input.funnelId,
+-      step_id: input.stepId,
+-      offer_id: input.offerId,
+-      test_id: input.testId,
+-      ab_variant: input.abVariant,
+-    };
+-    try {
+-      await withTransaction(async (tx) => {
+-        await enqueueCompatibilityEvent({
+-          eventType: 'payment_completed',
+-          eventId: sourceEventId,
+-          sessionId: input.sessionId,
+-          pageUrl: input.pageUrl,
+-          timestamp: Date.now(),
+-          value: charged.amount_received / 100,
+-          currency: charged.currency.toUpperCase(),
+-          transactionId: charged.id,
+-          analyticsConsent: input.analyticsConsent,
+-          advertisingConsent: input.advertisingConsent,
+-          metadata: eventMetadata,
+-        }, tx);
+-        await tx(
+-          // TODO Remove all the sql and replace it with proper prcedures from RustyRoad
+-`INSERT INTO funnel_events
+-             (funnel_id,step_id,event_type,value_cents,test_id,variant,offer_id,source,
+-              meta,source_event_id,event_origin)
+-           VALUES ($1,$2,'purchase',$3,$4,$5,$6,'service_calendar',$7,$8,'server')
+-           ON CONFLICT (source_event_id) WHERE source_event_id IS NOT NULL DO NOTHING`,
+-          [input.funnelId ?? null, input.stepId ?? null, charged.amount_received,
+-            input.testId ?? null, input.abVariant ?? null, input.offerId ?? null,
+-            JSON.stringify(eventMetadata), sourceEventId],
+-        );
+-      });
+-    } catch (error) {
+-      // The Stripe charge and receipt are already durable. Analytics failure
+-      // must never turn that successful purchase into a misleading client error.
+-      console.error('[Unified Analytics] Failed to queue exterior booking purchase:', error);
+-    }
+-    return {
+-      success: recorded.success,
+-      message: recorded.success
+-        ? 'Payment collected and service booked.'
+-        : recorded.message,
+-      stripePaymentIntentId: charged.id,
+-      amountChargedCents: charged.amount_received,
+-      serviceStartsAt: held.toISOString(),
+-      receiptNumber: receipt.receiptNumber,
+-      receiptEmailSent: receipt.emailSent,
+-    };
+-  });
++    const authorized = await chargeAcknowledgedBooking(input);
++    return completeBookingCharge(input, authorized);
++  });
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingChargeProvider.ts b/api/src/exterior-quote/bookingChargeProvider.ts
+new file mode 100644
+index 0000000000..1c46315983
+--- /dev/null
++++ b/api/src/exterior-quote/bookingChargeProvider.ts
+@@ -0,0 +1,36 @@
++import type Stripe from 'stripe';
++import { getStripeClient } from '../stripe/client.js';
++import { UnattachedPaymentMethodError } from './bookingChargeErrors.js';
++
++/** Confirms the quote's existing intent, preserving provider idempotency.
++ * An expected amount prevents collecting money for a stale quote price.
++ * @example `const intent = await chargeQuotePaymentIntent(intentId, savedMethod, quotedCents);`
++ */
++export async function chargeQuotePaymentIntent(
++  stripePaymentIntentId: string,
++  saved: { stripeCustomerId: string; paymentMethodId: string } | null = null,
++  expectedAmountCents?: number,
++): Promise<Stripe.PaymentIntent> {
++  const stripe = getStripeClient();
++  const existing = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
++  if (expectedAmountCents !== undefined && existing.amount !== expectedAmountCents) {
++    throw new Error('The pending payment amount no longer matches the quoted service price.');
++  }
++  if (existing.status === 'succeeded' || existing.status === 'processing') return existing;
++  if (existing.status === 'canceled') throw new Error('This checkout payment was cancelled.');
++  if (!existing.payment_method && !saved) {
++    throw new UnattachedPaymentMethodError(stripePaymentIntentId, existing.status);
++  }
++  const params: Stripe.PaymentIntentConfirmParams = {};
++  if (!existing.payment_method && saved) {
++    params.payment_method = saved.paymentMethodId;
++    params.off_session = true;
++    if (!existing.customer) {
++      await stripe.paymentIntents.update(stripePaymentIntentId, { customer: saved.stripeCustomerId });
++    }
++  }
++  const keyScope = params.payment_method ? String(params.payment_method) : 'attached';
++  return stripe.paymentIntents.confirm(stripePaymentIntentId, params, {
++    idempotencyKey: `exterior-booking:${stripePaymentIntentId}:${keyScope}:charge`,
++  });
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingChargeRepository.ts b/api/src/exterior-quote/bookingChargeRepository.ts
+index 48064cd4d6..9dac6095d9 100644
+--- a/api/src/exterior-quote/bookingChargeRepository.ts
++++ b/api/src/exterior-quote/bookingChargeRepository.ts
+@@ -1,15 +1,9 @@
+-import Stripe from 'stripe';
+-import { getStripeClient } from '../stripe/client.js';
+-import { query } from '../db/query.js';
+-import { UnattachedPaymentMethodError } from './bookingChargeErrors.js';
++import { readPendingQuoteIntent } from './bookingPaymentIntentLookup.js';
++export { chargeQuotePaymentIntent } from './bookingChargeProvider.js';
+ 
+-/** Payment intent bound to one pending exterior quote checkout. */
+-export interface QuotePaymentIntent {
+-  /** Stripe payment intent already authorized for this quote. */
+-  stripePaymentIntentId: string;
+-  /** Amount the customer accepted when the quote was priced. */
+-  amountQuotedCents: number;
+-}
++/** Payment intent projection inferred from generated Drizzle fields.
++ * @example `const intent: QuotePaymentIntent = pendingIntent;` */
++export type QuotePaymentIntent = NonNullable<Awaited<ReturnType<typeof readPendingQuoteIntent>>>;
+ 
+ /**
+  * Reads the payment intent already created for a pending quote checkout.
+@@ -30,76 +24,5 @@ export interface QuotePaymentIntent {
+ export async function findQuotePaymentIntent(
+   quoteRequestId: number,
+ ): Promise<QuotePaymentIntent | null> {
+-  const result = await query<{
+-    stripe_payment_intent_id: string; amount_quoted_cents: number;
+-  }>(`
+-    SELECT stripe_payment_intent_id, amount_quoted_cents
+-    FROM exterior_quote_payments
+-    WHERE quote_request_id = $1
+-      AND payment_status = 'payment_pending'
+-      AND stripe_payment_intent_id IS NOT NULL
+-    ORDER BY id DESC
+-    LIMIT 1
+-  `, [quoteRequestId]);
+-  const row = result.rows[0];
+-  if (!row) return null;
+-  return {
+-    stripePaymentIntentId: row.stripe_payment_intent_id,
+-    amountQuotedCents: Number(row.amount_quoted_cents),
+-  };
+-}
+-
+-/**
+- * Confirms the quote's existing payment intent to collect payment immediately.
+- *
+- * The customer authorizes the charge by activating a control whose copy names the
+- * exact date and arrival window, so this captures the intent already bound to the
+- * quote. An intent that Stripe reports as already succeeded is returned unchanged,
+- * which keeps a retried acknowledgment from charging twice.
+- *
+- * @param stripePaymentIntentId - Intent bound to the quote checkout.
+- * @returns The confirmed intent.
+- * @throws When Stripe rejects confirmation, for example for an unusable method.
+- *
+- * @example
+- * ```ts
+- * const intent = await chargeQuotePaymentIntent('pi_123');
+- * console.log(intent.status);
+- * ```
+- */
+-export async function chargeQuotePaymentIntent(
+-  stripePaymentIntentId: string,
+-  saved: { stripeCustomerId: string; paymentMethodId: string } | null = null,
+-): Promise<Stripe.PaymentIntent> {
+-  const stripe = getStripeClient();
+-  const existing = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
+-  if (existing.status === 'succeeded') return existing;
+-  // A server confirm can only complete an intent that carries a payment method.
+-  // The customer's saved card is attached here so "charge my payment method on
+-  // file" is literally what happens, and an intent with no method and no saved
+-  // card is reported as unusable rather than surfacing an opaque provider error.
+-  if (!existing.payment_method && !saved) {
+-    throw new UnattachedPaymentMethodError(stripePaymentIntentId, existing.status);
+-  }
+-  const params: Stripe.PaymentIntentConfirmParams = {};
+-  if (!existing.payment_method && saved) {
+-    params.payment_method = saved.paymentMethodId;
+-    // A saved card charged without the customer present is a merchant-initiated
+-    // transaction. Stripe requires off_session so it does not demand browser
+-    // authentication for a charge the customer authorized by acknowledging the
+-    // consent copy.
+-    params.off_session = true;
+-    if (!existing.customer) {
+-      await stripe.paymentIntents.update(stripePaymentIntentId, {
+-        customer: saved.stripeCustomerId,
+-      });
+-    }
+-  }
+-  // The key covers the payment method so a retry with the same card replays the
+-  // original charge, while a different card is a genuinely different request.
+-  // Stripe rejects a reused key whose parameters changed.
+-  const keyScope = params.payment_method ? String(params.payment_method) : 'attached';
+-  return stripe.paymentIntents.confirm(stripePaymentIntentId, params, {
+-    idempotencyKey: `exterior-booking:${stripePaymentIntentId}:${keyScope}:charge`,
+-  });
+-}
++  return readPendingQuoteIntent(quoteRequestId);
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingChargeSchemas.ts b/api/src/exterior-quote/bookingChargeSchemas.ts
+index ff7a63fc11..a9589045d1 100644
+--- a/api/src/exterior-quote/bookingChargeSchemas.ts
++++ b/api/src/exterior-quote/bookingChargeSchemas.ts
+@@ -52,6 +52,8 @@ export const AuthorizeBookingChargeOutputSchema = z.object({
+   message: z.string(),
+   stripePaymentIntentId: z.string().nullable(),
+   amountChargedCents: z.number().int().nonnegative().nullable(),
++  /** Stripe's current state; callers must not retry a processing payment. */
++  paymentStatus: z.string().optional(),
+   serviceStartsAt: z.string().nullable(),
+   receiptNumber: z.string().nullable(),
+   receiptEmailSent: z.boolean(),
+@@ -61,4 +63,4 @@ export const AuthorizeBookingChargeOutputSchema = z.object({
+ export type AuthorizeBookingChargeInput = z.infer<typeof AuthorizeBookingChargeInputSchema>;
+ 
+ /** Outcome of an immediate booking charge. */
+-export type AuthorizeBookingChargeOutput = z.infer<typeof AuthorizeBookingChargeOutputSchema>;
++export type AuthorizeBookingChargeOutput = z.infer<typeof AuthorizeBookingChargeOutputSchema>;
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingChargeTelemetry.ts b/api/src/exterior-quote/bookingChargeTelemetry.ts
+new file mode 100644
+index 0000000000..690cf50159
+--- /dev/null
++++ b/api/src/exterior-quote/bookingChargeTelemetry.ts
+@@ -0,0 +1,36 @@
++import { funnel_events } from '../db/drizzle/schema.js';
++import { requireBookingDatabase } from './bookingDatabase.js';
++import { enqueueCompatibilityEvent } from '../tracking/compatibilityOutbox.js';
++import type { AuthorizeBookingChargeInput } from './bookingChargeSchemas.js';
++import type Stripe from 'stripe';
++
++/** Emits non-critical charge telemetry through the canonical outbox and Drizzle.
++ * No provider exception text or payment credentials are included in event metadata.
++ * @example `await recordBookingChargeTelemetry(input, intent.id, 'provider_error');`
++ */
++export async function recordBookingChargeTelemetry(
++  input: AuthorizeBookingChargeInput, paymentIntentId: string, failureStage?: string,
++  paid?: Pick<Stripe.PaymentIntent, 'amount_received' | 'currency'>, bookingId?: string,
++) {
++  const eventId = failureStage ? `payment_failed_${paymentIntentId}_${Date.now()}` : `payment_${paymentIntentId}`;
++  const metadata = { source: 'service_calendar', service_type: 'exterior_cleaning',
++    failure_stage: failureStage, booking_id: bookingId, funnel_id: input.funnelId,
++    step_id: input.stepId, offer_id: input.offerId, test_id: input.testId, ab_variant: input.abVariant };
++  try {
++    await enqueueCompatibilityEvent({
++      eventType: failureStage ? 'payment_failed' : 'payment_completed', eventId,
++      sessionId: input.sessionId, pageUrl: input.pageUrl, timestamp: Date.now(),
++      transactionId: paymentIntentId, value: paid ? paid.amount_received / 100 : undefined,
++      currency: paid?.currency.toUpperCase(), analyticsConsent: input.analyticsConsent,
++      advertisingConsent: input.advertisingConsent, metadata,
++    });
++    await requireBookingDatabase().insert(funnel_events).values({
++      funnel_id: input.funnelId ?? null, step_id: input.stepId ?? null,
++      event_type: failureStage ? 'checkout_error' : 'purchase', value_cents: paid?.amount_received ?? null,
++      test_id: input.testId ?? null, variant: input.abVariant ?? null, offer_id: input.offerId ?? null,
++      source: 'service_calendar', meta: metadata, source_event_id: eventId, event_origin: 'server',
++    }).onConflictDoNothing();
++  } catch (error) {
++    console.error('[Booking Analytics] Charge telemetry could not be recorded:', error);
++  }
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingContextProjection.ts b/api/src/exterior-quote/bookingContextProjection.ts
+new file mode 100644
+index 0000000000..014d87261c
+--- /dev/null
++++ b/api/src/exterior-quote/bookingContextProjection.ts
+@@ -0,0 +1,32 @@
++import { sql } from 'drizzle-orm';
++import { exterior_quote_requests as quotes, service_bookings as bookings,
++  service_offerings as offerings, booking_capacity_pools as pools,
++  exterior_quote_payments as payments } from '../db/drizzle/schema.js';
++
++/** Normalizes nullable database timestamps without manufacturing dates.
++ * @example `bookingDate('2026-09-08T14:00:00Z');`
++ */
++export function bookingDate(value: unknown): Date | null {
++  if (value == null) return null;
++  const date = value instanceof Date ? value : typeof value === 'string' ? new Date(value) : null;
++  if (!date || !Number.isFinite(date.getTime())) throw new TypeError('Invalid booking timestamp');
++  return date;
++}
++
++/** Projection derives every field from RustyRoad-generated tables.
++ * @example `const selection = bookingContextProjection;` */
++export const bookingContextProjection = {
++  quoteId: quotes.id, bookingId: bookings.id, serviceName: offerings.name,
++  capacityPoolId: bookings.capacity_pool_id, timezone: pools.timezone,
++  budgetedMinutes: bookings.budgeted_minutes, minimumLeadMinutes: offerings.minimum_lead_minutes,
++  maximumAdvanceDays: offerings.maximum_advance_days, slotIntervalMinutes: offerings.slot_interval_minutes,
++  arrivalWindowMinutes: offerings.arrival_window_minutes, holdDurationMinutes: offerings.hold_duration_minutes,
++  dailyCapacityMinutes: pools.daily_capacity_minutes, parallelCapacity: pools.parallel_capacity,
++  operationsKey: pools.operations_key, status: bookings.status,
++  arrivalWindowStartsAt: sql`${bookings.arrival_window_starts_at}`.mapWith(bookingDate),
++  arrivalWindowEndsAt: sql`${bookings.arrival_window_ends_at}`.mapWith(bookingDate),
++  holdExpiresAt: sql`${bookings.hold_expires_at}`.mapWith(bookingDate),
++  paymentId: payments.id, stripePaymentIntentId: payments.stripe_payment_intent_id,
++  paymentStatus: payments.payment_status, amountQuotedCents: payments.amount_quoted_cents,
++  currency: payments.currency,
++};
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingContextRead.ts b/api/src/exterior-quote/bookingContextRead.ts
+new file mode 100644
+index 0000000000..6339e7d9b8
+--- /dev/null
++++ b/api/src/exterior-quote/bookingContextRead.ts
+@@ -0,0 +1,45 @@
++import { ORPCError } from '@orpc/server';
++import { and, desc, eq, inArray } from 'drizzle-orm';
++import { exterior_quote_requests as quotes, exterior_quote_payments as payments,
++  exterior_quote_booking_links as links, service_bookings as bookings,
++  service_offerings as offerings, booking_capacity_pools as pools } from '../db/drizzle/schema.js';
++import { bookingContextProjection } from './bookingContextProjection.js';
++import { requireBookingDatabase, type BookingDatabase } from './bookingDatabase.js';
++import type { BookingAuthorizationInput } from './bookingSchemas.js';
++
++/** Authorizes only the supplied quote-bound secret and permitted payment states.
++ * Cancelled checkouts are readable solely for idempotent decline acknowledgments.
++ * @example `const booking = await findBookingRecord(input);`
++ */
++export async function findBookingRecord(
++  input: BookingAuthorizationInput,
++  db: BookingDatabase = requireBookingDatabase(),
++  allowCancelled = false,
++  lock = false,
++) {
++  const query = db.select(bookingContextProjection).from(payments)
++    .innerJoin(quotes, eq(quotes.id, payments.quote_request_id))
++    .innerJoin(links, eq(links.quote_request_id, quotes.id))
++    .innerJoin(bookings, eq(bookings.id, links.booking_id))
++    .innerJoin(offerings, eq(offerings.id, bookings.service_offering_id))
++    .innerJoin(pools, eq(pools.id, bookings.capacity_pool_id))
++    .where(and(eq(payments.quote_request_id, input.quoteRequestId),
++      eq(payments.stripe_client_secret, input.credential),
++      inArray(payments.payment_status, allowCancelled ? ['payment_pending', 'cancelled'] : ['payment_pending']),
++      allowCancelled ? undefined : and(eq(offerings.active, true), eq(pools.active, true))))
++    .orderBy(desc(payments.id)).limit(1);
++  try {
++    const [row] = await (lock ? query.for('update', { of: bookings }) : query);
++    return row ?? null;
++  } catch (error) {
++    // Drizzle exceptions may embed bound parameters, including the quote secret.
++    // Preserve only the safe PostgreSQL diagnostic code, never the raw exception.
++    const cause = error && typeof error === 'object' && 'cause' in error ? error.cause : undefined;
++    const rawCode = cause && typeof cause === 'object' && 'code' in cause ? cause.code : undefined;
++    const databaseCode = typeof rawCode === 'string' && /^[A-Z0-9]{5}$/.test(rawCode) ? rawCode : undefined;
++    throw new ORPCError('SERVICE_UNAVAILABLE', {
++      message: 'Secure booking authorization lookup is temporarily unavailable.',
++      data: { code: 'BOOKING_CONTEXT_LOOKUP_FAILED', databaseCode },
++    });
++  }
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingContextRepository.ts b/api/src/exterior-quote/bookingContextRepository.ts
+index 2eb1201098..50c0b903c4 100644
+--- a/api/src/exterior-quote/bookingContextRepository.ts
++++ b/api/src/exterior-quote/bookingContextRepository.ts
+@@ -1,48 +1,9 @@
+-import { query } from '../db/query.js';
++import { findBookingRecord } from './bookingContextRead.js';
+ import type { BookingAuthorizationInput } from './bookingSchemas.js';
+ 
+-/** Database projection needed to calculate and reserve customer availability. */
+-export interface BookingContext {
+-  quoteId: number;
+-  bookingId: string;
+-  serviceName: string;
+-  capacityPoolId: string;
+-  timezone: string;
+-  budgetedMinutes: number;
+-  minimumLeadMinutes: number;
+-  maximumAdvanceDays: number;
+-  slotIntervalMinutes: number;
+-  arrivalWindowMinutes: number;
+-  holdDurationMinutes: number;
+-  dailyCapacityMinutes: number;
+-  parallelCapacity: number;
+-  operationsKey: string | null;
+-  status: string;
+-  arrivalWindowStartsAt: Date | null;
+-  arrivalWindowEndsAt: Date | null;
+-  holdExpiresAt: Date | null;
+-}
+-
+-interface BookingContextRow {
+-  quote_id: string;
+-  booking_id: string;
+-  service_name: string;
+-  capacity_pool_id: string;
+-  timezone: string;
+-  budgeted_minutes: number;
+-  minimum_lead_minutes: number;
+-  maximum_advance_days: number;
+-  slot_interval_minutes: number;
+-  arrival_window_minutes: number;
+-  hold_duration_minutes: number;
+-  daily_capacity_minutes: number;
+-  parallel_capacity: number;
+-  operations_key: string | null;
+-  status: string;
+-  arrival_window_starts_at: Date | null;
+-  arrival_window_ends_at: Date | null;
+-  hold_expires_at: Date | null;
+-}
++/** Booking context inferred from the generated-table projection.
++ * @example `const booking: BookingContext = authorizedBooking;` */
++export type BookingContext = NonNullable<Awaited<ReturnType<typeof findBookingRecord>>>;
+ 
+ /**
+  * Resolve a prepared booking through its quote-bound Stripe client secret.
+@@ -58,51 +19,5 @@ interface BookingContextRow {
+ export async function findAuthorizedBooking(
+   input: BookingAuthorizationInput,
+ ): Promise<BookingContext | null> {
+-  const result = await query<BookingContextRow>(`
+-    SELECT
+-      q.id AS quote_id,b.id AS booking_id,offering.name AS service_name,
+-      b.capacity_pool_id,pool.timezone,b.budgeted_minutes,
+-      offering.minimum_lead_minutes,offering.maximum_advance_days,
+-      offering.slot_interval_minutes,offering.arrival_window_minutes,
+-      offering.hold_duration_minutes,pool.daily_capacity_minutes,
+-      pool.parallel_capacity,pool.operations_key,b.status,
+-      b.arrival_window_starts_at,b.arrival_window_ends_at,b.hold_expires_at
+-    FROM exterior_quote_payments payment
+-    JOIN exterior_quote_requests q ON q.id=payment.quote_request_id
+-    JOIN exterior_quote_booking_links link ON link.quote_request_id=q.id
+-    JOIN service_bookings b ON b.id=link.booking_id
+-    JOIN service_offerings offering ON offering.id=b.service_offering_id
+-    JOIN booking_capacity_pools pool ON pool.id=b.capacity_pool_id
+-    WHERE payment.quote_request_id=$1
+-      AND payment.stripe_client_secret=$2
+-      AND payment.payment_status='payment_pending'
+-      AND offering.active AND pool.active
+-    ORDER BY payment.id DESC
+-    LIMIT 1
+-  `, [input.quoteRequestId, input.credential]);
+-  const row = result.rows[0];
+-  return row ? mapBookingContext(row) : null;
+-}
+-
+-function mapBookingContext(row: BookingContextRow): BookingContext {
+-  return {
+-    quoteId: Number(row.quote_id),
+-    bookingId: row.booking_id,
+-    serviceName: row.service_name,
+-    capacityPoolId: row.capacity_pool_id,
+-    timezone: row.timezone,
+-    budgetedMinutes: Number(row.budgeted_minutes),
+-    minimumLeadMinutes: Number(row.minimum_lead_minutes),
+-    maximumAdvanceDays: Number(row.maximum_advance_days),
+-    slotIntervalMinutes: Number(row.slot_interval_minutes),
+-    arrivalWindowMinutes: Number(row.arrival_window_minutes),
+-    holdDurationMinutes: Number(row.hold_duration_minutes),
+-    dailyCapacityMinutes: Number(row.daily_capacity_minutes),
+-    parallelCapacity: Number(row.parallel_capacity),
+-    operationsKey: row.operations_key,
+-    status: row.status,
+-    arrivalWindowStartsAt: row.arrival_window_starts_at,
+-    arrivalWindowEndsAt: row.arrival_window_ends_at,
+-    holdExpiresAt: row.hold_expires_at,
+-  };
+-}
++  return findBookingRecord(input);
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingDatabase.ts b/api/src/exterior-quote/bookingDatabase.ts
+new file mode 100644
+index 0000000000..0b20ae9fb6
+--- /dev/null
++++ b/api/src/exterior-quote/bookingDatabase.ts
+@@ -0,0 +1,16 @@
++import { ORPCError } from '@orpc/server';
++import { drizzleDb, type Database } from '../db/drizzleClient.js';
++
++/** Transaction type owned by the generated-schema Drizzle client.
++ * @example `const tx: BookingTransaction = transaction;` */
++export type BookingTransaction = Parameters<Parameters<Database['transaction']>[0]>[0];
++/** Shared database or transaction used for booking reads.
++ * @example `const db: BookingDatabase = requireBookingDatabase();` */
++export type BookingDatabase = Database | BookingTransaction;
++
++/** Fails explicitly when the booking system of record is unavailable.
++ * @example `const db = requireBookingDatabase();` */
++export function requireBookingDatabase(): Database {
++  if (!drizzleDb) throw new ORPCError('SERVICE_UNAVAILABLE', { message: 'Booking database is unavailable' });
++  return drizzleDb;
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingHoldRepository.ts b/api/src/exterior-quote/bookingHoldRepository.ts
+index 4b46115617..7e3073cfb9 100644
+--- a/api/src/exterior-quote/bookingHoldRepository.ts
++++ b/api/src/exterior-quote/bookingHoldRepository.ts
+@@ -1,23 +1,14 @@
+-import { withTransaction } from '../db/transaction.js';
++import { eq, sql } from 'drizzle-orm';
++import { service_bookings } from '../db/drizzle/schema.js';
++import { requireBookingDatabase } from './bookingDatabase.js';
++import { findBookingRecord } from './bookingContextRead.js';
++import { readBookingAvailabilitySlots } from './bookingAvailabilitySlots.js';
++import { writeBookingHold } from './bookingHoldWrites.js';
++import { bookingServiceDate } from './bookingServiceDate.js';
++import { assertBookingPaymentEditable } from './bookingPaymentEditability.js';
+ import type { ReserveBookingInput, ReserveBookingOutput } from './bookingSchemas.js';
+ import { toBookingSlot } from './bookingSlot.js';
+ 
+-interface HoldContextRow {
+-  quote_id: string;
+-  booking_id: string;
+-  capacity_pool_id: string;
+-  timezone: string;
+-  status: string;
+-  hold_duration_minutes: number;
+-}
+-
+-interface HeldSlotRow {
+-  service_start: Date;
+-  service_end: Date;
+-  arrival_window_end: Date;
+-  service_date: string;
+-}
+-
+ /**
+  * Atomically reserve one operations-backed service slot.
+  *
+@@ -37,129 +28,44 @@ interface HeldSlotRow {
+ export async function holdExteriorBooking(
+   input: ReserveBookingInput,
+ ): Promise<ReserveBookingOutput | null> {
+-  return withTransaction(async (tx) => {
+-    const contextResult = await tx<HoldContextRow>(`
+-      SELECT
+-        q.id AS quote_id,b.id AS booking_id,b.capacity_pool_id,
+-        pool.timezone,b.status,offering.hold_duration_minutes
+-      FROM exterior_quote_payments payment
+-      JOIN exterior_quote_requests q ON q.id=payment.quote_request_id
+-      JOIN exterior_quote_booking_links link ON link.quote_request_id=q.id
+-      JOIN service_bookings b ON b.id=link.booking_id
+-      JOIN service_offerings offering ON offering.id=b.service_offering_id
+-      JOIN booking_capacity_pools pool ON pool.id=b.capacity_pool_id
+-      WHERE payment.quote_request_id=$1
+-        AND payment.stripe_client_secret=$2
+-        AND payment.payment_status='payment_pending'
+-        AND offering.active AND pool.active
+-      ORDER BY payment.id DESC
+-      LIMIT 1
+-      FOR UPDATE OF b
+-    `, [input.quoteRequestId, input.credential]);
+-    const context = contextResult.rows[0];
++  return requireBookingDatabase().transaction(async (tx) => {
++    const context = await findBookingRecord(input, tx, false, true);
+     if (!context) return null;
+     if (!['awaiting_time', 'held'].includes(context.status)) {
+       throw new BookingHoldConflict('This booking can no longer be rescheduled from checkout.');
+     }
+-
++    await assertBookingPaymentEditable(context.stripePaymentIntentId);
+     const requestedStart = new Date(input.start);
+-    const dateResult = await tx<{ service_date: string }>(`
+-      SELECT ($1::timestamptz AT TIME ZONE $2)::date::text AS service_date
+-    `, [requestedStart, context.timezone]);
+-    const serviceDate = dateResult.rows[0]?.service_date;
+-    if (!serviceDate) throw new Error('Could not resolve the requested service date.');
+-
+-    await tx('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+-      `service-booking:${context.capacity_pool_id}:${serviceDate}`,
+-    ]);
+-
+-    const availableResult = await tx<HeldSlotRow>(`
+-      SELECT service_start,service_end,arrival_window_end,service_date::text
+-      FROM available_service_booking_slots($1)
+-      WHERE service_start=$2::timestamptz
+-      LIMIT 1
+-    `, [context.booking_id, requestedStart]);
+-    const slot = availableResult.rows[0];
++    const date = bookingServiceDate(requestedStart, context.timezone);
++    const lockKey = `service-booking:${context.capacityPoolId}:${date}`;
++    await tx.select({ locked: sql`pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))` })
++      .from(service_bookings).where(eq(service_bookings.id, context.bookingId));
++    const [slot] = await readBookingAvailabilitySlots(context.bookingId, tx, requestedStart);
+     if (!slot) {
+       throw new BookingHoldConflict(
+         'That service time is no longer available. Please choose another time.',
+       );
+     }
+-
+-    const updated = await tx<{ hold_expires_at: Date }>(`
+-      UPDATE service_bookings
+-      SET status='held',
+-          service_starts_at=$2,
+-          service_ends_at=$3,
+-          arrival_window_starts_at=$2,
+-          arrival_window_ends_at=$4,
+-          hold_expires_at=now() + make_interval(mins => $5),
+-          updated_at=now(),
+-          version=version+1
+-      WHERE id=$1 AND status IN ('awaiting_time','held')
+-      RETURNING hold_expires_at
+-    `, [
+-      context.booking_id,
+-      slot.service_start,
+-      slot.service_end,
+-      slot.arrival_window_end,
+-      Number(context.hold_duration_minutes),
+-    ]);
+-    const holdExpiresAt = updated.rows[0]?.hold_expires_at;
+-    if (updated.rowCount !== 1 || !holdExpiresAt) {
+-      throw new BookingHoldConflict('The booking changed before the time could be held.');
+-    }
+-
+-    await tx(`
+-      UPDATE exterior_quote_requests
+-      SET selected_window_start=$2,selected_window_end=$3,
+-          routing_status='held_pending_payment',updated_at=now()
+-      WHERE id=$1
+-    `, [context.quote_id, slot.service_start, slot.arrival_window_end]);
+-    await tx(`
+-      UPDATE exterior_route_jobs
+-      SET selected_window_start=$2,selected_window_end=$3,
+-          routing_status='held_pending_payment',updated_at=now()
+-      WHERE quote_request_id=$1
+-    `, [context.quote_id, slot.service_start, slot.arrival_window_end]);
+-    await tx(`
+-      INSERT INTO service_booking_status_events (
+-        booking_id,from_status,to_status,actor_type,reason,metadata
+-      ) VALUES (
+-        $1,$2,'held','customer','Customer selected service time',
+-        jsonb_build_object(
+-          'service_starts_at',$3::timestamptz,
+-          'service_ends_at',$4::timestamptz,
+-          'arrival_window_ends_at',$5::timestamptz,
+-          'hold_expires_at',$6::timestamptz
+-        )
+-      )
+-    `, [
+-      context.booking_id,
+-      context.status,
+-      slot.service_start,
+-      slot.service_end,
+-      slot.arrival_window_end,
+-      holdExpiresAt,
+-    ]);
+-
++    await writeBookingHold(tx, context, slot);
+     return {
+-      quoteId: Number(context.quote_id),
++      quoteId: context.quoteId,
+       status: 'held',
+       slot: toBookingSlot({
+-        start: slot.service_start,
+-        end: slot.arrival_window_end,
+-        date: slot.service_date,
++        start: slot.start,
++        end: slot.end,
++        date: slot.date,
+         timezone: context.timezone,
+       }),
+     };
+   });
+ }
+ 
+-/** Expected contention/state failure returned as HTTP 409 by the procedure. */
++/** Expected contention/state failure returned as HTTP 409 by the procedure.
++ * @example `throw new BookingHoldConflict('Choose another window.');` */
+ export class BookingHoldConflict extends Error {
++  /** Constructs an actionable hold conflict. @example `new BookingHoldConflict('Window unavailable');` */
+   constructor(message: string) {
+     super(message);
+     this.name = 'BookingHoldConflict';
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingHoldWrites.ts b/api/src/exterior-quote/bookingHoldWrites.ts
+new file mode 100644
+index 0000000000..62f4fce3c9
+--- /dev/null
++++ b/api/src/exterior-quote/bookingHoldWrites.ts
+@@ -0,0 +1,37 @@
++import { and, eq, inArray, sql } from 'drizzle-orm';
++import { service_bookings as bookings, service_booking_status_events as events,
++  exterior_quote_requests as quotes, exterior_route_jobs as jobs } from '../db/drizzle/schema.js';
++import type { BookingTransaction } from './bookingDatabase.js';
++import type { BookingContext } from './bookingContextRepository.js';
++import type { readBookingAvailabilitySlots } from './bookingAvailabilitySlots.js';
++
++/** Holds a still-editable booking and mirrors its arrival window into operations.
++ * @example `const expires = await writeBookingHold(tx, booking, slot);`
++ */
++export async function writeBookingHold(
++  tx: BookingTransaction, booking: BookingContext,
++  slot: Awaited<ReturnType<typeof readBookingAvailabilitySlots>>[number],
++) {
++  const startsAt = slot.start.toISOString();
++  const endsAt = slot.end.toISOString();
++  const [updated] = await tx.update(bookings).set({
++    status: 'held', service_starts_at: startsAt, service_ends_at: slot.serviceEnd.toISOString(),
++    arrival_window_starts_at: startsAt, arrival_window_ends_at: endsAt,
++    hold_expires_at: sql`clock_timestamp() + make_interval(mins => ${booking.holdDurationMinutes})`,
++    updated_at: sql`now()`, version: sql`${bookings.version} + 1`,
++  }).where(and(eq(bookings.id, booking.bookingId), inArray(bookings.status, ['awaiting_time', 'held'])))
++    .returning({ expires: bookings.hold_expires_at });
++  if (!updated?.expires) throw new Error('Booking changed before the hold was saved.');
++  await tx.update(quotes).set({ selected_window_start: startsAt, selected_window_end: endsAt,
++    routing_status: 'held_pending_payment', updated_at: sql`now()`,
++  }).where(eq(quotes.id, booking.quoteId));
++  await tx.update(jobs).set({ selected_window_start: startsAt, selected_window_end: endsAt,
++    routing_status: 'held_pending_payment', updated_at: sql`now()`,
++  }).where(eq(jobs.quote_request_id, booking.quoteId));
++  await tx.insert(events).values({ booking_id: booking.bookingId, from_status: booking.status,
++    to_status: 'held', actor_type: 'customer', reason: 'Customer selected service time',
++    metadata: { service_starts_at: startsAt, service_ends_at: slot.serviceEnd.toISOString(),
++      arrival_window_ends_at: endsAt, hold_expires_at: updated.expires },
++  });
++  return updated.expires;
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingPaymentEditability.ts b/api/src/exterior-quote/bookingPaymentEditability.ts
+new file mode 100644
+index 0000000000..3321638bc7
+--- /dev/null
++++ b/api/src/exterior-quote/bookingPaymentEditability.ts
+@@ -0,0 +1,16 @@
++import { ORPCError } from '@orpc/server';
++import { getStripeClient } from '../stripe/client.js';
++
++/** Rejects rescheduling while Stripe has collected, cancelled, or is processing money.
++ * Used under the booking row lock to close the confirm/reschedule race.
++ * @example `await assertBookingPaymentEditable(paymentIntentId);`
++ */
++export async function assertBookingPaymentEditable(paymentIntentId: string | null) {
++  if (!paymentIntentId) throw new ORPCError('CONFLICT', { message: 'The payment session is unavailable.' });
++  const intent = await getStripeClient().paymentIntents.retrieve(paymentIntentId);
++  if (intent.amount_received > 0 || !['requires_payment_method', 'requires_confirmation'].includes(intent.status)) {
++    throw new ORPCError('CONFLICT', {
++      message: 'Payment is no longer editable. Check the booking status before selecting another time.',
++    });
++  }
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingPaymentIntentLookup.ts b/api/src/exterior-quote/bookingPaymentIntentLookup.ts
+new file mode 100644
+index 0000000000..a369b616d3
+--- /dev/null
++++ b/api/src/exterior-quote/bookingPaymentIntentLookup.ts
+@@ -0,0 +1,16 @@
++import { and, desc, eq, isNotNull } from 'drizzle-orm';
++import { exterior_quote_payments as payments } from '../db/drizzle/schema.js';
++import { requireBookingDatabase } from './bookingDatabase.js';
++
++/** Reads the existing quote-bound intent from generated database columns.
++ * @example `const intent = await readPendingQuoteIntent(quoteId);`
++ */
++export async function readPendingQuoteIntent(quoteId: number) {
++  const [row] = await requireBookingDatabase().select({
++    stripePaymentIntentId: payments.stripe_payment_intent_id,
++    amountQuotedCents: payments.amount_quoted_cents,
++  }).from(payments).where(and(eq(payments.quote_request_id, quoteId),
++    eq(payments.payment_status, 'payment_pending'), isNotNull(payments.stripe_payment_intent_id)))
++    .orderBy(desc(payments.id)).limit(1);
++  return row?.stripePaymentIntentId ? { ...row, stripePaymentIntentId: row.stripePaymentIntentId } : null;
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingProcedures.ts b/api/src/exterior-quote/bookingProcedures.ts
+index 72328a748f..7384c97f2c 100644
+--- a/api/src/exterior-quote/bookingProcedures.ts
++++ b/api/src/exterior-quote/bookingProcedures.ts
+@@ -1,18 +1,20 @@
+ import { ORPCError, os } from '@orpc/server';
+ import { getExteriorBookingAvailability } from './bookingAvailabilityRepository.js';
+ import { BookingHoldConflict, holdExteriorBooking } from './bookingHoldRepository.js';
++import { CustomerBookingAvailabilitySchema } from './bookingAvailabilityContract.js';
+ import {
+   BookingAuthorizationInputSchema,
+-  BookingAvailabilityOutputSchema,
+   ReserveBookingInputSchema,
+   ReserveBookingOutputSchema,
+ } from './bookingSchemas.js';
+ 
+-/** Customer-facing availability backed by operations schedules and capacity. */
++/** Customer availability backed by operations capacity and the actual quote price.
++ * @example `await client.exteriorQuotes.bookingAvailability(input);`
++ */
+ export const exteriorBookingAvailability = os
+   .route({ method: 'POST', path: '/orpc/exterior-quotes/booking-availability' })
+   .input(BookingAuthorizationInputSchema)
+-  .output(BookingAvailabilityOutputSchema)
++  .output(CustomerBookingAvailabilitySchema)
+   .handler(async ({ input }) => {
+     const availability = await getExteriorBookingAvailability(input);
+     if (!availability) {
+@@ -23,7 +25,8 @@ export const exteriorBookingAvailability = os
+     return availability;
+   });
+ 
+-/** Atomically hold one available service interval for the pending checkout. */
++/** Atomically holds one available service interval for the pending checkout.
++ * @example `await client.exteriorQuotes.reserveBooking(input);` */
+ export const reserveExteriorBooking = os
+   .route({ method: 'POST', path: '/orpc/exterior-quotes/reserve-booking' })
+   .input(ReserveBookingInputSchema)
+@@ -44,4 +47,4 @@ export const reserveExteriorBooking = os
+       }
+       throw error;
+     }
+-  });
++  });
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingReleaseProcedure.ts b/api/src/exterior-quote/bookingReleaseProcedure.ts
+new file mode 100644
+index 0000000000..410f36b8f6
+--- /dev/null
++++ b/api/src/exterior-quote/bookingReleaseProcedure.ts
+@@ -0,0 +1,16 @@
++import { os, ORPCError } from '@orpc/server';
++import { ReleaseBookingInputSchema, ReleaseBookingOutputSchema } from './bookingReleaseSchemas.js';
++import { releaseExteriorBookingHold } from './bookingReleaseRepository.js';
++
++/** Customer-authorized decline cancels the pending intent and releases held capacity.
++ * @example `await client.exteriorQuotes.releaseBooking(input);`
++ */
++export const releaseExteriorBooking = os
++  .route({ method: 'POST', path: '/orpc/exterior-quotes/release-booking' })
++  .input(ReleaseBookingInputSchema)
++  .output(ReleaseBookingOutputSchema)
++  .handler(async ({ input }) => {
++    const released = await releaseExteriorBookingHold(input);
++    if (!released) throw new ORPCError('NOT_FOUND', { message: 'This secure checkout is no longer available.' });
++    return released;
++  });
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingReleaseRepository.ts b/api/src/exterior-quote/bookingReleaseRepository.ts
+new file mode 100644
+index 0000000000..90afa681bb
+--- /dev/null
++++ b/api/src/exterior-quote/bookingReleaseRepository.ts
+@@ -0,0 +1,48 @@
++import { ORPCError } from '@orpc/server';
++import { getStripeClient } from '../stripe/client.js';
++import { requireBookingDatabase } from './bookingDatabase.js';
++import { findBookingRecord } from './bookingContextRead.js';
++import { writeBookingRelease } from './bookingReleaseWrites.js';
++import type { ReleaseBookingInput } from './bookingReleaseSchemas.js';
++
++/** Cancels a pending intent before releasing its corresponding held service window.
++ * The booking lock serializes reschedule/decline; Stripe arbitrates charge/cancel.
++ * A failed or ambiguous cancellation leaves the capacity hold unchanged.
++ * @example `const result = await releaseExteriorBookingHold(input);`
++ */
++export async function releaseExteriorBookingHold(input: ReleaseBookingInput) {
++  return requireBookingDatabase().transaction(async tx => {
++    const booking = await findBookingRecord(input, tx, true, true);
++    if (!booking) return null;
++    const response = { quoteId: booking.quoteId, bookingId: booking.bookingId, released: true as const };
++    if (booking.status === 'cancelled' && booking.paymentStatus === 'cancelled') return response;
++    if (!['held', 'awaiting_time'].includes(booking.status) || !booking.stripePaymentIntentId) {
++      throw new ORPCError('CONFLICT', { message: 'This booking cannot be released from checkout.' });
++    }
++    if (!booking.arrivalWindowStartsAt
++      || booking.arrivalWindowStartsAt.getTime() !== new Date(input.acknowledgedStart).getTime()) {
++      throw new ORPCError('CONFLICT', { message: 'The held service window changed. Review it before declining.' });
++    }
++    const stripe = getStripeClient();
++    try {
++      const intent = await stripe.paymentIntents.retrieve(booking.stripePaymentIntentId);
++      if (intent.status === 'succeeded' || intent.amount_received > 0) {
++        throw new ORPCError('CONFLICT', { message: 'Payment was already collected; the booking was not released.' });
++      }
++      const cancelled = intent.status === 'canceled' ? intent
++        : await stripe.paymentIntents.cancel(intent.id, { cancellation_reason: 'requested_by_customer' }, {
++          idempotencyKey: `exterior-booking:${intent.id}:decline`,
++        });
++      if (cancelled.status !== 'canceled' || cancelled.amount_received > 0) {
++        throw new ORPCError('CONFLICT', { message: 'Payment cancellation is not confirmed; the booking was not released.' });
++      }
++    } catch (error) {
++      if (error instanceof ORPCError) throw error;
++      throw new ORPCError('CONFLICT', {
++        message: `Payment cancellation failed; the booking was not released. ${error instanceof Error ? error.message : 'Stripe response unavailable.'}`,
++      });
++    }
++    await writeBookingRelease(tx, booking);
++    return response;
++  });
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingReleaseSchemas.ts b/api/src/exterior-quote/bookingReleaseSchemas.ts
+new file mode 100644
+index 0000000000..a4ba68a9c2
+--- /dev/null
++++ b/api/src/exterior-quote/bookingReleaseSchemas.ts
+@@ -0,0 +1,20 @@
++import { z } from 'zod';
++import { BookingAuthorizationInputSchema, BookingSlotSchema } from './bookingSchemas.js';
++import { service_bookingsSelectSchema, exterior_quote_requestsSelectSchema } from '../db/drizzle/zod.js';
++
++/** Customer decline refers to the exact window currently displayed.
++ * @example `const input = ReleaseBookingInputSchema.parse(payload);` */
++export const ReleaseBookingInputSchema = BookingAuthorizationInputSchema.extend({
++  acknowledgedStart: BookingSlotSchema.shape.start,
++});
++
++/** Confirms cancellation and capacity release, never just a local UI change.
++ * @example `const result = ReleaseBookingOutputSchema.parse(response);` */
++export const ReleaseBookingOutputSchema = z.object({
++  quoteId: exterior_quote_requestsSelectSchema.shape.id,
++  bookingId: service_bookingsSelectSchema.shape.id,
++  released: z.literal(true),
++});
++
++/** Parsed decline request. @example `const input: ReleaseBookingInput = payload;` */
++export type ReleaseBookingInput = z.infer<typeof ReleaseBookingInputSchema>;
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingReleaseWrites.ts b/api/src/exterior-quote/bookingReleaseWrites.ts
+new file mode 100644
+index 0000000000..78549642ff
+--- /dev/null
++++ b/api/src/exterior-quote/bookingReleaseWrites.ts
+@@ -0,0 +1,34 @@
++import { and, eq, inArray, sql } from 'drizzle-orm';
++import { service_bookings as bookings, service_booking_status_events as events,
++  exterior_quote_requests as quotes, exterior_quote_payments as payments,
++  exterior_route_jobs as jobs } from '../db/drizzle/schema.js';
++import type { BookingTransaction } from './bookingDatabase.js';
++import type { BookingContext } from './bookingContextRepository.js';
++
++/** Releases capacity only after Stripe confirms cancellation of the bound intent.
++ * Runs inside the row-locking release transaction; no confirmed booking is changed.
++ * @example `await writeBookingRelease(tx, booking);`
++ */
++export async function writeBookingRelease(tx: BookingTransaction, booking: BookingContext) {
++  await tx.update(payments).set({ payment_status: 'cancelled' })
++    .where(and(eq(payments.id, booking.paymentId), eq(payments.payment_status, 'payment_pending')));
++  const [released] = await tx.update(bookings).set({
++    status: 'cancelled', cancelled_at: sql`now()`, hold_expires_at: null,
++    service_starts_at: null, service_ends_at: null,
++    arrival_window_starts_at: null, arrival_window_ends_at: null,
++    updated_at: sql`now()`, version: sql`${bookings.version} + 1`,
++  }).where(and(eq(bookings.id, booking.bookingId), inArray(bookings.status, ['awaiting_time', 'held'])))
++    .returning({ id: bookings.id });
++  if (!released) throw new Error('Booking changed before its hold could be released.');
++  await tx.update(quotes).set({ selected_window_start: null, selected_window_end: null,
++    routing_status: 'cancelled', updated_at: sql`now()`,
++  }).where(eq(quotes.id, booking.quoteId));
++  await tx.update(jobs).set({ selected_window_start: null, selected_window_end: null,
++    routing_status: 'cancelled', updated_at: sql`now()`,
++  }).where(eq(jobs.quote_request_id, booking.quoteId));
++  await tx.insert(events).values({ booking_id: booking.bookingId,
++    from_status: booking.status, to_status: 'cancelled', actor_type: 'customer',
++    reason: 'Customer declined the booking and cancelled the pending payment',
++    metadata: { stripe_payment_intent_id: booking.stripePaymentIntentId },
++  });
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/bookingServiceDate.ts b/api/src/exterior-quote/bookingServiceDate.ts
+new file mode 100644
+index 0000000000..59fd06b456
+--- /dev/null
++++ b/api/src/exterior-quote/bookingServiceDate.ts
+@@ -0,0 +1,13 @@
++/** Resolves the operations-local calendar date for capacity locking.
++ * @example `bookingServiceDate(new Date('2026-09-08T14:00:00Z'), 'America/Chicago');`
++ */
++export function bookingServiceDate(value: Date, timezone: string): string {
++  const parts = new Intl.DateTimeFormat('en-CA', {
++    timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
++  }).formatToParts(value);
++  const year = parts.find(part => part.type === 'year')?.value;
++  const month = parts.find(part => part.type === 'month')?.value;
++  const day = parts.find(part => part.type === 'day')?.value;
++  if (!year || !month || !day) throw new Error('Could not resolve the booking service date.');
++  return `${year}-${month}-${day}`;
++}
+\ No newline at end of file
+diff --git a/api/src/exterior-quote/router.ts b/api/src/exterior-quote/router.ts
+index 897c124686..990fa19104 100644
+--- a/api/src/exterior-quote/router.ts
++++ b/api/src/exterior-quote/router.ts
+@@ -1,6 +1,7 @@
+ import { os } from '@orpc/server';
+ import { assignExteriorBookingToRoute } from './bookingAssignmentProcedure.js';
+ import { authorizeExteriorBookingCharge } from './bookingChargeProcedure.js';
++import { releaseExteriorBooking } from './bookingReleaseProcedure.js';
+ import { getExteriorBookingOperations } from './bookingOperationsProcedures.js';
+ import { createExteriorCheckout } from './checkoutProcedures.js';
+ import {
+@@ -29,7 +30,8 @@ export const exteriorQuoteRouter = os.router({
+   bookingOperations: getExteriorBookingOperations,
+   assignBooking: assignExteriorBookingToRoute,
+   reserveBooking: reserveExteriorBooking,
++  releaseBooking: releaseExteriorBooking,
+   authorizeBookingCharge: authorizeExteriorBookingCharge,
+   paymentSuccess: recordExteriorPaymentSuccess,
+   refund: refundExteriorBooking,
+-});
++});
+\ No newline at end of file
+diff --git a/facebook-business-api-sdk/package-lock.json b/facebook-business-api-sdk/package-lock.json
+index ecd93422ce..e2b14625ef 100644
+--- a/facebook-business-api-sdk/package-lock.json
++++ b/facebook-business-api-sdk/package-lock.json
+@@ -1,19 +1,20 @@
+ {
+   "name": "@rileyseaburg/facebook-business-api-sdk",
+-  "version": "1.4.0",
++  "version": "1.4.1",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "@rileyseaburg/facebook-business-api-sdk",
+-      "version": "1.4.0",
++      "version": "1.4.1",
+       "license": "MIT",
+       "dependencies": {
+-        "axios": "^1.4.0",
+-        "zod": "^4.1.12"
++        "axios": "1.20.0",
++        "facebook-nodejs-business-sdk": "26.0.1",
++        "zod": "4.5.4"
+       },
+       "devDependencies": {
+-        "@types/node": "^24.10.1",
++        "@types/node": "^26.5.0",
+         "@typescript-eslint/eslint-plugin": "^8.46.4",
+         "@typescript-eslint/parser": "^8.46.4",
+         "eslint": "^9.39.1",
+@@ -21,7 +22,16 @@
+         "vitest": "^4.0.8"
+       },
+       "peerDependencies": {
++        "flow-bin": ">=0.138.0",
+         "typescript": ">=5.0.0"
++      },
++      "peerDependenciesMeta": {
++        "flow-bin": {
++          "optional": true
++        },
++        "typescript": {
++          "optional": true
++        }
+       }
+     },
+     "node_modules/@esbuild/aix-ppc64": {
+@@ -1100,13 +1110,13 @@
+       "license": "MIT"
+     },
+     "node_modules/@types/node": {
+-      "version": "24.10.1",
+-      "resolved": "https://npm.quantum-forge.io/@types/node/-/node-24.10.1.tgz",
+-      "integrity": "sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==",
++      "version": "26.5.0",
++      "resolved": "https://npm.quantum-forge.io/@types/node/-/node-26.5.0.tgz",
++      "integrity": "sha512-dVSGpriSoCgz8WnDNTuSSuSv1PC/ALXihO4ulRZt7Md8k9mlbdin3lGOcDE8SnWOgf513ByWlXd7BK4azmyg/A==",
+       "dev": true,
+       "license": "MIT",
+       "dependencies": {
+-        "undici-types": "~7.16.0"
++        "undici-types": "~8.9.0"
+       }
+     },
+     "node_modules/@typescript-eslint/eslint-plugin": {
+@@ -1478,6 +1488,18 @@
+         "acorn": "^6.0.0 || ^7.0.0 || ^8.0.0"
+       }
+     },
++    "node_modules/agent-base": {
++      "version": "6.0.2",
++      "resolved": "https://npm.quantum-forge.io/agent-base/-/agent-base-6.0.2.tgz",
++      "integrity": "sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==",
++      "license": "MIT",
++      "dependencies": {
++        "debug": "4"
++      },
++      "engines": {
++        "node": ">= 6.0.0"
++      }
++    },
+     "node_modules/ajv": {
+       "version": "6.12.6",
+       "resolved": "https://npm.quantum-forge.io/ajv/-/ajv-6.12.6.tgz",
+@@ -1530,19 +1552,20 @@
+     },
+     "node_modules/asynckit": {
+       "version": "0.4.0",
+-      "resolved": "https://npm.quantum-forge.io/asynckit/-/asynckit-0.4.0.tgz",
++      "resolved": "https://registry.npmjs.org/asynckit/-/asynckit-0.4.0.tgz",
+       "integrity": "sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==",
+       "license": "MIT"
+     },
+     "node_modules/axios": {
+-      "version": "1.13.2",
+-      "resolved": "https://npm.quantum-forge.io/axios/-/axios-1.13.2.tgz",
+-      "integrity": "sha512-VPk9ebNqPcy5lRGuSlKx752IlDatOjT9paPlm8A7yOuW2Fbvp4X3JznJtT4f0GzGLLiWE9W8onz51SqLYwzGaA==",
++      "version": "1.20.0",
++      "resolved": "https://npm.quantum-forge.io/axios/-/axios-1.20.0.tgz",
++      "integrity": "sha512-r8aOh8j9cGKpgQAqpzrUHnSIc6a59Y3Xf/cv8sy1DrHCkZHzQGEuoq1tARk6qSyDdtQGSDgpb9kFlruzPvrgwg==",
+       "license": "MIT",
+       "dependencies": {
+-        "follow-redirects": "^1.15.6",
+-        "form-data": "^4.0.4",
+-        "proxy-from-env": "^1.1.0"
++        "follow-redirects": "^1.16.0",
++        "form-data": "^4.0.6",
++        "https-proxy-agent": "^5.0.1",
++        "proxy-from-env": "^2.1.0"
+       }
+     },
+     "node_modules/balanced-match": {
+@@ -1577,7 +1600,7 @@
+     },
+     "node_modules/call-bind-apply-helpers": {
+       "version": "1.0.2",
+-      "resolved": "https://npm.quantum-forge.io/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz",
++      "resolved": "https://registry.npmjs.org/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz",
+       "integrity": "sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==",
+       "license": "MIT",
+       "dependencies": {
+@@ -1598,6 +1621,12 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/capi-param-builder-nodejs": {
++      "version": "1.3.1",
++      "resolved": "https://npm.quantum-forge.io/capi-param-builder-nodejs/-/capi-param-builder-nodejs-1.3.1.tgz",
++      "integrity": "sha512-4shIh8QAZ5rQHt7hd+CAHU9uYdvEmUnn//gxJT5NFP+KZCWpajLmeWb49QBp0s21xmRxKDVVZb1jpTiJeFATcg==",
++      "license": "Platform License"
++    },
+     "node_modules/chai": {
+       "version": "6.2.1",
+       "resolved": "https://npm.quantum-forge.io/chai/-/chai-6.2.1.tgz",
+@@ -1647,7 +1676,7 @@
+     },
+     "node_modules/combined-stream": {
+       "version": "1.0.8",
+-      "resolved": "https://npm.quantum-forge.io/combined-stream/-/combined-stream-1.0.8.tgz",
++      "resolved": "https://registry.npmjs.org/combined-stream/-/combined-stream-1.0.8.tgz",
+       "integrity": "sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==",
+       "license": "MIT",
+       "dependencies": {
+@@ -1679,11 +1708,20 @@
+         "node": ">= 8"
+       }
+     },
++    "node_modules/currency-codes": {
++      "version": "1.5.1",
++      "resolved": "https://registry.npmjs.org/currency-codes/-/currency-codes-1.5.1.tgz",
++      "integrity": "sha512-hqy8vtlIYKzO6pe2TE0V4/riZALIc7nhtE9cvxk5FDRCvfGplgzUvpTmZlMsyO+NeK5U41j+sQXJOo8l8v9kdg==",
++      "license": "MIT",
++      "dependencies": {
++        "first-match": "~0.0.1",
++        "nub": "~0.0.0"
++      }
++    },
+     "node_modules/debug": {
+       "version": "4.4.3",
+       "resolved": "https://npm.quantum-forge.io/debug/-/debug-4.4.3.tgz",
+       "integrity": "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==",
+-      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "ms": "^2.1.3"
+@@ -1706,7 +1744,7 @@
+     },
+     "node_modules/delayed-stream": {
+       "version": "1.0.0",
+-      "resolved": "https://npm.quantum-forge.io/delayed-stream/-/delayed-stream-1.0.0.tgz",
++      "resolved": "https://registry.npmjs.org/delayed-stream/-/delayed-stream-1.0.0.tgz",
+       "integrity": "sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==",
+       "license": "MIT",
+       "engines": {
+@@ -1715,7 +1753,7 @@
+     },
+     "node_modules/dunder-proto": {
+       "version": "1.0.1",
+-      "resolved": "https://npm.quantum-forge.io/dunder-proto/-/dunder-proto-1.0.1.tgz",
++      "resolved": "https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz",
+       "integrity": "sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==",
+       "license": "MIT",
+       "dependencies": {
+@@ -1727,9 +1765,17 @@
+         "node": ">= 0.4"
+       }
+     },
++    "node_modules/email-validator": {
++      "version": "2.0.4",
++      "resolved": "https://registry.npmjs.org/email-validator/-/email-validator-2.0.4.tgz",
++      "integrity": "sha512-gYCwo7kh5S3IDyZPLZf6hSS0MnZT8QmJFqYvbqlDZSbwdZlY6QZWxJ4i/6UhITOJ4XzyI647Bm2MXKCLqnJ4nQ==",
++      "engines": {
++        "node": ">4.0"
++      }
++    },
+     "node_modules/es-define-property": {
+       "version": "1.0.1",
+-      "resolved": "https://npm.quantum-forge.io/es-define-property/-/es-define-property-1.0.1.tgz",
++      "resolved": "https://registry.npmjs.org/es-define-property/-/es-define-property-1.0.1.tgz",
+       "integrity": "sha512-e3nRfgfUZ4rNGL232gUgX06QNyyez04KdjFrF+LTRoOXmrOgFKDg4BCdsjW8EnT69eqdYGmRpJwiPVYNrCaW3g==",
+       "license": "MIT",
+       "engines": {
+@@ -1738,7 +1784,7 @@
+     },
+     "node_modules/es-errors": {
+       "version": "1.3.0",
+-      "resolved": "https://npm.quantum-forge.io/es-errors/-/es-errors-1.3.0.tgz",
++      "resolved": "https://registry.npmjs.org/es-errors/-/es-errors-1.3.0.tgz",
+       "integrity": "sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw==",
+       "license": "MIT",
+       "engines": {
+@@ -1753,9 +1799,9 @@
+       "license": "MIT"
+     },
+     "node_modules/es-object-atoms": {
+-      "version": "1.1.1",
+-      "resolved": "https://npm.quantum-forge.io/es-object-atoms/-/es-object-atoms-1.1.1.tgz",
+-      "integrity": "sha512-FGgH2h8zKNim9ljj7dankFPcICIK9Cp5bm+c2gQSYePhpaG5+esrLODihIorn+Pe6FGJzWhXQotPv73jTaldXA==",
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/es-object-atoms/-/es-object-atoms-1.1.2.tgz",
++      "integrity": "sha512-HWcBoN6NileqtSydK2FqHbS/LoDd2pqrnQHLyJzBj4kOp/ky2MWMN694xOfkK8/SnUsW2DH7EfyVlydKCsm1Zw==",
+       "license": "MIT",
+       "dependencies": {
+         "es-errors": "^1.3.0"
+@@ -1766,7 +1812,7 @@
+     },
+     "node_modules/es-set-tostringtag": {
+       "version": "2.1.0",
+-      "resolved": "https://npm.quantum-forge.io/es-set-tostringtag/-/es-set-tostringtag-2.1.0.tgz",
++      "resolved": "https://registry.npmjs.org/es-set-tostringtag/-/es-set-tostringtag-2.1.0.tgz",
+       "integrity": "sha512-j6vWzfrGVfyXxge+O0x5sh6cvxAog0a/4Rdd2K36zCMV5eJ+/+tOAngRO8cODMNWbVRdVlmGZQL2YS3yR8bIUA==",
+       "license": "MIT",
+       "dependencies": {
+@@ -2068,6 +2114,20 @@
+         "node": ">=12.0.0"
+       }
+     },
++    "node_modules/facebook-nodejs-business-sdk": {
++      "version": "26.0.1",
++      "resolved": "https://npm.quantum-forge.io/facebook-nodejs-business-sdk/-/facebook-nodejs-business-sdk-26.0.1.tgz",
++      "license": "Platform License",
++      "dependencies": {
++        "axios": "^1.4.0",
++        "capi-param-builder-nodejs": "^1.3.1",
++        "currency-codes": "^1.5.1",
++        "email-validator": "^2.0.4",
++        "iso-3166-1": "^2.1.1",
++        "js-sha256": "^0.9.0",
++        "mixwith": "~0.1.1"
++      }
++    },
+     "node_modules/fast-deep-equal": {
+       "version": "3.1.3",
+       "resolved": "https://npm.quantum-forge.io/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz",
+@@ -2172,6 +2232,12 @@
+         "url": "https://github.com/sponsors/sindresorhus"
+       }
+     },
++    "node_modules/first-match": {
++      "version": "0.0.1",
++      "resolved": "https://registry.npmjs.org/first-match/-/first-match-0.0.1.tgz",
++      "integrity": "sha512-VvKbnaxrC0polTFDC+teKPTdl2mn6B/KUW+WB3C9RzKDeNwbzfLdnUz3FxC+tnjvus6bI0jWrWicQyVIPdS37A==",
++      "license": "MIT"
++    },
+     "node_modules/flat-cache": {
+       "version": "4.0.1",
+       "resolved": "https://npm.quantum-forge.io/flat-cache/-/flat-cache-4.0.1.tgz",
+@@ -2214,16 +2280,16 @@
+       }
+     },
+     "node_modules/form-data": {
+-      "version": "4.0.4",
+-      "resolved": "https://npm.quantum-forge.io/form-data/-/form-data-4.0.4.tgz",
+-      "integrity": "sha512-KrGhL9Q4zjj0kiUt5OO4Mr/A/jlI2jDYs5eHBpYHPcBEVSiipAvn2Ko2HnPe20rmcuuvMHNdZFp+4IlGTMF0Ow==",
++      "version": "4.0.6",
++      "resolved": "https://registry.npmjs.org/form-data/-/form-data-4.0.6.tgz",
++      "integrity": "sha512-vKatAh4SlVfgbv+YtmhiRjhEMJsYpsG1Y2rMQtR+SVSbytsSD1YGzDIcrAJmdFec88u/+VoGmxnl+80gL1tRCQ==",
+       "license": "MIT",
+       "dependencies": {
+         "asynckit": "^0.4.0",
+         "combined-stream": "^1.0.8",
+         "es-set-tostringtag": "^2.1.0",
+-        "hasown": "^2.0.2",
+-        "mime-types": "^2.1.12"
++        "hasown": "^2.0.4",
++        "mime-types": "^2.1.35"
+       },
+       "engines": {
+         "node": ">= 6"
+@@ -2246,7 +2312,7 @@
+     },
+     "node_modules/function-bind": {
+       "version": "1.1.2",
+-      "resolved": "https://npm.quantum-forge.io/function-bind/-/function-bind-1.1.2.tgz",
++      "resolved": "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz",
+       "integrity": "sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==",
+       "license": "MIT",
+       "funding": {
+@@ -2255,7 +2321,7 @@
+     },
+     "node_modules/get-intrinsic": {
+       "version": "1.3.0",
+-      "resolved": "https://npm.quantum-forge.io/get-intrinsic/-/get-intrinsic-1.3.0.tgz",
++      "resolved": "https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.3.0.tgz",
+       "integrity": "sha512-9fSjSaos/fRIVIp+xSJlE6lfwhES7LNtKaCBIamHsjr2na1BiABJPo0mOjjz8GJDURarmCPGqaiVg5mfjb98CQ==",
+       "license": "MIT",
+       "dependencies": {
+@@ -2279,7 +2345,7 @@
+     },
+     "node_modules/get-proto": {
+       "version": "1.0.1",
+-      "resolved": "https://npm.quantum-forge.io/get-proto/-/get-proto-1.0.1.tgz",
++      "resolved": "https://registry.npmjs.org/get-proto/-/get-proto-1.0.1.tgz",
+       "integrity": "sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==",
+       "license": "MIT",
+       "dependencies": {
+@@ -2318,7 +2384,7 @@
+     },
+     "node_modules/gopd": {
+       "version": "1.2.0",
+-      "resolved": "https://npm.quantum-forge.io/gopd/-/gopd-1.2.0.tgz",
++      "resolved": "https://registry.npmjs.org/gopd/-/gopd-1.2.0.tgz",
+       "integrity": "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==",
+       "license": "MIT",
+       "engines": {
+@@ -2347,7 +2413,7 @@
+     },
+     "node_modules/has-symbols": {
+       "version": "1.1.0",
+-      "resolved": "https://npm.quantum-forge.io/has-symbols/-/has-symbols-1.1.0.tgz",
++      "resolved": "https://registry.npmjs.org/has-symbols/-/has-symbols-1.1.0.tgz",
+       "integrity": "sha512-1cDNdwJ2Jaohmb3sg4OmKaMBwuC48sYni5HUw2DvsC8LjGTLK9h+eb1X6RyuOHe4hT0ULCW68iomhjUoKUqlPQ==",
+       "license": "MIT",
+       "engines": {
+@@ -2359,7 +2425,7 @@
+     },
+     "node_modules/has-tostringtag": {
+       "version": "1.0.2",
+-      "resolved": "https://npm.quantum-forge.io/has-tostringtag/-/has-tostringtag-1.0.2.tgz",
++      "resolved": "https://registry.npmjs.org/has-tostringtag/-/has-tostringtag-1.0.2.tgz",
+       "integrity": "sha512-NqADB8VjPFLM2V0VvHUewwwsw0ZWBaIdgo+ieHtK3hasLz4qeCRjYcqfB6AQrBggRKppKF8L52/VqdVsO47Dlw==",
+       "license": "MIT",
+       "dependencies": {
+@@ -2373,9 +2439,9 @@
+       }
+     },
+     "node_modules/hasown": {
+-      "version": "2.0.2",
+-      "resolved": "https://npm.quantum-forge.io/hasown/-/hasown-2.0.2.tgz",
+-      "integrity": "sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==",
++      "version": "2.0.4",
++      "resolved": "https://registry.npmjs.org/hasown/-/hasown-2.0.4.tgz",
++      "integrity": "sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A==",
+       "license": "MIT",
+       "dependencies": {
+         "function-bind": "^1.1.2"
+@@ -2384,6 +2450,19 @@
+         "node": ">= 0.4"
+       }
+     },
++    "node_modules/https-proxy-agent": {
++      "version": "5.0.1",
++      "resolved": "https://npm.quantum-forge.io/https-proxy-agent/-/https-proxy-agent-5.0.1.tgz",
++      "integrity": "sha512-dFcAjpTQFgoLMzC2VwU+C/CbS7uRL0lWmxDITmqm7C+7F0Odmj6s9l6alZc6AELXhrnggM2CeWSXHGOdX2YtwA==",
++      "license": "MIT",
++      "dependencies": {
++        "agent-base": "6",
++        "debug": "4"
++      },
++      "engines": {
++        "node": ">= 6"
++      }
++    },
+     "node_modules/ignore": {
+       "version": "7.0.5",
+       "resolved": "https://npm.quantum-forge.io/ignore/-/ignore-7.0.5.tgz",
+@@ -2461,6 +2540,18 @@
+       "dev": true,
+       "license": "ISC"
+     },
++    "node_modules/iso-3166-1": {
++      "version": "2.1.1",
++      "resolved": "https://registry.npmjs.org/iso-3166-1/-/iso-3166-1-2.1.1.tgz",
++      "integrity": "sha512-RZxXf8cw5Y8LyHZIwIRvKw8sWTIHh2/txBT+ehO0QroesVfnz3JNFFX4i/OC/Yuv2bDIVYrHna5PMvjtpefq5w==",
++      "license": "MIT"
++    },
++    "node_modules/js-sha256": {
++      "version": "0.9.0",
++      "resolved": "https://registry.npmjs.org/js-sha256/-/js-sha256-0.9.0.tgz",
++      "integrity": "sha512-sga3MHh9sgQN2+pJ9VYZ+1LPwXOxuBJBA5nrR5/ofPfuiJBE2hnjsaN8se8JznOmGLN2p49Pe5U/ttafcs/apA==",
++      "license": "MIT"
++    },
+     "node_modules/js-yaml": {
+       "version": "4.1.1",
+       "resolved": "https://npm.quantum-forge.io/js-yaml/-/js-yaml-4.1.1.tgz",
+@@ -2554,7 +2645,7 @@
+     },
+     "node_modules/math-intrinsics": {
+       "version": "1.1.0",
+-      "resolved": "https://npm.quantum-forge.io/math-intrinsics/-/math-intrinsics-1.1.0.tgz",
++      "resolved": "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz",
+       "integrity": "sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==",
+       "license": "MIT",
+       "engines": {
+@@ -2587,7 +2678,7 @@
+     },
+     "node_modules/mime-db": {
+       "version": "1.52.0",
+-      "resolved": "https://npm.quantum-forge.io/mime-db/-/mime-db-1.52.0.tgz",
++      "resolved": "https://registry.npmjs.org/mime-db/-/mime-db-1.52.0.tgz",
+       "integrity": "sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg==",
+       "license": "MIT",
+       "engines": {
+@@ -2596,7 +2687,7 @@
+     },
+     "node_modules/mime-types": {
+       "version": "2.1.35",
+-      "resolved": "https://npm.quantum-forge.io/mime-types/-/mime-types-2.1.35.tgz",
++      "resolved": "https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz",
+       "integrity": "sha512-ZDY+bPm5zTTF+YpCrAU9nK0UgICYPT0QtT1NZWFv4s++TNkcgVaT0g6+4R2uI4MjQjzysHB1zxuWL50hzaeXiw==",
+       "license": "MIT",
+       "dependencies": {
+@@ -2622,11 +2713,16 @@
+         "url": "https://github.com/sponsors/isaacs"
+       }
+     },
++    "node_modules/mixwith": {
++      "version": "0.1.1",
++      "resolved": "https://registry.npmjs.org/mixwith/-/mixwith-0.1.1.tgz",
++      "integrity": "sha512-DQsf/liljH/9e+94jR+xfK8vlKceeKdOM9H9UEXLwGuvEEpO6debNtJ9yt1ZKzPKPrwqGxzMdu0BR1fnQb6i4A==",
++      "license": "Apache-2.0"
++    },
+     "node_modules/ms": {
+       "version": "2.1.3",
+       "resolved": "https://npm.quantum-forge.io/ms/-/ms-2.1.3.tgz",
+       "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
+-      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/nanoid": {
+@@ -2655,6 +2751,15 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/nub": {
++      "version": "0.0.0",
++      "resolved": "https://registry.npmjs.org/nub/-/nub-0.0.0.tgz",
++      "integrity": "sha512-dK0Ss9C34R/vV0FfYJXuqDAqHlaW9fvWVufq9MmGF2umCuDbd5GRfRD9fpi/LiM0l4ZXf8IBB+RYmZExqCrf0w==",
++      "license": "MIT/X11",
++      "engines": {
++        "node": "*"
++      }
++    },
+     "node_modules/optionator": {
+       "version": "0.9.4",
+       "resolved": "https://npm.quantum-forge.io/optionator/-/optionator-0.9.4.tgz",
+@@ -2805,10 +2910,13 @@
+       }
+     },
+     "node_modules/proxy-from-env": {
+-      "version": "1.1.0",
+-      "resolved": "https://npm.quantum-forge.io/proxy-from-env/-/proxy-from-env-1.1.0.tgz",
+-      "integrity": "sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==",
+-      "license": "MIT"
++      "version": "2.1.0",
++      "resolved": "https://registry.npmjs.org/proxy-from-env/-/proxy-from-env-2.1.0.tgz",
++      "integrity": "sha512-cJ+oHTW1VAEa8cJslgmUZrc+sjRKgAKl3Zyse6+PV38hZe/V6Z14TbCuXcan9F9ghlz4QrFr2c92TNF82UkYHA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=10"
++      }
+     },
+     "node_modules/punycode": {
+       "version": "2.3.1",
+@@ -3147,9 +3255,9 @@
+       }
+     },
+     "node_modules/undici-types": {
+-      "version": "7.16.0",
+-      "resolved": "https://npm.quantum-forge.io/undici-types/-/undici-types-7.16.0.tgz",
+-      "integrity": "sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==",
++      "version": "8.9.0",
++      "resolved": "https://npm.quantum-forge.io/undici-types/-/undici-types-8.9.0.tgz",
++      "integrity": "sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==",
+       "dev": true,
+       "license": "MIT"
+     },
+@@ -3417,13 +3525,13 @@
+       }
+     },
+     "node_modules/zod": {
+-      "version": "4.1.12",
+-      "resolved": "https://npm.quantum-forge.io/zod/-/zod-4.1.12.tgz",
+-      "integrity": "sha512-JInaHOamG8pt5+Ey8kGmdcAcg3OL9reK8ltczgHTAwNhMys/6ThXHityHxVV2p3fkw/c+MAvBHFVYHFZDmjMCQ==",
++      "version": "4.5.4",
++      "resolved": "https://npm.quantum-forge.io/zod/-/zod-4.5.4.tgz",
++      "integrity": "sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==",
+       "license": "MIT",
+       "funding": {
+         "url": "https://github.com/sponsors/colinhacks"
+       }
+     }
+   }
+-}
++}
+\ No newline at end of file
+diff --git a/facebook-business-api-sdk/package.json b/facebook-business-api-sdk/package.json
+index f6e7b773d9..6a8d6b203a 100644
+--- a/facebook-business-api-sdk/package.json
++++ b/facebook-business-api-sdk/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "@rileyseaburg/facebook-business-api-sdk",
+-  "version": "1.4.0",
++  "version": "1.4.1",
+   "files": [
+     "dist",
+     "README.md",
+@@ -40,11 +40,24 @@
+   "author": "Riley Seaburg",
+   "license": "MIT",
+   "dependencies": {
+-    "axios": "1.15.0",
+-    "zod": "4.1.13"
++    "axios": "1.20.0",
++    "facebook-nodejs-business-sdk": "26.0.1",
++    "zod": "4.5.4"
++  },
++  "peerDependencies": {
++    "flow-bin": ">=0.138.0",
++    "typescript": ">=5.0.0"
++  },
++  "peerDependenciesMeta": {
++    "flow-bin": {
++      "optional": true
++    },
++    "typescript": {
++      "optional": true
++    }
+   },
+   "devDependencies": {
+-    "@types/node": "^24.10.1",
++    "@types/node": "^26.5.0",
+     "typescript": "^5.9.3",
+     "vitest": "^4.0.8",
+     "@typescript-eslint/eslint-plugin": "^8.46.4",
+diff --git a/package.json b/package.json
+index d2f197ca88..2acb56335f 100644
+--- a/package.json
++++ b/package.json
+@@ -134,7 +134,7 @@
+     "dotenv": "17.2.2",
+     "dotenv-webpack": "^8.1.1",
+     "esri-leaflet": "3.1.0",
+-    "facebook-nodejs-business-sdk": "23.0.1",
++    "facebook-nodejs-business-sdk": "26.0.1",
+     "framer-motion": "12.23.24",
+     "google-cloud-storage": "^2.0.2",
+     "grapesjs": "0.22.7",
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 24a2c6d842..7ee50ce295 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -215,8 +215,8 @@ importers:
+         specifier: 3.1.0
+         version: 3.1.0(leaflet@1.9.4)
+       facebook-nodejs-business-sdk:
+-        specifier: 23.0.1
+-        version: 23.0.1
++        specifier: 26.0.1
++        version: 26.0.1
+       framer-motion:
+         specifier: 12.23.24
+         version: 12.23.24(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+@@ -576,8 +576,8 @@ importers:
+         specifier: 1.11.3
+         version: 1.11.3(@opentelemetry/api@1.9.0)(@orpc/contract@1.11.3(@opentelemetry/api@1.9.0))(@orpc/server@1.11.3(@opentelemetry/api@1.9.0)(fastify@5.8.5)(ws@8.18.3))(fastify@5.8.5)(ws@8.18.3)(zod@3.25.76)
+       '@rileyseaburg/facebook-business-api-sdk':
+-        specifier: 1.4.0
+-        version: 1.4.0
++        specifier: 1.4.1
++        version: 1.4.1(typescript@5.6.3)
+       '@rileyseaburg/tiktok-business-api-sdk':
+         specifier: 7.1.1
+         version: 7.1.1(@opentelemetry/api@1.9.0)(ws@8.18.3)
+@@ -615,8 +615,8 @@ importers:
+         specifier: ^0.6.1
+         version: 0.6.1(drizzle-orm@0.45.2(@electric-sql/pglite@0.3.14)(@opentelemetry/api@1.9.0)(@types/pg@8.15.6)(knex@3.1.0(pg@8.16.3))(pg@8.16.3))(zod@3.25.76)
+       facebook-nodejs-business-sdk:
+-        specifier: 23.0.1
+-        version: 23.0.1
++        specifier: 26.0.1
++        version: 26.0.1
+       fast-xml-parser:
+         specifier: ^5.10.1
+         version: 5.10.1
+@@ -4900,8 +4900,16 @@ packages:
+     peerDependencies:
+       react: '>=16.8.0'
+ 
+-  '@rileyseaburg/facebook-business-api-sdk@1.4.0':
+-    resolution: {integrity: sha512-1hOU6V/gXg4MctCAmm0wwHEmNvVBwhRZC+KFN95AOj+dH+YT061HfI+dTn8v7g/u9+er/FzZPbdbWjXiofkaQw==}
++  '@rileyseaburg/facebook-business-api-sdk@1.4.1':
++    resolution: {integrity: sha512-OjqXrqZFzqVl4QWEmCKhzbGDZgfavIG4Tnah1CFnJSi9mTHBnXpiuXrafTJOq/+bFZDSZKgHCba84xnV8yosaw==}
++    peerDependencies:
++      flow-bin: '>=0.138.0'
++      typescript: '>=5.0.0'
++    peerDependenciesMeta:
++      flow-bin:
++        optional: true
++      typescript:
++        optional: true
+ 
+   '@rileyseaburg/tiktok-business-api-sdk@7.1.1':
+     resolution: {integrity: sha512-Bb++xWFMleV6aBDsMJAlEUMNe3ZIZLCA4I0pFmIt6hjLraHrEuUIsPZCQGQctCNnZsJRpDGD8Ik6bq3VEDlNdA==}
+@@ -6679,6 +6687,9 @@ packages:
+   axios@1.15.0:
+     resolution: {integrity: sha512-wWyJDlAatxk30ZJer+GeCWS209sA42X+N5jU2jy6oHTp7ufw8uzUTVFBX9+wTfAlhiJXGS0Bq7X6efruWjuK9Q==}
+ 
++  axios@1.20.0:
++    resolution: {integrity: sha512-r8aOh8j9cGKpgQAqpzrUHnSIc6a59Y3Xf/cv8sy1DrHCkZHzQGEuoq1tARk6qSyDdtQGSDgpb9kFlruzPvrgwg==}
++
+   b4a@1.7.3:
+     resolution: {integrity: sha512-5Q2mfq2WfGuFp3uS//0s6baOJLMoVduPYVeNmDYxu5OUA1/cBfvr2RIS7vi62LdNj/urk1hfmj867I3qt6uZ7Q==}
+     peerDependencies:
+@@ -7002,6 +7013,9 @@ packages:
+   canvas-size@2.0.0:
+     resolution: {integrity: sha512-D7yvTTPX5ZvmocInOaRXyAsLtvjy7nctyfA+SNOlTG0KPjsmhw/eoJJkx8risaY/VSUW04vd8UPN7j3Ge634OQ==}
+ 
++  capi-param-builder-nodejs@1.3.1:
++    resolution: {integrity: sha512-4shIh8QAZ5rQHt7hd+CAHU9uYdvEmUnn//gxJT5NFP+KZCWpajLmeWb49QBp0s21xmRxKDVVZb1jpTiJeFATcg==}
++
+   caseless@0.12.0:
+     resolution: {integrity: sha512-4tYFyifaFfGacoiObjJegolkwSU4xQNGbVgUiNYVUxbQ2x2lUsFvY4hVgVzGiIe6WLOPqycWXA40l+PWsxthUw==}
+ 
+@@ -8377,8 +8391,8 @@ packages:
+     resolution: {integrity: sha512-11Ndz7Nv+mvAC1j0ktTa7fAb0vLyGGX+rMHNBYQviQDGU0Hw7lhctJANqbPhu9nV9/izT/IntTgZ7Im/9LJs9g==}
+     engines: {'0': node >=0.6.0}
+ 
+-  facebook-nodejs-business-sdk@23.0.1:
+-    resolution: {integrity: sha512-mTiAqnnNIlm1yMcSJtdYH4tt9L2LqjCEfi4oMZ9h9qhx1/dOUEchr3iM0+RF/KV0eC2+0zPOfNFXsfp6diHOxg==}
++  facebook-nodejs-business-sdk@26.0.1:
++    resolution: {integrity: sha512-j0wC88izWMHRb6KZZwI6U9jUYP8ywwCqRW4mCicZMhEumkXmjWOSFU8vYFVbyh8FH7fo2XtGz//7FQoV9FReZA==, tarball: https://npm.quantum-forge.io/facebook-nodejs-business-sdk/-/facebook-nodejs-business-sdk-26.0.1.tgz}
+ 
+   fast-copy@3.0.2:
+     resolution: {integrity: sha512-dl0O9Vhju8IrcLndv2eU4ldt1ftXMqqfgN4H1cpmGV7P6jeB9FwpN9a2c8DPGE1Ys88rNUJVYDHq73CGAGOPfQ==}
+@@ -8605,6 +8619,10 @@ packages:
+     resolution: {integrity: sha512-8RipRLol37bNs2bhoV67fiTEvdTrbMUYcFTiy3+wuuOnUog2QBHCZWXDRijWQfAkhBj2Uf5UnVaiWwA5vdd82w==}
+     engines: {node: '>= 6'}
+ 
++  form-data@4.0.6:
++    resolution: {integrity: sha512-vKatAh4SlVfgbv+YtmhiRjhEMJsYpsG1Y2rMQtR+SVSbytsSD1YGzDIcrAJmdFec88u/+VoGmxnl+80gL1tRCQ==}
++    engines: {node: '>= 6'}
++
+   formdata-node@4.4.1:
+     resolution: {integrity: sha512-0iirZp3uVDjVGt9p49aTaqjk84TrglENEDuqfdlZQ1roC9CWlPk6Avf8EEnZNcAqPonwkG35x4n3ww/1THYAeQ==}
+     engines: {node: '>= 12.20'}
+@@ -8943,6 +8961,10 @@ packages:
+     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
+     engines: {node: '>= 0.4'}
+ 
++  hasown@2.0.4:
++    resolution: {integrity: sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A==}
++    engines: {node: '>= 0.4'}
++
+   he@1.2.0:
+     resolution: {integrity: sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==}
+     hasBin: true
+@@ -13591,8 +13613,8 @@ packages:
+   zod@4.1.11:
+     resolution: {integrity: sha512-WPsqwxITS2tzx1bzhIKsEs19ABD5vmCVa4xBo2tq/SrV4RNZtfws1EnCWQXM6yh8bD08a1idvkB5MZSBiZsjwg==}
+ 
+-  zod@4.1.13:
+-    resolution: {integrity: sha512-AvvthqfqrAhNH9dnfmrfKzX5upOdjUVJYFqNSlkmGf64gRaTzlPwz99IHYnVs28qYAybvAlBV+H7pn0saFY4Ig==}
++  zod@4.5.4:
++    resolution: {integrity: sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==}
+ 
+   zustand@4.5.7:
+     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
+@@ -18762,12 +18784,16 @@ snapshots:
+       dequal: 2.0.3
+       react: 19.1.0
+ 
+-  '@rileyseaburg/facebook-business-api-sdk@1.4.0':
++  '@rileyseaburg/facebook-business-api-sdk@1.4.1(typescript@5.6.3)':
+     dependencies:
+-      axios: 1.15.0
+-      zod: 4.1.13
++      axios: 1.20.0
++      facebook-nodejs-business-sdk: 26.0.1
++      zod: 4.5.4
++    optionalDependencies:
++      typescript: 5.6.3
+     transitivePeerDependencies:
+       - debug
++      - supports-color
+ 
+   '@rileyseaburg/tiktok-business-api-sdk@7.1.1(@opentelemetry/api@1.9.0)(ws@8.18.3)':
+     dependencies:
+@@ -20663,6 +20689,16 @@ snapshots:
+     transitivePeerDependencies:
+       - debug
+ 
++  axios@1.20.0:
++    dependencies:
++      follow-redirects: 1.16.0
++      form-data: 4.0.6
++      https-proxy-agent: 5.0.1
++      proxy-from-env: 2.1.0
++    transitivePeerDependencies:
++      - debug
++      - supports-color
++
+   b4a@1.7.3: {}
+ 
+   babel-jest@29.7.0(@babel/core@7.28.4):
+@@ -21076,6 +21112,8 @@ snapshots:
+ 
+   canvas-size@2.0.0: {}
+ 
++  capi-param-builder-nodejs@1.3.1: {}
++
+   caseless@0.12.0: {}
+ 
+   chai@5.3.3:
+@@ -22492,9 +22530,10 @@ snapshots:
+ 
+   extsprintf@1.3.0: {}
+ 
+-  facebook-nodejs-business-sdk@23.0.1:
++  facebook-nodejs-business-sdk@26.0.1:
+     dependencies:
+-      axios: 1.15.0
++      axios: 1.20.0
++      capi-param-builder-nodejs: 1.3.1
+       currency-codes: 1.5.1
+       email-validator: 2.0.4
+       iso-3166-1: 2.1.1
+@@ -22502,6 +22541,7 @@ snapshots:
+       mixwith: 0.1.1
+     transitivePeerDependencies:
+       - debug
++      - supports-color
+ 
+   fast-copy@3.0.2: {}
+ 
+@@ -22797,6 +22837,14 @@ snapshots:
+       hasown: 2.0.2
+       mime-types: 2.1.35
+ 
++  form-data@4.0.6:
++    dependencies:
++      asynckit: 0.4.0
++      combined-stream: 1.0.8
++      es-set-tostringtag: 2.1.0
++      hasown: 2.0.4
++      mime-types: 2.1.35
++
+   formdata-node@4.4.1:
+     dependencies:
+       node-domexception: 1.0.0
+@@ -23221,6 +23269,10 @@ snapshots:
+     dependencies:
+       function-bind: 1.1.2
+ 
++  hasown@2.0.4:
++    dependencies:
++      function-bind: 1.1.2
++
+   he@1.2.0: {}
+ 
+   heap-js@2.7.1: {}
+@@ -23439,7 +23491,7 @@ snapshots:
+   internal-slot@1.1.0:
+     dependencies:
+       es-errors: 1.3.0
+-      hasown: 2.0.2
++      hasown: 2.0.4
+       side-channel: 1.1.0
+ 
+   internmap@1.0.1: {}
+@@ -23567,7 +23619,7 @@ snapshots:
+       call-bound: 1.0.4
+       gopd: 1.2.0
+       has-tostringtag: 1.0.2
+-      hasown: 2.0.2
++      hasown: 2.0.4
+ 
+   is-set@2.0.3: {}
+ 
+@@ -28492,7 +28544,7 @@ snapshots:
+ 
+   zod@4.1.11: {}
+ 
+-  zod@4.1.13: {}
++  zod@4.5.4: {}
+ 
+   zustand@4.5.7(@types/react@19.1.13)(immer@11.0.0)(react@19.1.0):
+     dependencies:
+diff --git a/pnpm-workspace.yaml b/pnpm-workspace.yaml
+index 6d41ceb109..38766031eb 100644
+--- a/pnpm-workspace.yaml
++++ b/pnpm-workspace.yaml
+@@ -16,6 +16,7 @@ forceLegacyDeploy: true
+ overrides:
+   baseline-browser-mapping: 2.10.27
+   caniuse-lite: 1.0.30001792
++  facebook-nodejs-business-sdk: https://npm.quantum-forge.io/facebook-nodejs-business-sdk/-/facebook-nodejs-business-sdk-26.0.1.tgz
+ 
+ ignoredBuiltDependencies:
+   - '@ffmpeg-installer/linux-x64'
+diff --git a/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/components/FacebookAudiences.tsx b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/components/FacebookAudiences.tsx
+new file mode 100644
+index 0000000000..abfec19cc9
+--- /dev/null
++++ b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/components/FacebookAudiences.tsx
+@@ -0,0 +1,58 @@
++import type { CampaignConfig } from '../types'
++import { useFacebookAudiences } from '../hooks/useFacebookAudiences'
++import { facebookAudienceIds } from '../utils/facebookAudienceIds'
++
++/** Include or exclude native custom/lookalike audiences belonging to the chosen account. */
++export function FacebookAudiences({ config, onUpdateConfig }: {
++  config: CampaignConfig | undefined
++  onUpdateConfig: (field: string, value: unknown) => void
++}) {
++  const { audiences, loading, error, reload } = useFacebookAudiences(config?.adAccountId)
++  const targeting: Record<string, unknown> = config?.targeting ?? {}
++  return (
++    <fieldset className="space-y-3 border-t pt-4">
++      <legend className="font-semibold">Facebook custom audiences</legend>
++      <p className="text-sm">Optional: include or exclude existing custom and lookalike audiences.
++        Unset fields retain zone-level audience defaults; use Clear to explicitly select none.
++        Geography and demographics still apply. Changing ad accounts clears these selections.</p>
++      {!config?.adAccountId && <p>Select a Facebook ad account first.</p>}
++      {loading && <p role="status">Loading Facebook audiences…</p>}
++      {error && <p role="alert">{error}</p>}
++      <button type="button" onClick={reload} disabled={loading || !config?.adAccountId}
++        className="rounded border px-3 py-1">Refresh audiences</button>
++      {!loading && !error && config?.adAccountId && audiences.length === 0 && (
++        <p>No custom audiences were returned for this account.</p>
++      )}
++      <div className="grid gap-4 sm:grid-cols-2">
++        {(['custom_audiences', 'excluded_custom_audiences'] as const).map(field => {
++          const selected = facebookAudienceIds(targeting[field])
++          const opposite = field === 'custom_audiences'
++            ? 'excluded_custom_audiences' : 'custom_audiences'
++          const excluded = facebookAudienceIds(targeting[opposite])
++          const unavailable = selected.filter(id => !audiences.some(audience => audience.id === id))
++          return <label key={field} className="text-sm">
++            {field === 'custom_audiences' ? 'Include audiences' : 'Exclude audiences'}
++            <select multiple size={5} value={selected} disabled={loading || Boolean(error) || !config?.adAccountId}
++              className="w-full rounded border p-2 dark:bg-gray-700 dark:text-white"
++              onChange={event => onUpdateConfig('targeting', { ...targeting,
++                [field]: Array.from(event.target.selectedOptions, option => ({ id: option.value })),
++              })}>
++              {audiences.map(audience => <option key={audience.id} value={audience.id}
++                disabled={excluded.includes(audience.id)}>{audience.name} ({audience.type})</option>)}
++              {unavailable.map(id => <option key={id} value={id}>{id} (not in loaded list)</option>)}
++            </select>
++            {targeting[field] === undefined && <span className="block text-xs">
++              No campaign override; zone-level defaults apply.
++            </span>}
++            <button type="button" className="underline"
++              onClick={() => onUpdateConfig('targeting', { ...targeting, [field]: [] })}>
++              Clear {field === 'custom_audiences' ? 'inclusions' : 'exclusions'}
++            </button>
++          </label>
++        })}
++      </div>
++      <p className="text-xs">Shows up to 100 audiences per lookup. Hold Ctrl or Command to select
++        multiple. Saved audiences are not custom-audience IDs and are not listed here.</p>
++    </fieldset>
++  )
++}
+\ No newline at end of file
+diff --git a/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/components/FacebookDemographics.tsx b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/components/FacebookDemographics.tsx
+new file mode 100644
+index 0000000000..66ebff7ecd
+--- /dev/null
++++ b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/components/FacebookDemographics.tsx
+@@ -0,0 +1,53 @@
++import type { CampaignConfig } from '../types'
++
++const ages = Array.from({ length: 48 }, (_, index) => index + 18)
++const selectClass = 'w-full rounded-md border p-2 dark:bg-gray-700 dark:text-white'
++
++/** Explicit adult demographic selections stored in the provider's targeting shape. */
++export function FacebookDemographics({ config, onUpdateConfig }: {
++  config: CampaignConfig | undefined
++  onUpdateConfig: (field: string, value: unknown) => void
++}) {
++  const targeting: Record<string, unknown> = config?.targeting ?? {}
++  const update = (field: string, value: unknown) =>
++    onUpdateConfig('targeting', { ...targeting, [field]: value })
++  const genders = targeting.genders
++  const gender = Array.isArray(genders)
++    ? genders.length === 1 ? String(genders[0]) : 'all' : ''
++  return (
++    <fieldset className="space-y-3 border-t pt-4">
++      <legend className="font-semibold">Facebook age and gender targeting</legend>
++      <p className="text-sm">Choose who to target within your selected geographic areas.
++        This wizard targets adults; maximum age 65 means 65+.</p>
++      <div className="grid gap-3 sm:grid-cols-3">
++        {(['age_min', 'age_max'] as const).map(field => (
++          <label key={field} className="text-sm">
++            {field === 'age_min' ? 'Minimum age' : 'Maximum age'}
++            <select className={selectClass} required
++              value={typeof targeting[field] === 'number' ? targeting[field] : ''}
++              onChange={event => update(field, event.target.value === ''
++                ? undefined : Number(event.target.value))}>
++              <option value="">Select age</option>
++              {ages.map(age => <option key={age} value={age} disabled={
++                field === 'age_min' && typeof targeting.age_max === 'number'
++                  ? age > targeting.age_max
++                  : field === 'age_max' && typeof targeting.age_min === 'number'
++                    ? age < targeting.age_min : false
++              }>{age === 65 ? '65+' : age}</option>)}
++            </select>
++          </label>
++        ))}
++        <label className="text-sm">Gender
++          <select className={selectClass} required value={gender}
++            onChange={event => update('genders', event.target.value === '' ? undefined
++              : event.target.value === 'all' ? [1, 2] : [Number(event.target.value)])}>
++            <option value="">Select gender targeting</option>
++            <option value="all">All genders</option>
++            <option value="1">Men</option>
++            <option value="2">Women</option>
++          </select>
++        </label>
++      </div>
++    </fieldset>
++  )
++}
+\ No newline at end of file
+diff --git a/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/components/PlatformSettings.tsx b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/components/PlatformSettings.tsx
+index 34ceb363f3..11b5ee2df4 100644
+--- a/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/components/PlatformSettings.tsx
++++ b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/components/PlatformSettings.tsx
+@@ -7,6 +7,8 @@ import { AccountIdDisplay } from './AccountIdDisplay'
+ import type { CampaignConfig, FacebookAccountOption, FacebookAuthState } from '../types'
+ import type { TrashZone } from '@/types/zone'
+ import { FacebookObjectiveSelection } from './FacebookObjectiveSelection'
++import { FacebookDemographics } from './FacebookDemographics'
++import { FacebookAudiences } from './FacebookAudiences'
+ 
+ /** Per-platform settings and update callbacks.
+  * @example `<PlatformSettings {...props} />` */
+@@ -38,6 +40,8 @@ export const PlatformSettings: React.FC<PlatformSettingsProps> = ({
+         : <ObjectiveSelector platform={platform} value={config?.objective || ''} onChange={v => onUpdateConfig('objective', v)} />}
+       {platform === 'facebook' && <FacebookSection config={config} facebookAccounts={facebookAccounts} facebookPages={facebookPages} loadingPages={loadingPages} facebookAuthState={facebookAuthState} onRefresh={onRefresh} onFacebookAuth={onFacebookAuth} onUpdateConfig={onUpdateConfig} />}
+       {platform === 'google' && <GoogleSection config={config} onUpdateConfig={onUpdateConfig} />}
++      {platform === 'facebook' && <FacebookDemographics config={config} onUpdateConfig={onUpdateConfig} />}
++      {platform === 'facebook' && <FacebookAudiences config={config} onUpdateConfig={onUpdateConfig} />}
+       {sharedTargetingZones.length > 0 && <TargetingPreview platform={platform} zones={sharedTargetingZones} targeting={config?.targeting} />}
+     </div>
+   </div>
+diff --git a/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/hooks/useCampaignConfigs.ts b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/hooks/useCampaignConfigs.ts
+index b1f48408a5..3ba32f440b 100644
+--- a/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/hooks/useCampaignConfigs.ts
++++ b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/hooks/useCampaignConfigs.ts
+@@ -40,9 +40,18 @@ export const useCampaignConfigs = (
+   }, [])
+ 
+   const updateConfig = useCallback((platform: string, field: string, value: unknown) => {
++    const previous = configsRef.current[platform]
++    const accountChanged = platform === 'facebook' && field === 'adAccountId'
++      && String(previous?.adAccountId ?? '').replace(/^act_/, '')
++        !== String(value ?? '').replace(/^act_/, '')
+     const updated = {
+       ...configsRef.current,
+-      [platform]: { ...(configsRef.current[platform] || {}), [field]: value },
++      [platform]: {
++        ...previous, [field]: value,
++        ...(accountChanged && { targeting: {
++          ...previous?.targeting, custom_audiences: [], excluded_custom_audiences: [],
++        } }),
++      },
+     }
+     configsRef.current = updated
+     setConfigs(updated)
+@@ -50,4 +59,4 @@ export const useCampaignConfigs = (
+   }, [])
+ 
+   return { configs, configsRef, updateConfig, setConfigsDirect, onUpdateRef }
+-}
++}
+\ No newline at end of file
+diff --git a/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/hooks/useFacebookAudiences.ts b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/hooks/useFacebookAudiences.ts
+new file mode 100644
+index 0000000000..3e223e96d3
+--- /dev/null
++++ b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/hooks/useFacebookAudiences.ts
+@@ -0,0 +1,51 @@
++import { useEffect, useState } from 'react'
++import { facebookListAudiences } from '@/client-typescript-api/sdk.gen'
++import type { FacebookListAudiencesResponse } from '@/client-typescript-api/types.gen'
++import { getToken } from '@/lib/keycloak'
++
++type Audience = FacebookListAudiencesResponse['audiences'][number]
++type State = { accountId?: string; audiences: Audience[]; loading: boolean; error?: string }
++
++/** Load only real, account-scoped native audiences; never substitute a mock catalogue. */
++export function useFacebookAudiences(accountId?: string) {
++  const [attempt, setAttempt] = useState(0)
++  const [state, setState] = useState<State>({ audiences: [], loading: false })
++  useEffect(() => {
++    const controller = new AbortController()
++    if (!accountId) {
++      setState({ audiences: [], loading: false })
++      return () => controller.abort()
++    }
++    setState({ accountId, audiences: [], loading: true })
++    const load = async () => {
++      try {
++        const token = getToken()
++        if (!token) throw new Error('Sign in to load Facebook audiences.')
++        const result = await facebookListAudiences({
++          body: { accountId, limit: 100, includeSaved: false },
++          headers: { Authorization: `Bearer ${token}` },
++          credentials: 'include', signal: controller.signal,
++        })
++        if (result.error || !result.data) {
++          throw new Error(`Facebook audience lookup failed (HTTP ${result.response.status}).`)
++        }
++        if (result.data.accountId.replace(/^act_/, '') !== accountId.replace(/^act_/, '')) {
++          throw new Error('Facebook returned audiences for a different ad account.')
++        }
++        if (!controller.signal.aborted) setState({ accountId, loading: false,
++          audiences: result.data.audiences.filter(audience => audience.type !== 'saved'),
++        })
++      } catch (error) {
++        if (!controller.signal.aborted) setState({ accountId, audiences: [], loading: false,
++          error: error instanceof Error ? error.message : 'Facebook audience lookup failed.',
++        })
++      }
++    }
++    void load()
++    return () => controller.abort()
++  }, [accountId, attempt])
++  const current = state.accountId === accountId ? state : {
++    accountId, audiences: [], loading: Boolean(accountId),
++  }
++  return { ...current, reload: () => setAttempt(value => value + 1) }
++}
+\ No newline at end of file
+diff --git a/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/hooks/useSharedTargeting.ts b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/hooks/useSharedTargeting.ts
+index 58030235b7..e159248c3f 100644
+--- a/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/hooks/useSharedTargeting.ts
++++ b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/hooks/useSharedTargeting.ts
+@@ -4,6 +4,7 @@ import type { CampaignData, CampaignConfig } from '../types'
+ import { buildPlatformTargeting } from '../utils'
+ import { generateDefaultCampaignName } from '../utils/campaignName'
+ import { compactCampaignTargetingZones, compactTargetingZones } from './targetingZoneSnapshot'
++import { replaceGeographicTargeting } from '../utils/replaceGeographicTargeting'
+ 
+ const ZONE_TYPES: readonly TrashZone['zone_type'][] = [
+   'INDUSTRIAL', 'RESIDENTIAL', 'AIRPORT', 'DOWNTOWN', 'COMMERCIAL',
+@@ -14,7 +15,9 @@ function normalizeTargetingZone(zone: NonNullable<CampaignData['targetingZones']
+   const zoneType = ZONE_TYPES.find((candidate) => candidate === zone.zone_type)
+     ?? 'SERVICE_AREA'
+   return {
+-    ...zone, zone_type: zoneType, geometry: zone.geometry ?? {},
++    ...zone, zone_type: zoneType, description: zone.description ?? null,
++    // Persisted JSON snapshot geometry uses the generated zone JSON type on maps.
++    geometry: (zone.geometry ?? {}) as TrashZone['geometry'],
+     metadata: {
+       ...(zone.metadata ?? {}),
+       created_at: '', updated_at: '', is_active: true, platform_applicability: [],
+@@ -46,7 +49,12 @@ export const useSharedTargeting = (
+       const updated = { ...prev }
+       const validPlatforms = data.platforms
+       for (const platform of validPlatforms) {
+-        updated[platform] = { ...updated[platform], targetingZones: zones, targeting: buildPlatformTargeting(zones, platform) }
++        updated[platform] = {
++          ...updated[platform], targetingZones: compactTargetingZones(zones),
++          targeting: replaceGeographicTargeting(
++            updated[platform]?.targeting, buildPlatformTargeting(zones, platform),
++          ),
++        }
+       }
+       nextCampaigns = updated
+       return updated
+diff --git a/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/utils/facebookAudienceIds.ts b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/utils/facebookAudienceIds.ts
+new file mode 100644
+index 0000000000..b607e32cc2
+--- /dev/null
++++ b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/utils/facebookAudienceIds.ts
+@@ -0,0 +1,9 @@
++/** Read Meta audience references without inventing provider IDs from local records. */
++export function facebookAudienceIds(value: unknown): string[] {
++  if (!Array.isArray(value)) return []
++  return value.flatMap(entry => {
++    if (!entry || typeof entry !== 'object') return []
++    const id = (entry as Record<string, unknown>).id
++    return typeof id === 'string' ? [id] : []
++  })
++}
+\ No newline at end of file
+diff --git a/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/utils/replaceGeographicTargeting.ts b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/utils/replaceGeographicTargeting.ts
+new file mode 100644
+index 0000000000..ef9ee9d6df
+--- /dev/null
++++ b/spotless-web/ui/components/ads/unified/steps/CampaignConfiguration/utils/replaceGeographicTargeting.ts
+@@ -0,0 +1,17 @@
++import type { PlatformTargeting } from '../types'
++
++const geographicFields = [
++  'geo_locations', 'excluded_geo_locations', 'proximity_targets',
++  'excluded_proximity_targets', 'proximity', 'geo_targets', 'location_ids',
++  'location_type', 'locations',
++]
++
++/** Replace geography without erasing audience inclusions, exclusions or demographics. */
++export function replaceGeographicTargeting(
++  current: PlatformTargeting | undefined,
++  geography: PlatformTargeting | undefined,
++): PlatformTargeting {
++  const targeting: PlatformTargeting & Record<string, unknown> = { ...current }
++  for (const key of geographicFields) delete targeting[key]
++  return { ...targeting, ...geography }
++}
+\ No newline at end of file
+diff --git a/spotless-web/ui/components/ads/unified/steps/ReviewAndCreate.tsx b/spotless-web/ui/components/ads/unified/steps/ReviewAndCreate.tsx
+index 7fa6203bff..d17ac232a8 100644
+--- a/spotless-web/ui/components/ads/unified/steps/ReviewAndCreate.tsx
++++ b/spotless-web/ui/components/ads/unified/steps/ReviewAndCreate.tsx
+@@ -1,5 +1,6 @@
+ import { deriveReviewData } from './ReviewAndCreate/deriveReviewData'
+ import { ReviewSummary } from './ReviewAndCreate/ReviewSummary'
++import { FacebookAudienceSummary } from './ReviewAndCreate/FacebookAudienceSummary'
+ import { FacebookAdVisualizer } from './ReviewAndCreate/FacebookAdVisualizer'
+ import { GoogleVideoAdVisualizer } from './ReviewAndCreate/GoogleVideoAdVisualizer'
+ import { TikTokVideoAdVisualizer } from './ReviewAndCreate/TikTokVideoAdVisualizer'
+@@ -30,6 +31,7 @@ export function ReviewAndCreate({ data }: { data: WizardData }) {
+     <div className="space-y-6">
+       <ReviewHeader />
+       <ReviewSummary data={activeData} review={review} />
++      <FacebookAudienceSummary data={activeData} />
+       {review.platforms.includes('facebook') && (
+         <FacebookAdVisualizer
+           data={activeData}
+diff --git a/spotless-web/ui/components/ads/unified/steps/ReviewAndCreate/FacebookAudienceSummary.tsx b/spotless-web/ui/components/ads/unified/steps/ReviewAndCreate/FacebookAudienceSummary.tsx
+new file mode 100644
+index 0000000000..a5d9b09deb
+--- /dev/null
++++ b/spotless-web/ui/components/ads/unified/steps/ReviewAndCreate/FacebookAudienceSummary.tsx
+@@ -0,0 +1,33 @@
++import type { WizardData } from '../../stores/wizardData'
++import { facebookAudienceIds } from '../CampaignConfiguration/utils/facebookAudienceIds'
++import { facebookAudienceIssues } from '../../validation/facebookAudienceIssues'
++import { SummaryCard } from './SummaryCard'
++
++/** Review the same native audience fields sent in the canonical launch snapshot. */
++export function FacebookAudienceSummary({ data }: { data: WizardData }) {
++  if (!data.platforms.includes('facebook')) return null
++  const targeting: Record<string, unknown> = data.campaigns.facebook?.targeting ?? {}
++  const included = facebookAudienceIds(targeting.custom_audiences)
++  const excluded = facebookAudienceIds(targeting.excluded_custom_audiences)
++  const genders = targeting.genders
++  const gender = !Array.isArray(genders) ? 'Not selected'
++    : genders.length === 1 ? genders[0] === 1 ? 'Men' : 'Women' : 'All genders'
++  const age = (value: unknown) => typeof value === 'number'
++    ? value === 65 ? '65+' : String(value) : 'Not selected'
++  const issues = facebookAudienceIssues(targeting)
++  const audienceLabel = (field: string, ids: string[]) => targeting[field] === undefined
++    ? 'No campaign override (zone-level defaults apply)' : ids.join(', ') || 'None'
++  return (
++    <SummaryCard title="Facebook audience" icon="🎯">
++      <p>Age: {age(targeting.age_min)} – {age(targeting.age_max)}</p>
++      <p>Gender: {gender}</p>
++      <p className="break-all">Included audience IDs: {audienceLabel('custom_audiences', included)}</p>
++      <p className="break-all">Excluded audience IDs: {audienceLabel('excluded_custom_audiences', excluded)}</p>
++      <p className="text-xs">These selections apply within each ad set’s geographic target.
++        Meta may expand delivery where its audience expansion settings apply.</p>
++      {issues.length > 0 && <ul role="alert" className="text-red-600">
++        {issues.map(issue => <li key={issue}>{issue}</li>)}
++      </ul>}
++    </SummaryCard>
++  )
++}
+\ No newline at end of file
+diff --git a/spotless-web/ui/components/ads/unified/steps/bulk-progress/assertLaunchInputs.ts b/spotless-web/ui/components/ads/unified/steps/bulk-progress/assertLaunchInputs.ts
+index 73dc929090..62c09e7566 100644
+--- a/spotless-web/ui/components/ads/unified/steps/bulk-progress/assertLaunchInputs.ts
++++ b/spotless-web/ui/components/ads/unified/steps/bulk-progress/assertLaunchInputs.ts
+@@ -1,9 +1,14 @@
+ import type { WizardData } from '../../stores/wizardData'
++import { facebookAudienceIssues } from '../../validation/facebookAudienceIssues'
+ 
+ /** Retains preflight copy/media checks before any platform starts creating objects.
+  * @example `assertLaunchInputs(data);`
+  */
+ export function assertLaunchInputs(data: WizardData): void {
++  if (data.platforms.includes('facebook')) {
++    const issues = facebookAudienceIssues(data.campaigns.facebook?.targeting)
++    if (issues.length) throw new Error(issues.join(' '))
++  }
+   for (const platform of data.platforms) {
+     if (!data.mediaAssets.some(asset => asset.platform.includes(platform))) {
+       throw new Error(`Select at least one media asset for ${platform}.`)
+diff --git a/spotless-web/ui/components/ads/unified/steps/facebookWizardValidation.ts b/spotless-web/ui/components/ads/unified/steps/facebookWizardValidation.ts
+index bdd45852e0..82e07213ed 100644
+--- a/spotless-web/ui/components/ads/unified/steps/facebookWizardValidation.ts
++++ b/spotless-web/ui/components/ads/unified/steps/facebookWizardValidation.ts
+@@ -1,4 +1,5 @@
+ import type { WizardData } from '../stores'
++import { facebookAudienceIssues } from '../validation/facebookAudienceIssues'
+ import {
+   assetTargetsPlatform,
+ } from './mediaPlacementRules'
+@@ -26,6 +27,7 @@ export function getFacebookCampaignBlockingIssues(
+   if (!Number.isFinite(Number(campaign.bidAmount)) || Number(campaign.bidAmount) <= 0) {
+     issues.push('Facebook bid amount must be greater than $0.')
+   }
++  issues.push(...facebookAudienceIssues(campaign.targeting))
+   return issues
+ }
+ 
+diff --git a/spotless-web/ui/components/ads/unified/validation/facebookAudienceIssues.ts b/spotless-web/ui/components/ads/unified/validation/facebookAudienceIssues.ts
+new file mode 100644
+index 0000000000..6a08df8a3c
+--- /dev/null
++++ b/spotless-web/ui/components/ads/unified/validation/facebookAudienceIssues.ts
+@@ -0,0 +1,37 @@
++/** Validate explicit demographics and native audience IDs before wizard submission. */
++export function facebookAudienceIssues(value: unknown): string[] {
++  const targeting = value && typeof value === 'object'
++    ? value as Record<string, unknown> : {}
++  const issues: string[] = []
++  const min = targeting.age_min
++  const max = targeting.age_max
++  const validAge = (age: unknown): age is number =>
++    typeof age === 'number' && Number.isInteger(age) && age >= 18 && age <= 65
++  if (!validAge(min) || !validAge(max)) {
++    issues.push('Facebook: select minimum and maximum ages (18–65+).')
++  } else if (min > max) {
++    issues.push('Facebook: minimum age cannot exceed maximum age.')
++  }
++  const genders = targeting.genders
++  if (!Array.isArray(genders) || genders.some(gender => gender !== 1 && gender !== 2)) {
++    issues.push('Facebook: choose All genders, Men, or Women.')
++  }
++  const audienceIds = (field: string): string[] => {
++    const values = targeting[field]
++    if (values === undefined) return []
++    if (!Array.isArray(values)) {
++      issues.push(`Facebook: ${field} must contain native audience IDs.`)
++      return []
++    }
++    return values.flatMap(value => {
++      if (value && typeof value === 'object' && typeof value.id === 'string'
++        && /^\d+$/.test(value.id)) return [value.id]
++      issues.push(`Facebook: ${field} contains an invalid audience ID.`)
++      return []
++    })
++  }
++  const included = audienceIds('custom_audiences')
++  const excluded = audienceIds('excluded_custom_audiences')
++  if (included.some(id => excluded.includes(id))) issues.push('Facebook: an audience cannot be both included and excluded.')
++  return issues
++}
+\ No newline at end of file
+diff --git a/src/controllers/api/template_preview/relational_query.rs b/src/controllers/api/template_preview/relational_query.rs
+index c0b3e82a10..d3dcabd6af 100644
+--- a/src/controllers/api/template_preview/relational_query.rs
++++ b/src/controllers/api/template_preview/relational_query.rs
+@@ -32,21 +32,18 @@ pub async fn load_component_rows(template_id: Uuid) -> Result<Vec<ComponentRow>,
+     let pool = crate::db_pool::pool().await;
+     let placements = list_template_components(pool).await?;
+     let mut rows = Vec::new();
+-    for placement in placements.into_iter().filter(|row| row.template_id == template_id) {
+-        let component = match placement.component_id {
+-            Some(id) => find_components(pool, id).await?,
+-            None => None,
+-        };
+-        let version = match placement.component_version_id {
+-            Some(id) => find_component_versions(pool, id).await?,
+-            None => None,
+-        };
++    for placement in placements
++        .into_iter()
++        .filter(|row| row.template_id == template_id)
++    {
++        let component = find_components(pool, placement.component_id).await?;
++        let version = find_component_versions(pool, placement.component_version_id).await?;
+         let valid = component.as_ref().filter(|component| {
+             component.registry_type_key.as_deref() == Some(&placement.component_type)
+         });
+-        let valid_version = version.as_ref().filter(|version| {
+-            valid.is_some_and(|component| version.component_id == component.id)
+-        });
++        let valid_version = version
++            .as_ref()
++            .filter(|version| valid.is_some_and(|component| version.component_id == component.id));
+         let registry = find_component_type_registry(pool, placement.component_type.clone()).await?;
+         rows.push(ComponentRow {
+             id: placement.id,
+@@ -63,4 +60,4 @@ pub async fn load_component_rows(template_id: Uuid) -> Result<Vec<ComponentRow>,
+     }
+     rows.sort_by_key(|row| (std::cmp::Reverse(row.depth), row.order, row.id));
+     Ok(rows)
+-}
+\ No newline at end of file
++}
+diff --git a/src/controllers/checkout/exterior_booking_release.rs b/src/controllers/checkout/exterior_booking_release.rs
+new file mode 100644
+index 0000000000..fb2dbc213d
+--- /dev/null
++++ b/src/controllers/checkout/exterior_booking_release.rs
+@@ -0,0 +1,40 @@
++use actix_web::{post, web, HttpRequest, HttpResponse, Responder};
++use serde::Deserialize;
++use crate::controllers::checkout::exterior_booking::{booking_credential, proxy_booking_request};
++
++/// The exact arrival window being declined by the customer.
++///
++/// # Examples
++/// ```
++/// use launch_platform::controllers::checkout::exterior_booking_release::ReleaseBookingRequest;
++/// let body: ReleaseBookingRequest = serde_json::from_str(
++///     r#"{"acknowledgedStart":"2026-09-08T14:00:00Z"}"#,
++/// ).unwrap();
++/// assert!(body.acknowledged_start.ends_with('Z'));
++/// ```
++#[derive(Deserialize)]
++pub struct ReleaseBookingRequest {
++    #[serde(rename = "acknowledgedStart")]
++    pub acknowledged_start: String,
++}
++
++/// Proxies customer-authorized release to the owning booking/payment workflow.
++/// No cancellation, availability, or payment policy is duplicated in this handler.
++///
++/// # Examples
++/// ```no_run
++/// let app = actix_web::App::new().configure(launch_platform::routes::api::register);
++/// ```
++#[post("/exterior-booking/{quote_id}/release")]
++pub async fn release_exterior_booking(
++    quote_id: web::Path<i64>, request: HttpRequest,
++    payload: web::Json<ReleaseBookingRequest>,
++) -> impl Responder {
++    let Some(credential) = booking_credential(&request) else {
++        return HttpResponse::Unauthorized().finish();
++    };
++    proxy_booking_request("/orpc/exterior-quotes/release-booking", serde_json::json!({
++        "quoteRequestId": *quote_id, "credential": credential,
++        "acknowledgedStart": payload.acknowledged_start,
++    })).await
++}
+\ No newline at end of file
+diff --git a/src/controllers/checkout/mod.rs b/src/controllers/checkout/mod.rs
+index ab947f999e..2e79944850 100644
+--- a/src/controllers/checkout/mod.rs
++++ b/src/controllers/checkout/mod.rs
+@@ -24,6 +24,8 @@ pub use analytics::*;
+ pub use errors::*;
+ pub use exterior_booking::*;
+ pub use exterior_booking_charge::authorize_exterior_booking_charge;
++pub mod exterior_booking_release;
++pub use exterior_booking_release::release_exterior_booking;
+ pub use exterior_intent::*;
+ pub use exterior_token::*;
+ pub use exterior_trust::*;
+@@ -31,4 +33,4 @@ pub use handle_response::*;
+ pub use missing_parameters::*;
+ pub use payments::*;
+ pub use stripe_publishable_key::*;
+-pub use validation::*;
++pub use validation::*;
+\ No newline at end of file
+diff --git a/src/controllers/driver/performance/convert.rs b/src/controllers/driver/performance/convert.rs
+index 96ed27609d..56a825ab3f 100644
+--- a/src/controllers/driver/performance/convert.rs
++++ b/src/controllers/driver/performance/convert.rs
+@@ -1,11 +1,6 @@
+ use super::responses::{DailyMetric, DriverRating};
+ use crate::db::models::{DriverPerformanceMetrics, DriverPerformanceRatings};
+-use rust_decimal::prelude::ToPrimitive;
+-use rust_decimal::Decimal;
+-
+-pub fn i64_to_i32(value: i64) -> i32 {
+-    i32::try_from(value).unwrap_or(if value < 0 { i32::MIN } else { i32::MAX })
+-}
++use rust_decimal::{prelude::ToPrimitive, Decimal};
+ 
+ pub fn decimal_to_f64(value: &Decimal) -> f64 {
+     value.to_f64().unwrap_or(0.0)
+@@ -21,26 +16,26 @@ pub fn round_two(value: f64) -> f64 {
+ 
+ pub fn rating_response(row: &DriverPerformanceRatings) -> DriverRating {
+     DriverRating {
+-        id: i64_to_i32(row.id),
+-        driver_id: i64_to_i32(row.driver_id),
++        id: row.id,
++        driver_id: row.driver_id,
+         rating: row.rating,
+         comment: row.comment.clone(),
+-        rated_at: row.rated_at.to_string(),
++        rated_at: row
++            .rated_at
++            .map(|value| value.to_string())
++            .unwrap_or_default(),
+     }
+ }
+ 
+ pub fn daily_metric(row: &DriverPerformanceMetrics) -> DailyMetric {
+     DailyMetric {
+-        id: i64_to_i32(row.id),
+-        driver_id: i64_to_i32(row.driver_id),
++        id: row.id,
++        driver_id: row.driver_id,
+         metric_date: row.metric_date.to_string(),
+-        stops_completed: row.stops_completed,
+-        stops_total: row.stops_total,
+-        on_time_stops: Some(row.on_time_stops),
+-        avg_stop_duration_minutes: row
+-            .avg_stop_duration_minutes
+-            .as_ref()
+-            .map(decimal_to_f64),
++        stops_completed: row.stops_completed.unwrap_or_default(),
++        stops_total: row.stops_total.unwrap_or_default(),
++        on_time_stops: row.on_time_stops,
++        avg_stop_duration_minutes: row.avg_stop_duration_minutes.as_ref().map(decimal_to_f64),
+         total_distance_km: row.total_distance_km.as_ref().map(decimal_to_f64),
+         customer_rating: row.customer_rating.as_ref().map(decimal_to_f64),
+         notes: row.notes.clone(),
+diff --git a/src/controllers/driver/performance/metric_sync.rs b/src/controllers/driver/performance/metric_sync.rs
+index 0b1ac13abc..a8cfcd5f16 100644
+--- a/src/controllers/driver/performance/metric_sync.rs
++++ b/src/controllers/driver/performance/metric_sync.rs
+@@ -1,7 +1,5 @@
+ use crate::db::models::PatchDriverPerformanceMetrics;
+-use crate::db::models::{
+-    DriverPerformanceRatings, NewDriverPerformanceMetrics,
+-};
++use crate::db::models::{DriverPerformanceRatings, NewDriverPerformanceMetrics};
+ use crate::db::repositories::{
+     create_driver_performance_metrics, list_driver_performance_metrics,
+     list_driver_performance_ratings, update_driver_performance_metrics,
+@@ -13,13 +11,12 @@ use std::str::FromStr;
+ 
+ pub async fn sync_today_metric(
+     pool: &PgPool,
+-    driver_id: i64,
++    driver_id: i32,
+     fallback_rating: i32,
+ ) -> Result<(), sqlx::Error> {
+     let today = Local::now().date_naive();
+     let ratings = list_driver_performance_ratings(pool).await?;
+-    let average = today_average(&ratings, driver_id, today)
+-        .unwrap_or(fallback_rating as f64);
++    let average = today_average(&ratings, driver_id, today).unwrap_or(fallback_rating as f64);
+     let rating = decimal_from_average(average);
+     let metrics = list_driver_performance_metrics(pool).await?;
+ 
+@@ -29,29 +26,30 @@ pub async fn sync_today_metric(
+     {
+         let patch = PatchDriverPerformanceMetrics {
+             customer_rating: Some(Some(rating)),
+-            updated_at: Some(Utc::now()),
++            updated_at: Some(Some(Utc::now())),
+             ..Default::default()
+         };
+         let _ = update_driver_performance_metrics(pool, row.id, patch).await?;
+     } else {
+-        let _ = create_driver_performance_metrics(
+-            pool,
+-            new_metric(driver_id, today, rating),
+-        )
+-        .await?;
++        let _ =
++            create_driver_performance_metrics(pool, new_metric(driver_id, today, rating)).await?;
+     }
+     Ok(())
+ }
+ 
+ fn today_average(
+     ratings: &[DriverPerformanceRatings],
+-    driver_id: i64,
++    driver_id: i32,
+     today: NaiveDate,
+ ) -> Option<f64> {
+     let (sum, count) = ratings
+         .iter()
+         .filter(|row| row.driver_id == driver_id)
+-        .filter(|row| row.rated_at.with_timezone(&Local).date_naive() == today)
++        .filter(|row| {
++            row.rated_at
++                .as_ref()
++                .is_some_and(|rated_at| rated_at.with_timezone(&Local).date_naive() == today)
++        })
+         .fold((0, 0usize), |(sum, count), row| {
+             (sum + row.rating, count + 1)
+         });
+@@ -59,15 +57,10 @@ fn today_average(
+ }
+ 
+ fn decimal_from_average(value: f64) -> Decimal {
+-    Decimal::from_str(&format!("{value:.2}"))
+-        .unwrap_or_else(|_| Decimal::from(0))
++    Decimal::from_str(&format!("{value:.2}")).unwrap_or_else(|_| Decimal::from(0))
+ }
+ 
+-fn new_metric(
+-    driver_id: i64,
+-    today: NaiveDate,
+-    rating: Decimal,
+-) -> NewDriverPerformanceMetrics {
++fn new_metric(driver_id: i32, today: NaiveDate, rating: Decimal) -> NewDriverPerformanceMetrics {
+     NewDriverPerformanceMetrics {
+         driver_id,
+         metric_date: today,
+@@ -79,6 +72,6 @@ fn new_metric(
+         customer_rating: Some(rating),
+         notes: None,
+         created_at: None,
+-        updated_at: Some(Utc::now()),
++        updated_at: Some(Some(Utc::now())),
+     }
+ }
+diff --git a/src/controllers/driver/performance/rating.rs b/src/controllers/driver/performance/rating.rs
+index f9df62db63..17ce11a6fa 100644
+--- a/src/controllers/driver/performance/rating.rs
++++ b/src/controllers/driver/performance/rating.rs
+@@ -15,18 +15,18 @@ pub async fn create(
+     let row = create_driver_performance_ratings(
+         pool,
+         NewDriverPerformanceRatings {
+-            driver_id: i64::from(driver_id),
+-            route_stop_id: body.route_stop_id.map(i64::from),
+-            customer_id: body.customer_id.map(i64::from),
++            driver_id,
++            route_stop_id: body.route_stop_id,
++            customer_id: body.customer_id,
+             rating,
+             comment: body.comment,
+-            rated_at: Utc::now(),
++            rated_at: Some(Some(Utc::now())),
+             created_at: None,
+         },
+     )
+     .await?;
+ 
+-    if let Err(error) = metric_sync::sync_today_metric(pool, i64::from(driver_id), rating).await {
++    if let Err(error) = metric_sync::sync_today_metric(pool, driver_id, rating).await {
+         eprintln!("Error updating driver rating metric: {error}");
+     }
+     Ok(rating_response(&row))
+diff --git a/src/controllers/driver/performance/service.rs b/src/controllers/driver/performance/service.rs
+index 23ec65947c..e3ab1a3c71 100644
+--- a/src/controllers/driver/performance/service.rs
++++ b/src/controllers/driver/performance/service.rs
+@@ -1,13 +1,8 @@
+-use super::convert;
+-use super::responses::{DailyMetric, DriverPerformanceDetail, DriverPerformanceSummary};
+-use super::responses::{DriverRating, TopPerformer};
+-use super::summaries;
+-use crate::db::models::DriverPerformanceMetrics;
+-use crate::db::repositories::{list_driver_performance_metrics, list_driver_performance_ratings};
+-use chrono::{Duration, Local};
+-use sqlx::PgPool;
++mod data;
+ 
+-const WINDOW_DAYS: i64 = 30;
++use super::responses::{DriverPerformanceDetail, DriverPerformanceSummary, TopPerformer};
++use super::summaries;
++use sqlx::PgPool;
+ 
+ pub fn normalize_metric(raw: Option<String>) -> String {
+     match raw.as_deref() {
+@@ -18,7 +13,7 @@ pub fn normalize_metric(raw: Option<String>) -> String {
+ }
+ 
+ pub async fn list_summaries(pool: &PgPool) -> Result<Vec<DriverPerformanceSummary>, sqlx::Error> {
+-    let metrics = recent_metrics(pool).await?;
++    let metrics = data::recent_metrics(pool).await?;
+     Ok(summaries::summaries(&metrics))
+ }
+ 
+@@ -26,11 +21,11 @@ pub async fn driver_detail(
+     pool: &PgPool,
+     driver_id: i32,
+ ) -> Result<Option<DriverPerformanceDetail>, sqlx::Error> {
+-    let metrics = recent_metrics(pool).await?;
++    let metrics = data::recent_metrics(pool).await?;
+     let Some(summary) = summaries::summary_for_driver(&metrics, driver_id) else {
+         return Ok(None);
+     };
+-    let ratings = match recent_ratings(pool, driver_id).await {
++    let ratings = match data::recent_ratings(pool, driver_id).await {
+         Ok(ratings) => ratings,
+         Err(error) => {
+             eprintln!("Error fetching driver ratings: {error}");
+@@ -40,7 +35,7 @@ pub async fn driver_detail(
+     Ok(Some(DriverPerformanceDetail {
+         summary,
+         ratings,
+-        daily_metrics: daily_metrics(&metrics, driver_id),
++        daily_metrics: data::daily_metrics(&metrics, driver_id),
+     }))
+ }
+ 
+@@ -49,34 +44,6 @@ pub async fn top_performers(
+     metric: &str,
+     limit: usize,
+ ) -> Result<Vec<TopPerformer>, sqlx::Error> {
+-    let metrics = recent_metrics(pool).await?;
++    let metrics = data::recent_metrics(pool).await?;
+     Ok(summaries::top_performers(&metrics, metric, limit))
+ }
+-
+-async fn recent_metrics(pool: &PgPool) -> Result<Vec<DriverPerformanceMetrics>, sqlx::Error> {
+-    let cutoff = Local::now().date_naive() - Duration::days(WINDOW_DAYS);
+-    Ok(list_driver_performance_metrics(pool)
+-        .await?
+-        .into_iter()
+-        .filter(|row| row.metric_date >= cutoff)
+-        .collect())
+-}
+-
+-async fn recent_ratings(pool: &PgPool, driver_id: i32) -> Result<Vec<DriverRating>, sqlx::Error> {
+-    let mut rows: Vec<_> = list_driver_performance_ratings(pool)
+-        .await?
+-        .into_iter()
+-        .filter(|row| row.driver_id == i64::from(driver_id))
+-        .collect();
+-    rows.sort_by(|a, b| b.rated_at.cmp(&a.rated_at));
+-    Ok(rows.iter().take(10).map(convert::rating_response).collect())
+-}
+-
+-fn daily_metrics(metrics: &[DriverPerformanceMetrics], driver_id: i32) -> Vec<DailyMetric> {
+-    let mut rows: Vec<_> = metrics
+-        .iter()
+-        .filter(|row| row.driver_id == i64::from(driver_id))
+-        .collect();
+-    rows.sort_by(|a, b| b.metric_date.cmp(&a.metric_date));
+-    rows.into_iter().map(convert::daily_metric).collect()
+-}
+diff --git a/src/controllers/driver/performance/service/data.rs b/src/controllers/driver/performance/service/data.rs
+new file mode 100644
+index 0000000000..127cdb7604
+--- /dev/null
++++ b/src/controllers/driver/performance/service/data.rs
+@@ -0,0 +1,39 @@
++use super::super::convert;
++use super::super::responses::{DailyMetric, DriverRating};
++use crate::db::models::DriverPerformanceMetrics;
++use crate::db::repositories::{list_driver_performance_metrics, list_driver_performance_ratings};
++use chrono::{Duration, Local};
++use sqlx::PgPool;
++
++const WINDOW_DAYS: i64 = 30;
++
++pub async fn recent_metrics(pool: &PgPool) -> Result<Vec<DriverPerformanceMetrics>, sqlx::Error> {
++    let cutoff = Local::now().date_naive() - Duration::days(WINDOW_DAYS);
++    Ok(list_driver_performance_metrics(pool)
++        .await?
++        .into_iter()
++        .filter(|row| row.metric_date >= cutoff)
++        .collect())
++}
++
++pub async fn recent_ratings(
++    pool: &PgPool,
++    driver_id: i32,
++) -> Result<Vec<DriverRating>, sqlx::Error> {
++    let mut rows: Vec<_> = list_driver_performance_ratings(pool)
++        .await?
++        .into_iter()
++        .filter(|row| row.driver_id == driver_id)
++        .collect();
++    rows.sort_by(|a, b| b.rated_at.cmp(&a.rated_at));
++    Ok(rows.iter().take(10).map(convert::rating_response).collect())
++}
++
++pub fn daily_metrics(metrics: &[DriverPerformanceMetrics], driver_id: i32) -> Vec<DailyMetric> {
++    let mut rows: Vec<_> = metrics
++        .iter()
++        .filter(|row| row.driver_id == driver_id)
++        .collect();
++    rows.sort_by(|a, b| b.metric_date.cmp(&a.metric_date));
++    rows.into_iter().map(convert::daily_metric).collect()
++}
+diff --git a/src/controllers/driver/performance/summaries.rs b/src/controllers/driver/performance/summaries.rs
+index a35fc0f907..e8daf25c88 100644
+--- a/src/controllers/driver/performance/summaries.rs
++++ b/src/controllers/driver/performance/summaries.rs
+@@ -1,13 +1,17 @@
+-use super::convert::{
+-    decimal_option_to_f64, decimal_to_f64, i64_to_i32, round_two,
+-};
+-use super::responses::{DriverPerformanceSummary, TopPerformer};
++mod math;
++mod ranking;
++
++pub use ranking::top_performers;
++
++use super::convert::{decimal_option_to_f64, decimal_to_f64};
++use super::responses::DriverPerformanceSummary;
+ use crate::db::models::DriverPerformanceMetrics;
++use math::{average, rate};
+ use std::collections::BTreeMap;
+ 
+ #[derive(Default)]
+ struct Totals {
+-    driver_id: i64,
++    driver_id: i32,
+     stops_completed: i32,
+     stops_total: i32,
+     on_time_stops: i32,
+@@ -19,9 +23,9 @@ struct Totals {
+ impl Totals {
+     fn add(&mut self, row: &DriverPerformanceMetrics) {
+         self.driver_id = row.driver_id;
+-        self.stops_completed += row.stops_completed;
+-        self.stops_total += row.stops_total;
+-        self.on_time_stops += row.on_time_stops;
++        self.stops_completed += row.stops_completed.unwrap_or_default();
++        self.stops_total += row.stops_total.unwrap_or_default();
++        self.on_time_stops += row.on_time_stops.unwrap_or_default();
+         self.distance_km += decimal_option_to_f64(&row.total_distance_km);
+         if let Some(rating) = row.customer_rating.as_ref() {
+             self.rating_sum += decimal_to_f64(rating);
+@@ -31,7 +35,7 @@ impl Totals {
+ 
+     fn summary(&self) -> DriverPerformanceSummary {
+         DriverPerformanceSummary {
+-            driver_id: i64_to_i32(self.driver_id),
++            driver_id: self.driver_id,
+             total_stops_completed: self.stops_completed,
+             total_stops_assigned: self.stops_total,
+             completion_rate: rate(self.stops_completed, self.stops_total),
+@@ -42,10 +46,8 @@ impl Totals {
+     }
+ }
+ 
+-pub fn summaries(
+-    rows: &[DriverPerformanceMetrics],
+-) -> Vec<DriverPerformanceSummary> {
+-    let mut totals = BTreeMap::<i64, Totals>::new();
++pub fn summaries(rows: &[DriverPerformanceMetrics]) -> Vec<DriverPerformanceSummary> {
++    let mut totals = BTreeMap::<i32, Totals>::new();
+     for row in rows {
+         totals.entry(row.driver_id).or_default().add(row);
+     }
+@@ -62,43 +64,3 @@ pub fn summary_for_driver(
+         .into_iter()
+         .find(|summary| summary.driver_id == driver_id)
+ }
+-
+-pub fn top_performers(
+-    rows: &[DriverPerformanceMetrics],
+-    metric: &str,
+-    limit: usize,
+-) -> Vec<TopPerformer> {
+-    let mut items: Vec<_> = summaries(rows)
+-        .into_iter()
+-        .map(TopPerformer::from)
+-        .collect();
+-    items.sort_by(|a, b| {
+-        metric_value(b, metric).total_cmp(&metric_value(a, metric))
+-    });
+-    items.truncate(limit);
+-    items
+-}
+-
+-fn rate(numerator: i32, denominator: i32) -> f64 {
+-    if denominator > 0 {
+-        round_two(numerator as f64 / denominator as f64 * 100.0)
+-    } else {
+-        0.0
+-    }
+-}
+-
+-fn average(sum: f64, count: usize) -> f64 {
+-    if count > 0 {
+-        round_two(sum / count as f64)
+-    } else {
+-        0.0
+-    }
+-}
+-
+-fn metric_value(item: &TopPerformer, metric: &str) -> f64 {
+-    match metric {
+-        "rating" => item.avg_rating,
+-        "distance" => item.total_distance_km,
+-        _ => item.completion_rate,
+-    }
+-}
+diff --git a/src/controllers/driver/performance/summaries/math.rs b/src/controllers/driver/performance/summaries/math.rs
+new file mode 100644
+index 0000000000..c64799cb99
+--- /dev/null
++++ b/src/controllers/driver/performance/summaries/math.rs
+@@ -0,0 +1,17 @@
++use super::super::convert::round_two;
++
++pub fn rate(numerator: i32, denominator: i32) -> f64 {
++    if denominator > 0 {
++        round_two(numerator as f64 / denominator as f64 * 100.0)
++    } else {
++        0.0
++    }
++}
++
++pub fn average(sum: f64, count: usize) -> f64 {
++    if count > 0 {
++        round_two(sum / count as f64)
++    } else {
++        0.0
++    }
++}
+diff --git a/src/controllers/driver/performance/summaries/ranking.rs b/src/controllers/driver/performance/summaries/ranking.rs
+new file mode 100644
+index 0000000000..263c11466b
+--- /dev/null
++++ b/src/controllers/driver/performance/summaries/ranking.rs
+@@ -0,0 +1,25 @@
++use super::super::responses::TopPerformer;
++use super::summaries;
++use crate::db::models::DriverPerformanceMetrics;
++
++pub fn top_performers(
++    rows: &[DriverPerformanceMetrics],
++    metric: &str,
++    limit: usize,
++) -> Vec<TopPerformer> {
++    let mut items: Vec<_> = summaries(rows)
++        .into_iter()
++        .map(TopPerformer::from)
++        .collect();
++    items.sort_by(|a, b| metric_value(b, metric).total_cmp(&metric_value(a, metric)));
++    items.truncate(limit);
++    items
++}
++
++fn metric_value(item: &TopPerformer, metric: &str) -> f64 {
++    match metric {
++        "rating" => item.avg_rating,
++        "distance" => item.total_distance_km,
++        _ => item.completion_rate,
++    }
++}
+diff --git a/src/controllers/funnel/seamless_checkout/payment_intent.rs b/src/controllers/funnel/seamless_checkout/payment_intent.rs
+index c248a21314..62f5ae286c 100644
+--- a/src/controllers/funnel/seamless_checkout/payment_intent.rs
++++ b/src/controllers/funnel/seamless_checkout/payment_intent.rs
+@@ -5,12 +5,17 @@ mod customer_lookup;
+ mod customer_name;
+ pub mod draft_session;
+ pub(crate) mod handler;
++mod intent_ad_click;
++mod intent_analytics;
++mod intent_analytics_persist;
++mod intent_touchpoint;
+ mod metadata;
+ mod metadata_attribution;
+ mod metadata_attribution_ids;
+ mod metadata_base;
+ mod metadata_log;
+ mod metadata_param;
++mod metadata_request;
+ mod offer_lookup;
+ mod one_time;
+ pub mod payment_methods;
+diff --git a/src/controllers/funnel/seamless_checkout/payment_intent/handler.rs b/src/controllers/funnel/seamless_checkout/payment_intent/handler.rs
+index 88653770b6..b11afb6e3a 100644
+--- a/src/controllers/funnel/seamless_checkout/payment_intent/handler.rs
++++ b/src/controllers/funnel/seamless_checkout/payment_intent/handler.rs
+@@ -4,6 +4,9 @@ use log::{error, info};
+ use serde_json::json;
+ 
+ use super::context::build_context;
++use super::intent_ad_click::record_ad_click_session;
++use super::intent_analytics::record_intent_created;
++use super::intent_touchpoint::record_checkout_touchpoint;
+ use super::response_json::checkout_json;
+ use super::types::CheckoutResult;
+ 
+@@ -26,7 +29,13 @@ async fn create_intent_response(
+         payload.session_token, payload.service_type
+     );
+     let context = build_context(&payload, &req).await?;
+-    checkout_json(&payload, context).await
++    let response = checkout_json(&payload, context).await?;
++    tokio::join!(
++        record_intent_created(&payload, &req, &response),
++        record_checkout_touchpoint(&payload, &req),
++        record_ad_click_session(&payload, &req),
++    );
++    Ok(response)
+ }
+ 
+ fn error_response(e: Box<dyn std::error::Error>) -> HttpResponse {
+diff --git a/src/controllers/funnel/seamless_checkout/payment_intent/intent_ad_click.rs b/src/controllers/funnel/seamless_checkout/payment_intent/intent_ad_click.rs
+new file mode 100644
+index 0000000000..3fcbdcea68
+--- /dev/null
++++ b/src/controllers/funnel/seamless_checkout/payment_intent/intent_ad_click.rs
+@@ -0,0 +1,74 @@
++use super::metadata_request::{preferred_param, request_param, session_identity};
++use crate::db::{models::NewAdClickSessions, repositories::create_ad_click_sessions};
++use crate::helpers::RequestAttribution;
++use crate::models::checkout::CreatePaymentIntentRequest;
++use actix_web::HttpRequest;
++use std::time::Duration;
++
++const AD_CLICK_DEADLINE: Duration = Duration::from_millis(250);
++
++pub async fn record_ad_click_session(payload: &CreatePaymentIntentRequest, req: &HttpRequest) {
++    match tokio::time::timeout(
++        AD_CLICK_DEADLINE,
++        persist_generated(ad_click_session(payload, req)),
++    )
++    .await
++    {
++        Ok(Ok(())) => {}
++        Ok(Err(error)) => tracing::warn!(%error, "could not persist ad click session"),
++        Err(_) => tracing::warn!(
++            deadline_ms = AD_CLICK_DEADLINE.as_millis(),
++            "ad click session persistence timed out"
++        ),
++    }
++}
++
++async fn persist_generated(input: NewAdClickSessions) -> Result<(), String> {
++    let pool = crate::db_pool::get_or_init_pool().await?;
++    create_ad_click_sessions(pool, input)
++        .await
++        .map(|_| ())
++        .map_err(|error| error.to_string())
++}
++
++fn ad_click_session(p: &CreatePaymentIntentRequest, req: &HttpRequest) -> NewAdClickSessions {
++    let attr = RequestAttribution::current(req);
++    let session = session_id(p, req);
++    let page = attr
++        .referer
++        .clone()
++        .unwrap_or_else(|| req.uri().to_string());
++    let campaign = preferred_param(req, &p.utm_campaign, "utm_campaign");
++    NewAdClickSessions {
++        session_id: session,
++        customer_id: None,
++        utm_source: preferred_param(req, &p.utm_source, "utm_source"),
++        utm_medium: preferred_param(req, &p.utm_medium, "utm_medium"),
++        utm_campaign: campaign.clone(),
++        utm_content: preferred_param(req, &p.utm_content, "utm_content"),
++        utm_term: preferred_param(req, &p.utm_term, "utm_term"),
++        fbclid: request_param(req, "fbclid"),
++        fbc: preferred_param(req, &p.fbc, "_fbc"),
++        gclid: preferred_param(req, &p.gclid, "gclid"),
++        ttclid: preferred_param(req, &p.ttclid, "ttclid"),
++        landing_page_url: Some(page.clone()),
++        landing_page_id: None,
++        ad_creative_id: preferred_param(req, &p.utm_content, "utm_content"),
++        ad_campaign_id: campaign,
++        offer_id: None,
++        referrer_url: attr.referer,
++        landing_url: Some(page),
++        user_agent: attr.user_agent,
++        ip_address: Some(attr.client_ip),
++        clicked_at: Some(chrono::Utc::now()),
++        converted_at: None,
++        expires_at: None,
++        created_at: None,
++        journey_person_key: None,
++        journey_session_key: None,
++    }
++}
++
++fn session_id(p: &CreatePaymentIntentRequest, req: &HttpRequest) -> String {
++    session_identity(req, &p.session_id, &p.session_token)
++}
+diff --git a/src/controllers/funnel/seamless_checkout/payment_intent/intent_analytics.rs b/src/controllers/funnel/seamless_checkout/payment_intent/intent_analytics.rs
+new file mode 100644
+index 0000000000..f740e9fe9f
+--- /dev/null
++++ b/src/controllers/funnel/seamless_checkout/payment_intent/intent_analytics.rs
+@@ -0,0 +1,73 @@
++use crate::models::checkout::CreatePaymentIntentRequest;
++use crate::routes::api::analytics::AnalyticsEvent;
++use actix_web::{http::header, HttpRequest};
++use serde_json::{json, Value};
++
++use super::intent_analytics_persist::persist_checkout_event;
++use super::metadata_request::{preferred_param, session_identity};
++
++pub async fn record_intent_created(
++    payload: &CreatePaymentIntentRequest,
++    req: &HttpRequest,
++    response: &Value,
++) {
++    persist_checkout_event(checkout_event(payload, req, response)).await;
++}
++
++fn checkout_event(
++    payload: &CreatePaymentIntentRequest,
++    req: &HttpRequest,
++    response: &Value,
++) -> AnalyticsEvent {
++    let page_url = referer(req).unwrap_or_else(|| req.uri().to_string());
++    AnalyticsEvent {
++        uid: uid(payload, req),
++        session_id: payload.session_token.clone(),
++        event: "checkout_intent_created".to_string(),
++        event_id: format!("checkout_intent_created_{}", uuid::Uuid::new_v4()),
++        crm_lead_id: None,
++        legacy_lead_id: None,
++        page_url: page_url.clone(),
++        referrer: Some(page_url),
++        timestamp: chrono::Utc::now().timestamp_millis(),
++        client_data: checkout_data(payload, req, response),
++    }
++}
++
++fn checkout_data(
++    payload: &CreatePaymentIntentRequest,
++    req: &HttpRequest,
++    response: &Value,
++) -> Value {
++    json!({
++        "source": "rust_checkout_backend",
++        "checkout_source": "seamless_checkout",
++        "amount": response.get("amount").cloned().unwrap_or(json!(payload.amount)),
++        "is_subscription": response.get("is_subscription").cloned(),
++        "service_id": payload.service_id,
++        "service_type": payload.service_type,
++        "offer_token": payload.offer_token,
++        "payment_method_types": payload.payment_method_types,
++        "session_id": payload.session_id,
++        "utm_source": attr(req, &payload.utm_source, "utm_source"),
++        "utm_medium": attr(req, &payload.utm_medium, "utm_medium"),
++        "utm_campaign": attr(req, &payload.utm_campaign, "utm_campaign"),
++        "utm_content": attr(req, &payload.utm_content, "utm_content"),
++        "utm_term": attr(req, &payload.utm_term, "utm_term"),
++    })
++}
++
++fn uid(payload: &CreatePaymentIntentRequest, req: &HttpRequest) -> String {
++    session_identity(req, &payload.session_id, &payload.session_token)
++}
++
++fn attr(req: &HttpRequest, body: &Option<String>, key: &str) -> Option<String> {
++    preferred_param(req, body, key)
++}
++
++fn referer(req: &HttpRequest) -> Option<String> {
++    req.headers()
++        .get(header::REFERER)
++        .and_then(|value| value.to_str().ok())
++        .map(str::to_string)
++}
+diff --git a/src/controllers/funnel/seamless_checkout/payment_intent/intent_analytics_persist.rs b/src/controllers/funnel/seamless_checkout/payment_intent/intent_analytics_persist.rs
+new file mode 100644
+index 0000000000..f067229b0c
+--- /dev/null
++++ b/src/controllers/funnel/seamless_checkout/payment_intent/intent_analytics_persist.rs
+@@ -0,0 +1,55 @@
++use crate::db::{models::NewAnalyticsEvents, repositories::create_analytics_events};
++use crate::routes::api::analytics::AnalyticsEvent;
++use std::time::Duration;
++
++const ANALYTICS_DEADLINE: Duration = Duration::from_millis(250);
++
++pub async fn persist_checkout_event(event: AnalyticsEvent) {
++    match tokio::time::timeout(ANALYTICS_DEADLINE, persist_generated(event)).await {
++        Ok(Ok(())) => {}
++        Ok(Err(error)) => tracing::warn!(%error, "could not persist checkout analytics"),
++        Err(_) => tracing::warn!(
++            deadline_ms = ANALYTICS_DEADLINE.as_millis(),
++            "checkout analytics persistence timed out"
++        ),
++    }
++}
++
++async fn persist_generated(event: AnalyticsEvent) -> Result<(), String> {
++    let pool = crate::db_pool::get_or_init_pool().await?;
++    create_analytics_events(pool, analytics_input(event))
++        .await
++        .map(|_| ())
++        .map_err(|error| error.to_string())
++}
++
++fn analytics_input(event: AnalyticsEvent) -> NewAnalyticsEvents {
++    NewAnalyticsEvents {
++        event_name: event.event,
++        event_id: event.event_id,
++        session_id: event.session_id,
++        user_id: event.uid,
++        page_url: event.page_url,
++        referrer: event.referrer,
++        timestamp: event.timestamp,
++        event_data: event.client_data,
++        processed: Some(Some(false)),
++        created_at: None,
++        lead_id: event.legacy_lead_id,
++        variant: None,
++        funnel_step: None,
++        funnel_name: None,
++        customer_id: None,
++        customer_email_hash: None,
++        customer_phone_hash: None,
++        checkout_session_id: None,
++        stripe_payment_intent_id: None,
++        funnel_session_token: None,
++        forward_attempts: Some(0),
++        last_forward_error: None,
++        crm_lead_id: event.crm_lead_id,
++        crm_contact_id: None,
++        journey_person_key: None,
++        journey_session_key: None,
++    }
++}
+diff --git a/src/controllers/funnel/seamless_checkout/payment_intent/intent_touchpoint.rs b/src/controllers/funnel/seamless_checkout/payment_intent/intent_touchpoint.rs
+new file mode 100644
+index 0000000000..1abf04ec7b
+--- /dev/null
++++ b/src/controllers/funnel/seamless_checkout/payment_intent/intent_touchpoint.rs
+@@ -0,0 +1,78 @@
++use super::metadata_request::{preferred_param, session_identity};
++use crate::db::{models::NewAttributionTouchpoints, repositories::create_attribution_touchpoints};
++use crate::helpers::RequestAttribution;
++use crate::models::checkout::CreatePaymentIntentRequest;
++use actix_web::HttpRequest;
++use std::time::Duration;
++
++const TOUCHPOINT_DEADLINE: Duration = Duration::from_millis(250);
++
++pub async fn record_checkout_touchpoint(payload: &CreatePaymentIntentRequest, req: &HttpRequest) {
++    match tokio::time::timeout(
++        TOUCHPOINT_DEADLINE,
++        persist_generated(checkout_touchpoint(payload, req)),
++    )
++    .await
++    {
++        Ok(Ok(())) => {}
++        Ok(Err(error)) => tracing::warn!(%error, "could not persist checkout touchpoint"),
++        Err(_) => tracing::warn!(
++            deadline_ms = TOUCHPOINT_DEADLINE.as_millis(),
++            "checkout touchpoint persistence timed out"
++        ),
++    }
++}
++
++async fn persist_generated(input: NewAttributionTouchpoints) -> Result<(), String> {
++    let pool = crate::db_pool::get_or_init_pool().await?;
++    create_attribution_touchpoints(pool, input)
++        .await
++        .map(|_| ())
++        .map_err(|error| error.to_string())
++}
++
++fn checkout_touchpoint(
++    p: &CreatePaymentIntentRequest,
++    req: &HttpRequest,
++) -> NewAttributionTouchpoints {
++    let attribution = RequestAttribution::current(req);
++    let session = session_identity(req, &p.session_id, &p.session_token);
++    let page = attribution
++        .referer
++        .clone()
++        .unwrap_or_else(|| req.uri().to_string());
++    NewAttributionTouchpoints {
++        spotless_vid: session.clone(),
++        session_id: Some(session.clone()),
++        uid: Some(session),
++        customer_id: None,
++        lead_id: None,
++        email: None,
++        fbp: preferred_param(req, &p.fbp, "_fbp"),
++        fbc: preferred_param(req, &p.fbc, "_fbc"),
++        gclid: preferred_param(req, &p.gclid, "gclid"),
++        ttclid: preferred_param(req, &p.ttclid, "ttclid"),
++        touchpoint_type: "checkout_start".to_string(),
++        source: preferred_param(req, &p.utm_source, "utm_source"),
++        medium: preferred_param(req, &p.utm_medium, "utm_medium"),
++        campaign: preferred_param(req, &p.utm_campaign, "utm_campaign"),
++        ad_set: None,
++        ad_id: None,
++        content: preferred_param(req, &p.utm_content, "utm_content"),
++        term: preferred_param(req, &p.utm_term, "utm_term"),
++        landing_url: Some(page.clone()),
++        page_url: Some(page),
++        referrer: attribution.referer,
++        client_ip: Some(attribution.client_ip),
++        user_agent: attribution.user_agent,
++        value: None,
++        currency: Some(Some("USD".to_string())),
++        event_id: Some(format!("checkout_start_{}", uuid::Uuid::new_v4())),
++        touched_at: Some(chrono::Utc::now()),
++        created_at: None,
++        journey_person_key: None,
++        journey_session_key: None,
++        canonical_crm_lead_id: None,
++        crm_contact_id: None,
++    }
++}
+diff --git a/src/controllers/funnel/seamless_checkout/payment_intent/metadata_param.rs b/src/controllers/funnel/seamless_checkout/payment_intent/metadata_param.rs
+index 6f50a5f706..9686fcad8b 100644
+--- a/src/controllers/funnel/seamless_checkout/payment_intent/metadata_param.rs
++++ b/src/controllers/funnel/seamless_checkout/payment_intent/metadata_param.rs
+@@ -1,5 +1,7 @@
+ use actix_web::HttpRequest;
+ 
++use super::metadata_request::preferred_param;
++
+ pub fn push_param(
+     params: &mut Vec<(String, String)>,
+     key: &str,
+@@ -7,15 +9,7 @@ pub fn push_param(
+     req: &HttpRequest,
+     cookie: &str,
+ ) {
+-    if let Some(val) = body.as_ref().filter(|v| !v.is_empty()) {
+-        params.push((key.to_string(), val.clone()));
+-        return;
+-    }
+-    if let Some(val) = req
+-        .cookie(cookie)
+-        .map(|c| c.value().to_string())
+-        .filter(|v| !v.is_empty())
+-    {
++    if let Some(val) = preferred_param(req, body, cookie) {
+         params.push((key.to_string(), val));
+     }
+ }
+diff --git a/src/controllers/funnel/seamless_checkout/payment_intent/metadata_request.rs b/src/controllers/funnel/seamless_checkout/payment_intent/metadata_request.rs
+new file mode 100644
+index 0000000000..f4d38a333c
+--- /dev/null
++++ b/src/controllers/funnel/seamless_checkout/payment_intent/metadata_request.rs
+@@ -0,0 +1,42 @@
++use actix_web::{http::header, HttpRequest};
++use url::{form_urlencoded, Url};
++
++/// Reads attribution from the current request URL or its funnel-page referer.
++pub fn request_param(req: &HttpRequest, key: &str) -> Option<String> {
++    query_param(req.uri().query(), key).or_else(|| referer_param(req, key))
++}
++
++pub fn preferred_param(req: &HttpRequest, body: &Option<String>, key: &str) -> Option<String> {
++    request_param(req, key)
++        .or_else(|| body.as_ref().filter(|value| !value.is_empty()).cloned())
++        .or_else(|| cookie_param(req, key))
++}
++
++pub fn session_identity(req: &HttpRequest, body: &Option<String>, fallback: &str) -> String {
++    preferred_param(req, body, "sb_session")
++        .or_else(|| cookie_param(req, "cid"))
++        .unwrap_or_else(|| fallback.to_string())
++}
++
++fn cookie_param(req: &HttpRequest, key: &str) -> Option<String> {
++    req.cookie(key)
++        .map(|cookie| cookie.value().to_string())
++        .filter(|value| !value.is_empty())
++}
++
++fn referer_param(req: &HttpRequest, key: &str) -> Option<String> {
++    let referer = req.headers().get(header::REFERER)?.to_str().ok()?;
++    let url = Url::parse(referer).ok()?;
++    query_param(url.query(), key)
++}
++
++fn query_param(query: Option<&str>, key: &str) -> Option<String> {
++    let query = query?;
++    form_urlencoded::parse(query.as_bytes()).find_map(|(name, value)| {
++        if name == key && !value.is_empty() {
++            Some(value.into_owned())
++        } else {
++            None
++        }
++    })
++}
+diff --git a/src/db/models.rs b/src/db/models.rs
+index 2243002927..e070318b95 100644
+--- a/src/db/models.rs
++++ b/src/db/models.rs
+@@ -7,39 +7,205 @@ pub struct Interval(pub sqlx::postgres::types::PgInterval);
+ 
+ #[derive(serde::Serialize, serde::Deserialize)]
+ struct IntervalWire {
+-    months: i32,
+-    days: i32,
+-    microseconds: i64,
++months: i32,
++days: i32,
++microseconds: i64,
+ }
+ 
+ impl serde::Serialize for Interval {
+-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+-    where
+-        S: serde::Serializer,
+-    {
+-        serde::Serialize::serialize(
+-            &IntervalWire {
+-                months: self.0.months,
+-                days: self.0.days,
+-                microseconds: self.0.microseconds,
+-            },
+-            serializer,
+-        )
+-    }
++fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
++where
++S: serde::Serializer,
++{
++serde::Serialize::serialize(&IntervalWire {
++months: self.0.months,
++days: self.0.days,
++microseconds: self.0.microseconds,
++}, serializer)
++}
+ }
+ 
+ impl<'de> serde::Deserialize<'de> for Interval {
+-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+-    where
+-        D: serde::Deserializer<'de>,
+-    {
+-        let wire = <IntervalWire as serde::Deserialize>::deserialize(deserializer)?;
+-        Ok(Self(sqlx::postgres::types::PgInterval {
+-            months: wire.months,
+-            days: wire.days,
+-            microseconds: wire.microseconds,
+-        }))
+-    }
++fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
++where
++D: serde::Deserializer<'de>,
++{
++let wire = <IntervalWire as serde::Deserialize>::deserialize(deserializer)?;
++Ok(Self(sqlx::postgres::types::PgInterval {
++months: wire.months,
++days: wire.days,
++microseconds: wire.microseconds,
++}))
++}
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "acquisition_action_type")]
++pub enum AcquisitionActionType {
++    #[sqlx(rename = "show_offer")]
++    #[serde(rename = "show_offer")]
++    ShowOffer,
++    #[sqlx(rename = "send_email")]
++    #[serde(rename = "send_email")]
++    SendEmail,
++    #[sqlx(rename = "send_sms")]
++    #[serde(rename = "send_sms")]
++    SendSms,
++    #[sqlx(rename = "create_subscription")]
++    #[serde(rename = "create_subscription")]
++    CreateSubscription,
++    #[sqlx(rename = "cancel_subscription")]
++    #[serde(rename = "cancel_subscription")]
++    CancelSubscription,
++    #[sqlx(rename = "update_stage")]
++    #[serde(rename = "update_stage")]
++    UpdateStage,
++    #[sqlx(rename = "send_notification")]
++    #[serde(rename = "send_notification")]
++    SendNotification,
++    #[sqlx(rename = "trigger_webhook")]
++    #[serde(rename = "trigger_webhook")]
++    TriggerWebhook,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "acquisition_event_type")]
++pub enum AcquisitionEventType {
++    #[sqlx(rename = "ad_click")]
++    #[serde(rename = "ad_click")]
++    AdClick,
++    #[sqlx(rename = "ad_impression")]
++    #[serde(rename = "ad_impression")]
++    AdImpression,
++    #[sqlx(rename = "landing_view")]
++    #[serde(rename = "landing_view")]
++    LandingView,
++    #[sqlx(rename = "checkout_start")]
++    #[serde(rename = "checkout_start")]
++    CheckoutStart,
++    #[sqlx(rename = "checkout_complete")]
++    #[serde(rename = "checkout_complete")]
++    CheckoutComplete,
++    #[sqlx(rename = "offer_view")]
++    #[serde(rename = "offer_view")]
++    OfferView,
++    #[sqlx(rename = "offer_accept")]
++    #[serde(rename = "offer_accept")]
++    OfferAccept,
++    #[sqlx(rename = "offer_decline")]
++    #[serde(rename = "offer_decline")]
++    OfferDecline,
++    #[sqlx(rename = "purchase_complete")]
++    #[serde(rename = "purchase_complete")]
++    PurchaseComplete,
++    #[sqlx(rename = "subscription_created")]
++    #[serde(rename = "subscription_created")]
++    SubscriptionCreated,
++    #[sqlx(rename = "subscription_renewed")]
++    #[serde(rename = "subscription_renewed")]
++    SubscriptionRenewed,
++    #[sqlx(rename = "subscription_cancelled")]
++    #[serde(rename = "subscription_cancelled")]
++    SubscriptionCancelled,
++    #[sqlx(rename = "stage_advance")]
++    #[serde(rename = "stage_advance")]
++    StageAdvance,
++    #[sqlx(rename = "stage_regress")]
++    #[serde(rename = "stage_regress")]
++    StageRegress,
++    #[sqlx(rename = "flow_triggered")]
++    #[serde(rename = "flow_triggered")]
++    FlowTriggered,
++    #[sqlx(rename = "flow_failed")]
++    #[serde(rename = "flow_failed")]
++    FlowFailed,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "acquisition_stage")]
++pub enum AcquisitionStage {
++    #[sqlx(rename = "ad")]
++    #[serde(rename = "ad")]
++    Ad,
++    #[sqlx(rename = "landing")]
++    #[serde(rename = "landing")]
++    Landing,
++    #[sqlx(rename = "checkout")]
++    #[serde(rename = "checkout")]
++    Checkout,
++    #[sqlx(rename = "tripwire")]
++    #[serde(rename = "tripwire")]
++    Tripwire,
++    #[sqlx(rename = "tripwire_purchased")]
++    #[serde(rename = "tripwire_purchased")]
++    TripwirePurchased,
++    #[sqlx(rename = "upsell")]
++    #[serde(rename = "upsell")]
++    Upsell,
++    #[sqlx(rename = "upsell_purchased")]
++    #[serde(rename = "upsell_purchased")]
++    UpsellPurchased,
++    #[sqlx(rename = "recurring")]
++    #[serde(rename = "recurring")]
++    Recurring,
++    #[sqlx(rename = "churned")]
++    #[serde(rename = "churned")]
++    Churned,
++    #[sqlx(rename = "completed")]
++    #[serde(rename = "completed")]
++    Completed,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "acquisition_status")]
++pub enum AcquisitionStatus {
++    #[sqlx(rename = "active")]
++    #[serde(rename = "active")]
++    Active,
++    #[sqlx(rename = "paused")]
++    #[serde(rename = "paused")]
++    Paused,
++    #[sqlx(rename = "completed")]
++    #[serde(rename = "completed")]
++    Completed,
++    #[sqlx(rename = "abandoned")]
++    #[serde(rename = "abandoned")]
++    Abandoned,
++    #[sqlx(rename = "failed")]
++    #[serde(rename = "failed")]
++    Failed,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "acquisition_trigger_type")]
++pub enum AcquisitionTriggerType {
++    #[sqlx(rename = "conversion")]
++    #[serde(rename = "conversion")]
++    Conversion,
++    #[sqlx(rename = "purchase_success")]
++    #[serde(rename = "purchase_success")]
++    PurchaseSuccess,
++    #[sqlx(rename = "purchase_failure")]
++    #[serde(rename = "purchase_failure")]
++    PurchaseFailure,
++    #[sqlx(rename = "subscription_created")]
++    #[serde(rename = "subscription_created")]
++    SubscriptionCreated,
++    #[sqlx(rename = "subscription_renewal")]
++    #[serde(rename = "subscription_renewal")]
++    SubscriptionRenewal,
++    #[sqlx(rename = "subscription_cancelled")]
++    #[serde(rename = "subscription_cancelled")]
++    SubscriptionCancelled,
++    #[sqlx(rename = "timeout")]
++    #[serde(rename = "timeout")]
++    Timeout,
++    #[sqlx(rename = "manual")]
++    #[serde(rename = "manual")]
++    Manual,
++    #[sqlx(rename = "webhook")]
++    #[serde(rename = "webhook")]
++    Webhook,
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
+@@ -141,6 +307,15 @@ pub enum AdPlatform {
+     #[sqlx(rename = "tiktok")]
+     #[serde(rename = "tiktok")]
+     Tiktok,
++    #[sqlx(rename = "youtube")]
++    #[serde(rename = "youtube")]
++    Youtube,
++    #[sqlx(rename = "roku")]
++    #[serde(rename = "roku")]
++    Roku,
++    #[sqlx(rename = "lob")]
++    #[serde(rename = "lob")]
++    Lob,
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
+@@ -171,6 +346,94 @@ pub enum AiGenerationStatus {
+     FAILED,
+ }
+ 
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "automation_trigger_status")]
++pub enum AutomationTriggerStatus {
++    #[sqlx(rename = "pending")]
++    #[serde(rename = "pending")]
++    Pending,
++    #[sqlx(rename = "triggered")]
++    #[serde(rename = "triggered")]
++    Triggered,
++    #[sqlx(rename = "shown")]
++    #[serde(rename = "shown")]
++    Shown,
++    #[sqlx(rename = "accepted")]
++    #[serde(rename = "accepted")]
++    Accepted,
++    #[sqlx(rename = "declined")]
++    #[serde(rename = "declined")]
++    Declined,
++    #[sqlx(rename = "expired")]
++    #[serde(rename = "expired")]
++    Expired,
++    #[sqlx(rename = "failed")]
++    #[serde(rename = "failed")]
++    Failed,
++    #[sqlx(rename = "completed")]
++    #[serde(rename = "completed")]
++    Completed,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "automation_trigger_type")]
++pub enum AutomationTriggerType {
++    #[sqlx(rename = "tripwire")]
++    #[serde(rename = "tripwire")]
++    Tripwire,
++    #[sqlx(rename = "checkout")]
++    #[serde(rename = "checkout")]
++    Checkout,
++    #[sqlx(rename = "post_service")]
++    #[serde(rename = "post_service")]
++    PostService,
++    #[sqlx(rename = "onboarding")]
++    #[serde(rename = "onboarding")]
++    Onboarding,
++    #[sqlx(rename = "time_based")]
++    #[serde(rename = "time_based")]
++    TimeBased,
++    #[sqlx(rename = "behavior_based")]
++    #[serde(rename = "behavior_based")]
++    BehaviorBased,
++    #[sqlx(rename = "payment_failed")]
++    #[serde(rename = "payment_failed")]
++    PaymentFailed,
++    #[sqlx(rename = "trial_ending")]
++    #[serde(rename = "trial_ending")]
++    TrialEnding,
++    #[sqlx(rename = "subscription_cancelled")]
++    #[serde(rename = "subscription_cancelled")]
++    SubscriptionCancelled,
++    #[sqlx(rename = "subscription_upgraded")]
++    #[serde(rename = "subscription_upgraded")]
++    SubscriptionUpgraded,
++    #[sqlx(rename = "subscription_downgraded")]
++    #[serde(rename = "subscription_downgraded")]
++    SubscriptionDowngraded,
++    #[sqlx(rename = "subscription_reactivated")]
++    #[serde(rename = "subscription_reactivated")]
++    SubscriptionReactivated,
++    #[sqlx(rename = "churn_risk")]
++    #[serde(rename = "churn_risk")]
++    ChurnRisk,
++    #[sqlx(rename = "inactive_customer")]
++    #[serde(rename = "inactive_customer")]
++    InactiveCustomer,
++    #[sqlx(rename = "payment_recovered")]
++    #[serde(rename = "payment_recovered")]
++    PaymentRecovered,
++    #[sqlx(rename = "trial_converted")]
++    #[serde(rename = "trial_converted")]
++    TrialConverted,
++    #[sqlx(rename = "purchase")]
++    #[serde(rename = "purchase")]
++    Purchase,
++    #[sqlx(rename = "tripwire_conversion")]
++    #[serde(rename = "tripwire_conversion")]
++    TripwireConversion,
++}
++
+ #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
+ #[sqlx(type_name = "autopilot_action_type")]
+ pub enum AutopilotActionType {
+@@ -290,6 +553,38 @@ pub enum BulkJobStatus {
+     FAILED,
+ }
+ 
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "campaign_objective")]
++pub enum CampaignObjective {
++    #[sqlx(rename = "traffic")]
++    #[serde(rename = "traffic")]
++    Traffic,
++    #[sqlx(rename = "conversions")]
++    #[serde(rename = "conversions")]
++    Conversions,
++    #[sqlx(rename = "awareness")]
++    #[serde(rename = "awareness")]
++    Awareness,
++    #[sqlx(rename = "engagement")]
++    #[serde(rename = "engagement")]
++    Engagement,
++    #[sqlx(rename = "app_installs")]
++    #[serde(rename = "app_installs")]
++    AppInstalls,
++    #[sqlx(rename = "lead_generation")]
++    #[serde(rename = "lead_generation")]
++    LeadGeneration,
++    #[sqlx(rename = "video_views")]
++    #[serde(rename = "video_views")]
++    VideoViews,
++    #[sqlx(rename = "messages")]
++    #[serde(rename = "messages")]
++    Messages,
++    #[sqlx(rename = "catalog_sales")]
++    #[serde(rename = "catalog_sales")]
++    CatalogSales,
++}
++
+ #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
+ #[sqlx(type_name = "campaign_product_source")]
+ pub enum CampaignProductSource {
+@@ -363,27 +658,6 @@ pub enum CampaignWorkflowCampaignType {
+     #[sqlx(rename = "omnichannel")]
+     #[serde(rename = "omnichannel")]
+     Omnichannel,
+-    #[sqlx(rename = "direct-mail")]
+-    #[serde(rename = "direct-mail")]
+-    DirectMailVariant2,
+-    #[sqlx(rename = "email-campaign")]
+-    #[serde(rename = "email-campaign")]
+-    EmailCampaignVariant2,
+-    #[sqlx(rename = "email-sms")]
+-    #[serde(rename = "email-sms")]
+-    EmailSmsVariant2,
+-    #[sqlx(rename = "ibb-cold-retargeting")]
+-    #[serde(rename = "ibb-cold-retargeting")]
+-    IbbColdRetargetingVariant2,
+-    #[sqlx(rename = "lifecycle-nurture")]
+-    #[serde(rename = "lifecycle-nurture")]
+-    LifecycleNurtureVariant2,
+-    #[sqlx(rename = "ppc-paid-ads")]
+-    #[serde(rename = "ppc-paid-ads")]
+-    PpcPaidAdsVariant2,
+-    #[sqlx(rename = "sms-campaign")]
+-    #[serde(rename = "sms-campaign")]
+-    SmsCampaignVariant2,
+ }
+ 
+ #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
+@@ -434,89 +708,89 @@ pub enum CampaignWorkflowLandingUrlStrategy {
+ #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
+ #[sqlx(type_name = "campaign_workflow_node_kind")]
+ pub enum CampaignWorkflowNodeKind {
+-    #[sqlx(rename = "campaign_type")]
+-    #[serde(rename = "campaign_type")]
+-    CampaignType,
+-    #[sqlx(rename = "platform_source")]
+-    #[serde(rename = "platform_source")]
+-    PlatformSource,
+-    #[sqlx(rename = "audience_segment")]
+-    #[serde(rename = "audience_segment")]
+-    AudienceSegment,
+-    #[sqlx(rename = "media_asset")]
+-    #[serde(rename = "media_asset")]
+-    MediaAsset,
+-    #[sqlx(rename = "offer_select")]
+-    #[serde(rename = "offer_select")]
+-    OfferSelect,
+-    #[sqlx(rename = "landing_funnel")]
+-    #[serde(rename = "landing_funnel")]
+-    LandingFunnel,
+-    #[sqlx(rename = "video_creative")]
+-    #[serde(rename = "video_creative")]
+-    VideoCreative,
+-    #[sqlx(rename = "intent_branch")]
+-    #[serde(rename = "intent_branch")]
+-    IntentBranch,
+-    #[sqlx(rename = "phone_call")]
+-    #[serde(rename = "phone_call")]
+-    PhoneCall,
+-    #[sqlx(rename = "sms_send")]
+-    #[serde(rename = "sms_send")]
+-    SmsSend,
+-    #[sqlx(rename = "email_send")]
+-    #[serde(rename = "email_send")]
+-    EmailSend,
+-    #[sqlx(rename = "direct_mail_send")]
+-    #[serde(rename = "direct_mail_send")]
+-    DirectMailSend,
+-    #[sqlx(rename = "ab_test")]
+-    #[serde(rename = "ab_test")]
+-    AbTest,
+-    #[sqlx(rename = "conversion_goal")]
+-    #[serde(rename = "conversion_goal")]
+-    ConversionGoal,
+     #[sqlx(rename = "campaign-type")]
+     #[serde(rename = "campaign-type")]
+-    CampaignTypeVariant2,
++    CampaignType,
+     #[sqlx(rename = "platform-source")]
+     #[serde(rename = "platform-source")]
+-    PlatformSourceVariant2,
++    PlatformSource,
+     #[sqlx(rename = "audience-segment")]
+     #[serde(rename = "audience-segment")]
+-    AudienceSegmentVariant2,
++    AudienceSegment,
+     #[sqlx(rename = "media-asset")]
+     #[serde(rename = "media-asset")]
+-    MediaAssetVariant2,
++    MediaAsset,
+     #[sqlx(rename = "offer-select")]
+     #[serde(rename = "offer-select")]
+-    OfferSelectVariant2,
++    OfferSelect,
+     #[sqlx(rename = "landing-funnel")]
+     #[serde(rename = "landing-funnel")]
+-    LandingFunnelVariant2,
++    LandingFunnel,
+     #[sqlx(rename = "video-creative")]
+     #[serde(rename = "video-creative")]
+-    VideoCreativeVariant2,
++    VideoCreative,
+     #[sqlx(rename = "intent-branch")]
+     #[serde(rename = "intent-branch")]
+-    IntentBranchVariant2,
++    IntentBranch,
+     #[sqlx(rename = "phone-call")]
+     #[serde(rename = "phone-call")]
+-    PhoneCallVariant2,
++    PhoneCall,
+     #[sqlx(rename = "sms-send")]
+     #[serde(rename = "sms-send")]
+-    SmsSendVariant2,
++    SmsSend,
+     #[sqlx(rename = "email-send")]
+     #[serde(rename = "email-send")]
+-    EmailSendVariant2,
++    EmailSend,
+     #[sqlx(rename = "direct-mail-send")]
+     #[serde(rename = "direct-mail-send")]
+-    DirectMailSendVariant2,
++    DirectMailSend,
+     #[sqlx(rename = "ab-test")]
+     #[serde(rename = "ab-test")]
+-    AbTestVariant2,
++    AbTest,
+     #[sqlx(rename = "conversion-goal")]
+     #[serde(rename = "conversion-goal")]
++    ConversionGoal,
++    #[sqlx(rename = "campaign_type")]
++    #[serde(rename = "campaign_type")]
++    CampaignTypeVariant2,
++    #[sqlx(rename = "platform_source")]
++    #[serde(rename = "platform_source")]
++    PlatformSourceVariant2,
++    #[sqlx(rename = "audience_segment")]
++    #[serde(rename = "audience_segment")]
++    AudienceSegmentVariant2,
++    #[sqlx(rename = "media_asset")]
++    #[serde(rename = "media_asset")]
++    MediaAssetVariant2,
++    #[sqlx(rename = "offer_select")]
++    #[serde(rename = "offer_select")]
++    OfferSelectVariant2,
++    #[sqlx(rename = "landing_funnel")]
++    #[serde(rename = "landing_funnel")]
++    LandingFunnelVariant2,
++    #[sqlx(rename = "video_creative")]
++    #[serde(rename = "video_creative")]
++    VideoCreativeVariant2,
++    #[sqlx(rename = "intent_branch")]
++    #[serde(rename = "intent_branch")]
++    IntentBranchVariant2,
++    #[sqlx(rename = "phone_call")]
++    #[serde(rename = "phone_call")]
++    PhoneCallVariant2,
++    #[sqlx(rename = "sms_send")]
++    #[serde(rename = "sms_send")]
++    SmsSendVariant2,
++    #[sqlx(rename = "email_send")]
++    #[serde(rename = "email_send")]
++    EmailSendVariant2,
++    #[sqlx(rename = "direct_mail_send")]
++    #[serde(rename = "direct_mail_send")]
++    DirectMailSendVariant2,
++    #[sqlx(rename = "ab_test")]
++    #[serde(rename = "ab_test")]
++    AbTestVariant2,
++    #[sqlx(rename = "conversion_goal")]
++    #[serde(rename = "conversion_goal")]
+     ConversionGoalVariant2,
+ }
+ 
+@@ -564,14 +838,14 @@ pub enum CampaignWorkflowPhase {
+     #[sqlx(rename = "route")]
+     #[serde(rename = "route")]
+     Route,
+-    #[sqlx(rename = "follow_up")]
+-    #[serde(rename = "follow_up")]
++    #[sqlx(rename = "follow-up")]
++    #[serde(rename = "follow-up")]
+     FollowUp,
+     #[sqlx(rename = "measure")]
+     #[serde(rename = "measure")]
+     Measure,
+-    #[sqlx(rename = "follow-up")]
+-    #[serde(rename = "follow-up")]
++    #[sqlx(rename = "follow_up")]
++    #[serde(rename = "follow_up")]
+     FollowUpVariant2,
+ }
+ 
+@@ -691,9 +965,6 @@ pub enum ComponentDataDependencySource {
+     #[sqlx(rename = "static")]
+     #[serde(rename = "static")]
+     Static,
+-    #[sqlx(rename = "exterior_quotes")]
+-    #[serde(rename = "exterior_quotes")]
+-    ExteriorQuotes,
+     #[sqlx(rename = "funnels")]
+     #[serde(rename = "funnels")]
+     Funnels,
+@@ -827,65 +1098,6 @@ pub enum ComponentKind {
+     Component,
+ }
+ 
+-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
+-#[sqlx(type_name = "component_theme_mode")]
+-pub enum ComponentThemeMode {
+-    #[sqlx(rename = "light")]
+-    #[serde(rename = "light")]
+-    Light,
+-    #[sqlx(rename = "dark")]
+-    #[serde(rename = "dark")]
+-    Dark,
+-    #[sqlx(rename = "auto")]
+-    #[serde(rename = "auto")]
+-    Auto,
+-}
+-
+-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
+-#[sqlx(type_name = "component_theme_preset_status")]
+-pub enum ComponentThemePresetStatus {
+-    #[sqlx(rename = "active")]
+-    #[serde(rename = "active")]
+-    Active,
+-    #[sqlx(rename = "archived")]
+-    #[serde(rename = "archived")]
+-    Archived,
+-}
+-
+-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
+-#[sqlx(type_name = "component_theme_radius")]
+-pub enum ComponentThemeRadius {
+-    #[sqlx(rename = "none")]
+-    #[serde(rename = "none")]
+-    None,
+-    #[sqlx(rename = "sm")]
+-    #[serde(rename = "sm")]
+-    Sm,
+-    #[sqlx(rename = "md")]
+-    #[serde(rename = "md")]
+-    Md,
+-    #[sqlx(rename = "lg")]
+-    #[serde(rename = "lg")]
+-    Lg,
+-    #[sqlx(rename = "full")]
+-    #[serde(rename = "full")]
+-    Full,
+-}
+-
+-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
+-#[sqlx(type_name = "component_theme_scale")]
+-pub enum ComponentThemeScale {
+-    #[sqlx(rename = "compact")]
+-    #[serde(rename = "compact")]
+-    Compact,
+-    #[sqlx(rename = "comfortable")]
+-    #[serde(rename = "comfortable")]
+-    Comfortable,
+-    #[sqlx(rename = "spacious")]
+-    #[serde(rename = "spacious")]
+-    Spacious,
+-}
+-
+ #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
+ #[sqlx(type_name = "creative_status")]
+ pub enum CreativeStatus {
+@@ -900,6 +1112,26 @@ pub enum CreativeStatus {
+     Killed,
+ }
+ 
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "customer_upsell_state")]
++pub enum CustomerUpsellState {
++    #[sqlx(rename = "new")]
++    #[serde(rename = "new")]
++    New,
++    #[sqlx(rename = "tripwire_purchased")]
++    #[serde(rename = "tripwire_purchased")]
++    TripwirePurchased,
++    #[sqlx(rename = "upsell_accepted")]
++    #[serde(rename = "upsell_accepted")]
++    UpsellAccepted,
++    #[sqlx(rename = "upsell_declined")]
++    #[serde(rename = "upsell_declined")]
++    UpsellDeclined,
++    #[sqlx(rename = "recurring")]
++    #[serde(rename = "recurring")]
++    Recurring,
++}
++
+ #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
+ #[sqlx(type_name = "door_hanger_design_element")]
+ pub enum DoorHangerDesignElement {
+@@ -1083,9 +1315,6 @@ pub enum FacebookBillingEvent {
+     #[sqlx(rename = "NONE")]
+     #[serde(rename = "NONE")]
+     NONE,
+-    #[sqlx(rename = "OFFER_CLAIMS")]
+-    #[serde(rename = "OFFER_CLAIMS")]
+-    OFFERCLAIMS,
+     #[sqlx(rename = "PAGE_LIKES")]
+     #[serde(rename = "PAGE_LIKES")]
+     PAGELIKES,
+@@ -1095,12 +1324,95 @@ pub enum FacebookBillingEvent {
+     #[sqlx(rename = "THRUPLAY")]
+     #[serde(rename = "THRUPLAY")]
+     THRUPLAY,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "facebook_bulk_ad_naming_strategy")]
++pub enum FacebookBulkAdNamingStrategy {
++    #[sqlx(rename = "descriptive")]
++    #[serde(rename = "descriptive")]
++    Descriptive,
++    #[sqlx(rename = "sequential")]
++    #[serde(rename = "sequential")]
++    Sequential,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "facebook_bulk_ad_status")]
++pub enum FacebookBulkAdStatus {
++    #[sqlx(rename = "ACTIVE")]
++    #[serde(rename = "ACTIVE")]
++    ACTIVE,
++    #[sqlx(rename = "PAUSED")]
++    #[serde(rename = "PAUSED")]
++    PAUSED,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "facebook_bulk_bid_strategy")]
++pub enum FacebookBulkBidStrategy {
++    #[sqlx(rename = "LOWEST_COST_WITHOUT_CAP")]
++    #[serde(rename = "LOWEST_COST_WITHOUT_CAP")]
++    LOWESTCOSTWITHOUTCAP,
++    #[sqlx(rename = "LOWEST_COST_WITH_BID_CAP")]
++    #[serde(rename = "LOWEST_COST_WITH_BID_CAP")]
++    LOWESTCOSTWITHBIDCAP,
++    #[sqlx(rename = "COST_CAP")]
++    #[serde(rename = "COST_CAP")]
++    COSTCAP,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "facebook_bulk_creative_asset_type")]
++pub enum FacebookBulkCreativeAssetType {
++    #[sqlx(rename = "image")]
++    #[serde(rename = "image")]
++    Image,
++    #[sqlx(rename = "video")]
++    #[serde(rename = "video")]
++    Video,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "facebook_bulk_creative_format")]
++pub enum FacebookBulkCreativeFormat {
++    #[sqlx(rename = "single")]
++    #[serde(rename = "single")]
++    Single,
++    #[sqlx(rename = "carousel")]
++    #[serde(rename = "carousel")]
++    Carousel,
++}
++
++#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, sqlx::Type)]
++#[sqlx(type_name = "facebook_bulk_custom_event_type")]
++pub enum FacebookBulkCustomEventType {
+     #[sqlx(rename = "PURCHASE")]
+     #[serde(rename = "PURCHASE")]
+     PURCHASE,
+-    #[sqlx(rename = "LISTING_INTERACTION")]
+-    #[serde(rename = "LISTING_INTERACTION")]
+-    LISTINGINTERACTION,
++    #[sqlx(rename = "LEAD")]
++    #[serde(rename = "LEAD")]
++    LEAD,
++    #[sqlx(rename = "COMPLETE_REGISTRATION")]
++    #[serde(rename = "COMPLETE_REGISTRATION")]
++    COMPLETEREGISTRATION,
++    #[sqlx(rename = "ADD_TO_CART")]
++    #[serde(rename = "ADD_TO_CART")]
++    ADDTOCART,
++    #[sqlx(rename = "INITIATED_CHECKOUT")]
++    #[serde(rename = "INITIATED_CHECKOUT")]
++    INITIATEDCHECKOUT,
++}
++

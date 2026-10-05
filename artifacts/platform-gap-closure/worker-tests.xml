@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="2" failures="0" skipped="0" tests="2" time="0.625" timestamp="2026-10-05T05:26:22.993090+00:00" hostname="ubuntu-dev"><testcase classname="" name="tests.test_worker_visibility" time="0.000"><error message="collection failure">ImportError while importing test module '/home/riley/A2A-Server-MCP/tests/test_worker_visibility.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_worker_visibility.py:22: in &lt;module&gt;
+    from a2a_server import database, policy, worker_sse, worker_visibility
+E   ModuleNotFoundError: No module named 'a2a_server'</error></testcase><testcase classname="" name="tests.test_worker_auth" time="0.000"><error message="collection failure">ImportError while importing test module '/home/riley/A2A-Server-MCP/tests/test_worker_auth.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.12/importlib/__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_worker_auth.py:13: in &lt;module&gt;
+    from a2a_server import policy, spiffe_auth, worker_auth
+E   ModuleNotFoundError: No module named 'a2a_server'</error></testcase></testsuite></testsuites>

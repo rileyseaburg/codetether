@@ -1,0 +1,67 @@
+{
+  "level": "live deployment/Argo",
+  "namespace": "a2a-server",
+  "pod": "codetether-a2a-server-deployment-blue-5cc57fb7cf-fpcqz",
+  "images": [
+    "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-47dac81f2f45",
+    "openpolicyagent/opa:1.3.0"
+  ],
+  "resources": [
+    {
+      "name": "a2a-server",
+      "resources": {
+        "limits": {
+          "cpu": "500m",
+          "memory": "512Mi"
+        },
+        "requests": {
+          "cpu": "100m",
+          "memory": "128Mi"
+        }
+      }
+    },
+    {
+      "name": "opa",
+      "resources": {
+        "limits": {
+          "cpu": "100m",
+          "memory": "128Mi"
+        },
+        "requests": {
+          "cpu": "50m",
+          "memory": "64Mi"
+        }
+      }
+    }
+  ],
+  "containers": [
+    {
+      "name": "a2a-server",
+      "ready": true,
+      "restartCount": 4128,
+      "lastState": {
+        "terminated": {
+          "containerID": "containerd://10b117b206ef2302d3d181dc6165e2554d07a6c633be295508c96b7692fb5958",
+          "exitCode": 137,
+          "finishedAt": "2026-09-06T20:08:10Z",
+          "reason": "OOMKilled",
+          "startedAt": "2026-09-06T20:06:21Z"
+        }
+      }
+    },
+    {
+      "name": "opa",
+      "ready": true,
+      "restartCount": 2,
+      "lastState": {
+        "terminated": {
+          "containerID": "containerd://d37da63a435ee95d439d4122d734746443938bd0f2dcac093077ae9e926b2a43",
+          "exitCode": 255,
+          "finishedAt": "2026-08-22T20:29:32Z",
+          "reason": "Unknown",
+          "startedAt": "2026-08-15T21:07:21Z"
+        }
+      }
+    }
+  ]
+}

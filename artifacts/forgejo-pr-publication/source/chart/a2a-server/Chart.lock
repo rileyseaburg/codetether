@@ -1,0 +1,9 @@
+dependencies:
+- name: marketing
+  repository: ""
+  version: 0.1.0
+- name: docs
+  repository: ""
+  version: 0.1.0
+digest: sha256:4b0301041ad99c426b545c072e5835caf847e0ef2c7eb782746c9f3bf2b52549
+generated: "2025-12-11T08:31:35.962048387Z"

@@ -1,0 +1,135 @@
+{
+  "expected": [
+    {
+      "contextId": "ios-7f538792-0c09-4c5c-b90d-52aef1a2f1b2",
+      "taskIds": [
+        "6cb5a89c-0781-4532-873a-eeca55580efd",
+        "598ef9b1-2fd1-480a-bb54-804464a4ffd9"
+      ]
+    }
+  ],
+  "events": [
+    {
+      "taskId": "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "checkpoint": "task_received",
+      "elapsedMs": 0
+    },
+    {
+      "taskId": "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "checkpoint": "claim_requested",
+      "elapsedMs": 0
+    },
+    {
+      "taskId": "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "checkpoint": "claimed",
+      "elapsedMs": 76
+    },
+    {
+      "taskId": "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "checkpoint": "metadata_parsed",
+      "elapsedMs": 76
+    },
+    {
+      "taskId": "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "checkpoint": "session_ready",
+      "sessionId": "49f25133-4860-438d-8e8c-f33b67671df7",
+      "elapsedMs": 76
+    },
+    {
+      "taskId": "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "checkpoint": "workspace_ready",
+      "elapsedMs": 138
+    },
+    {
+      "taskId": "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "checkpoint": "git_hook_installed",
+      "elapsedMs": 157
+    },
+    {
+      "taskId": "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "checkpoint": "model_selected",
+      "elapsedMs": 157
+    },
+    {
+      "taskId": "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "checkpoint": "agent_starting",
+      "elapsedMs": 157
+    },
+    {
+      "taskId": "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "checkpoint": "agent_done",
+      "elapsedMs": 14142
+    },
+    {
+      "taskId": "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "checkpoint": "releasing",
+      "elapsedMs": 14142
+    },
+    {
+      "taskId": "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "checkpoint": "released",
+      "elapsedMs": 14240
+    },
+    {
+      "taskId": "598ef9b1-2fd1-480a-bb54-804464a4ffd9",
+      "checkpoint": "task_received",
+      "elapsedMs": 0
+    },
+    {
+      "taskId": "598ef9b1-2fd1-480a-bb54-804464a4ffd9",
+      "checkpoint": "claim_requested",
+      "elapsedMs": 0
+    },
+    {
+      "taskId": "598ef9b1-2fd1-480a-bb54-804464a4ffd9",
+      "checkpoint": "claimed",
+      "elapsedMs": 125
+    },
+    {
+      "taskId": "598ef9b1-2fd1-480a-bb54-804464a4ffd9",
+      "checkpoint": "metadata_parsed",
+      "elapsedMs": 126
+    },
+    {
+      "taskId": "598ef9b1-2fd1-480a-bb54-804464a4ffd9",
+      "checkpoint": "session_ready",
+      "sessionId": "d1aefe13-2a4f-4902-8dea-d34f42b765b4",
+      "elapsedMs": 126
+    },
+    {
+      "taskId": "598ef9b1-2fd1-480a-bb54-804464a4ffd9",
+      "checkpoint": "workspace_ready",
+      "elapsedMs": 214
+    },
+    {
+      "taskId": "598ef9b1-2fd1-480a-bb54-804464a4ffd9",
+      "checkpoint": "git_hook_installed",
+      "elapsedMs": 238
+    },
+    {
+      "taskId": "598ef9b1-2fd1-480a-bb54-804464a4ffd9",
+      "checkpoint": "model_selected",
+      "elapsedMs": 238
+    },
+    {
+      "taskId": "598ef9b1-2fd1-480a-bb54-804464a4ffd9",
+      "checkpoint": "agent_starting",
+      "elapsedMs": 238
+    },
+    {
+      "taskId": "598ef9b1-2fd1-480a-bb54-804464a4ffd9",
+      "checkpoint": "agent_done",
+      "elapsedMs": 3700
+    },
+    {
+      "taskId": "598ef9b1-2fd1-480a-bb54-804464a4ffd9",
+      "checkpoint": "releasing",
+      "elapsedMs": 3700
+    },
+    {
+      "taskId": "598ef9b1-2fd1-480a-bb54-804464a4ffd9",
+      "checkpoint": "released",
+      "elapsedMs": 3795
+    }
+  ]
+}

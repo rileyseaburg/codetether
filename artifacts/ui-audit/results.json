@@ -1,0 +1,221 @@
+{
+  "level": "mocked local",
+  "errors": [],
+  "checks": [
+    {
+      "name": "desktop layout",
+      "sidebar": {
+        "x": 0,
+        "y": 0,
+        "width": 224,
+        "height": 900,
+        "top": 0,
+        "right": 224,
+        "bottom": 900,
+        "left": 0
+      },
+      "content": {
+        "x": 208,
+        "y": 0,
+        "width": 1232,
+        "height": 900,
+        "top": 0,
+        "right": 1440,
+        "bottom": 900,
+        "left": 208
+      }
+    },
+    {
+      "name": "user menu bounds",
+      "box": {
+        "x": 1177,
+        "y": 59.5,
+        "width": 192,
+        "height": 177
+      },
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      }
+    },
+    {
+      "name": "user menu closes on Escape",
+      "closed": false
+    },
+    {
+      "name": "mobile first six Tab stops with sidebar closed",
+      "tabs": [
+        {
+          "tag": "A",
+          "text": "CodeTether",
+          "label": null,
+          "rect": {
+            "x": -232,
+            "y": 15.5,
+            "width": 144,
+            "height": 32,
+            "top": 15.5,
+            "right": -88,
+            "bottom": 47.5,
+            "left": -232
+          }
+        },
+        {
+          "tag": "BUTTON",
+          "text": "",
+          "label": null,
+          "rect": {
+            "x": -48,
+            "y": 19.5,
+            "width": 24,
+            "height": 24,
+            "top": 19.5,
+            "right": -24,
+            "bottom": 43.5,
+            "left": -48
+          }
+        },
+        {
+          "tag": "A",
+          "text": "Get StartedNew",
+          "label": null,
+          "rect": {
+            "x": -240,
+            "y": 80,
+            "width": 224,
+            "height": 44,
+            "top": 80,
+            "right": -16,
+            "bottom": 124,
+            "left": -240
+          }
+        },
+        {
+          "tag": "A",
+          "text": "Workspaces",
+          "label": null,
+          "rect": {
+            "x": -240,
+            "y": 128,
+            "width": 224,
+            "height": 40,
+            "top": 128,
+            "right": -16,
+            "bottom": 168,
+            "left": -240
+          }
+        },
+        {
+          "tag": "A",
+          "text": "Workers",
+          "label": null,
+          "rect": {
+            "x": -240,
+            "y": 172,
+            "width": 224,
+            "height": 40,
+            "top": 172,
+            "right": -16,
+            "bottom": 212,
+            "left": -240
+          }
+        },
+        {
+          "tag": "A",
+          "text": "OKRNew",
+          "label": null,
+          "rect": {
+            "x": -240,
+            "y": 216,
+            "width": 224,
+            "height": 44,
+            "top": 216,
+            "right": -16,
+            "bottom": 260,
+            "left": -240
+          }
+        }
+      ]
+    },
+    {
+      "name": "unnamed dashboard buttons",
+      "buttons": [
+        {
+          "html": "<button class=\"text-cyan-200 hover:text-white\"><svg fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" class=\"h-6 w-6\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M6 18L18 6M6 6l12 12\"></path></svg></button>",
+          "box": {
+            "x": -48,
+            "y": 19.5,
+            "width": 24,
+            "height": 24,
+            "top": 19.5,
+            "right": -24,
+            "bottom": 43.5,
+            "left": -48
+          }
+        },
+        {
+          "html": "<button class=\"md:hidden -m-2.5 p-2.5 text-gray-700 dark:text-gray-200\"><svg fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" class=\"h-6 w-6\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 6h16M4 12h16M4 18h16\"></path></svg></button>",
+          "box": {
+            "x": -2,
+            "y": 9.5,
+            "width": 44,
+            "height": 44,
+            "top": 9.5,
+            "right": 42,
+            "bottom": 53.5,
+            "left": -2
+          }
+        },
+        {
+          "html": "<button class=\"rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white\"><svg fill=\"currentColor\" viewBox=\"0 0 20 20\" class=\"h-5 w-5\"><path d=\"M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 ",
+          "box": {
+            "x": 298,
+            "y": 13.5,
+            "width": 36,
+            "height": 36,
+            "top": 13.5,
+            "right": 334,
+            "bottom": 49.5,
+            "left": 298
+          }
+        },
+        {
+          "html": "<button class=\"hidden sm:block rounded-full p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white\"><svg fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" class=\"h-5 w-5\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M10.325 4.317c.426-1.756 2.924-1.756 ",
+          "box": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0,
+            "top": 0,
+            "right": 0,
+            "bottom": 0,
+            "left": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "pricing navigation from privacy",
+      "url": "http://127.0.0.1:3107/privacy#pricing",
+      "targetExists": 0
+    },
+    {
+      "name": "homepage width",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "clientWidth": 1440
+    },
+    {
+      "name": "homepage width",
+      "width": 768,
+      "scrollWidth": 768,
+      "clientWidth": 768
+    },
+    {
+      "name": "homepage width",
+      "width": 390,
+      "scrollWidth": 390,
+      "clientWidth": 390
+    }
+  ]
+}

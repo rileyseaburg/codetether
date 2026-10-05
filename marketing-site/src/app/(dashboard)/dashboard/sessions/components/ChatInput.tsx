@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+
 interface ChatInputProps {
   draftMessage: string
   loading: boolean
@@ -15,18 +17,24 @@ export function ChatInput({
   onDraftChange,
   onSend,
 }: ChatInputProps) {
+  const composing = useRef(false)
+  const canSend = !loading && draftMessage.trim().length > 0
+
   if (!hasSession) return null
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
     // Enter confirms IME candidates; Safari can clear isComposing early.
-    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)
+    if (
+      composing.current ||
+      event.nativeEvent.isComposing ||
+      event.nativeEvent.keyCode === 229
+    )
       return
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
-      onSend()
+      if (canSend) onSend()
     }
   }
-  const canSend = !loading && draftMessage.trim().length > 0
 
   return (
     <footer
@@ -36,7 +44,7 @@ export function ChatInput({
       <form
         onSubmit={(event) => {
           event.preventDefault()
-          onSend()
+          if (canSend && !composing.current) onSend()
         }}
       >
         <div className="flex items-end gap-3 rounded-2xl border border-gray-300 bg-white p-3 shadow-sm focus-within:border-cyan-600 focus-within:ring-1 focus-within:ring-cyan-600 dark:border-gray-700 dark:bg-gray-800">
@@ -49,6 +57,12 @@ export function ChatInput({
               value={draftMessage}
               onChange={(event) => onDraftChange(event.target.value)}
               onKeyDown={handleKeyDown}
+              onCompositionStart={() => {
+                composing.current = true
+              }}
+              onCompositionEnd={() => {
+                composing.current = false
+              }}
               rows={2}
               placeholder="Message the agent…"
               className="block max-h-40 min-h-14 w-full resize-y border-0 bg-transparent p-0 text-base leading-7 text-gray-900 placeholder:text-gray-400 focus:ring-0 focus:outline-none dark:text-white"

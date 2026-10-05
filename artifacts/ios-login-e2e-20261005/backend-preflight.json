@@ -1,0 +1,253 @@
+{
+  "capturedAt": "2026-10-05T12:31:29.122Z",
+  "logs": {
+    "namespace": "keycloak",
+    "pod": "keycloak-0",
+    "window": "last 12h, at most 20000 lines",
+    "matchedCount": 4,
+    "events": [
+      {
+        "timestamp": "2026-10-05T03:35:27.628388667Z",
+        "type": "LOGIN_ERROR",
+        "client": "a2a-monitor",
+        "error": "invalid_user_credentials"
+      },
+      {
+        "timestamp": "2026-10-05T03:43:07.489105260Z",
+        "type": "LOGIN_ERROR",
+        "client": "a2a-monitor",
+        "error": "invalid_user_credentials"
+      },
+      {
+        "timestamp": "2026-10-05T03:43:27.241774605Z",
+        "type": "LOGIN_ERROR",
+        "client": "a2a-monitor",
+        "error": "invalid_user_credentials"
+      },
+      {
+        "timestamp": "2026-10-05T11:59:46.616962445Z",
+        "type": "LOGIN_ERROR",
+        "client": "a2a-monitor",
+        "error": "invalid_user_credentials"
+      }
+    ],
+    "scope": "Requested username matched in server event metadata",
+    "limitation": "Historical server events, not a newly attempted login."
+  },
+  "worker": [
+    {
+      "file": "/etc/systemd/system/codetether-ubuntu-dev.service",
+      "entrypoint": "ExecStart=/opt/codetether-worker/bin/codetether",
+      "flags": [],
+      "values": {}
+    },
+    {
+      "file": "/home/riley/.config/systemd/user/codetether-public-tunnel.service",
+      "entrypoint": "ExecStart=%h/bin/cloudflared",
+      "flags": [
+        "--no-autoupdate",
+        "--token-file"
+      ],
+      "values": {}
+    },
+    {
+      "process": 811171,
+      "flags": [
+        "--server",
+        "--auto-approve",
+        "--name",
+        "--codebases"
+      ],
+      "values": {
+        "--server": "https://api.codetether.run",
+        "--name": "ubuntu-dev",
+        "--codebases": "/home/riley/A2A-Server-MCP,/home/riley/family-budget"
+      }
+    },
+    {
+      "subcommands": [
+        "worker"
+      ]
+    },
+    {
+      "workerEnvironmentKeys": [
+        "A2A_SERVER_URL",
+        "A2A_WORKER_NAME",
+        "A2A_AUTO_APPROVE",
+        "A2A_CODEBASES",
+        "CODETETHER_LOG_LEVEL",
+        "HOME",
+        "XDG_CACHE_HOME",
+        "XDG_CONFIG_HOME",
+        "VAULT_ADDR",
+        "VAULT_TOKEN",
+        "CODETETHER_DEFAULT_MODEL",
+        "CODETETHER_TOOL_ROUTER_ENABLED",
+        "CODETETHER_TOOL_ROUTER_MODEL_PATH",
+        "CODETETHER_TOOL_ROUTER_TOKENIZER_PATH",
+        "CODETETHER_TOKEN"
+      ]
+    },
+    {
+      "tunnelIngress": [
+        {
+          "hostname": "server.codetether.run",
+          "path": "^/(tts/(speak|voices|health)|mobile/(attachments|image))$",
+          "service": "http://127.0.0.1:4097"
+        },
+        {
+          "hostname": "server.codetether.run",
+          "service": "http://127.0.0.1:4096"
+        },
+        {
+          "service": "http_status:404"
+        }
+      ]
+    },
+    {
+      "journalWindow": "last hour, at most 300 records",
+      "counts": {
+        "401": 12,
+        "403": 6,
+        "404": 0,
+        "registered": 5,
+        "heartbeat": 0,
+        "connection refused": 0
+      },
+      "workerIds": [
+        "wrk_1791203157_35195f4f7b97da0a"
+      ]
+    },
+    {
+      "pid": 742248,
+      "executable": "/home/riley/.nvm/versions/node/v26.9.0/bin/node",
+      "scriptPaths": [
+        "/home/riley/.local/lib/codetether-audio/server.mjs"
+      ]
+    },
+    {
+      "pid": 3748592,
+      "executable": "/home/riley/.cargo/bin/codetether",
+      "scriptPaths": []
+    },
+    {
+      "route": "workers",
+      "status": 200,
+      "count": 2,
+      "fields": [
+        "worker_id",
+        "name",
+        "capabilities",
+        "hostname",
+        "models",
+        "global_workspace_id",
+        "workspaces",
+        "registered_at",
+        "last_seen",
+        "status",
+        "worker_runtime",
+        "worker_runtime_label"
+      ],
+      "matches": [
+        {
+          "worker_id": "wrk_1791203157_35195f4f7b97da0a",
+          "name": "ubuntu-dev",
+          "hostname": "unknown",
+          "status": "active",
+          "workspaces": [
+            "/home/riley/A2A-Server-MCP",
+            "/home/riley/family-budget",
+            "/home/riley/spotlessbinco",
+            "/home/riley/codetether-pr-smoke-20260316-012229",
+            "/home/riley/data-annotation",
+            "/home/riley/.local/share/codetether/repos/b0bd7a8efdb9df52",
+            "/home/riley/.local/share/codetether/repos/467e8fd1da67844d",
+            "/home/riley/.local/share/codetether/repos/b3c105e610dbbb1c",
+            "/tmp"
+          ],
+          "global_workspace_id": null
+        },
+        {
+          "worker_id": "wrk_1790863118_d8afc263b0d6fa3e",
+          "name": "ubuntu-dev",
+          "hostname": "unknown",
+          "status": "active",
+          "workspaces": [
+            "/home/riley/A2A-Server-MCP",
+            "/home/riley/family-budget",
+            "/home/riley/spotlessbinco",
+            "/home/riley/codetether-pr-smoke-20260316-012229",
+            "/home/riley/data-annotation",
+            "/home/riley/.local/share/codetether/repos/b0bd7a8efdb9df52",
+            "/home/riley/.local/share/codetether/repos/467e8fd1da67844d",
+            "/home/riley/.local/share/codetether/repos/b3c105e610dbbb1c",
+            "/tmp"
+          ],
+          "global_workspace_id": null
+        }
+      ]
+    },
+    {
+      "route": "workspaces",
+      "status": 200,
+      "count": 1958,
+      "fields": [
+        "id",
+        "name",
+        "path",
+        "description",
+        "registered_at",
+        "agent_config",
+        "last_triggered",
+        "status",
+        "agent_port",
+        "session_id",
+        "watch_mode",
+        "watch_interval",
+        "worker_id"
+      ],
+      "matches": [
+        {
+          "id": "ios-e2e-ubuntu-dev",
+          "worker_id": "wrk_1791203157_35195f4f7b97da0a",
+          "name": "iOS E2E - ubuntu-dev",
+          "path": "/home/riley/A2A-Server-MCP/artifacts/ios-e2e-web",
+          "status": "idle"
+        }
+      ]
+    }
+  ],
+  "argo": {
+    "application": "argocd/codetether-a2a-server",
+    "sync": "OutOfSync",
+    "health": "Healthy",
+    "revision": "eb2051a212a2c729a7963da8e1dda39a4e958513",
+    "workerParameters": [
+      {
+        "name": "workerAuth.existingSecret",
+        "value": "a2a-server-ios-worker-auth"
+      }
+    ],
+    "unsynced": [
+      {
+        "kind": "StatefulSet",
+        "name": "a2a-server-harvester"
+      }
+    ]
+  },
+  "deployment": {
+    "namespace": "a2a-system",
+    "name": "a2a-server-deployment-green",
+    "generation": 204,
+    "ready": 2,
+    "updated": 2,
+    "images": [
+      {
+        "name": "a2a-server",
+        "image": "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-eb2051a212a2"
+      }
+    ]
+  },
+  "taskSubmitted": false,
+  "htmlHosted": false
+}

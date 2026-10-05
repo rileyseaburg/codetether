@@ -1,25 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { listVoicesV1VoiceVoicesGet, createVoiceSessionV1VoiceSessionsPost } from '@/lib/api';
-
-const generateUuid = () => {
-  if (typeof crypto !== 'undefined') {
-    if (typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-    if (typeof crypto.getRandomValues === 'function') {
-      const bytes = new Uint8Array(16);
-      crypto.getRandomValues(bytes);
-      bytes[6] = (bytes[6] & 0x0f) | 0x40;
-      bytes[8] = (bytes[8] & 0x3f) | 0x80;
-      const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0'));
-      return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10, 16).join('')}`;
-    }
-  }
-  return `voice-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-};
+import { useTenantApi } from '@/hooks/useTenantApi';
 
 // SVG Icon
 const MicIcon = ({ className }: { className?: string }) => (
@@ -43,6 +25,7 @@ interface VoiceSession {
   voice: string;
   mode: string;
   expires_at: string;
+  user_id: string;
 }
 
 interface Voice {
@@ -58,58 +41,35 @@ export default function VoiceChatButton({
   playbackStyle = 'verbatim',
   compact = false,
 }: VoiceChatButtonProps) {
-  const { data: session } = useSession();
+  const { tenantFetch } = useTenantApi();
+  const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
   const [connectionInfo, setConnectionInfo] = useState<VoiceSession | null>(null);
   const [showVoiceSelector, setShowVoiceSelector] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Generate a persistent user ID for session reconnection
-  const [userId] = useState(() => {
-    if (typeof window === 'undefined') {
-      return generateUuid();
-    }
-    const stored = localStorage.getItem('voice_user_id');
-    if (stored) {
-      return stored;
-    }
-    const id = generateUuid();
-    localStorage.setItem('voice_user_id', id);
-    return id;
-  });
-
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run';
-
-  const fetchVoices = async () => {
-    try {
-      const { data } = await listVoicesV1VoiceVoicesGet({
-        headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
-      });
-      return ((data as unknown as { voices?: Voice[] })?.voices) || [];
-    } catch {
-      return [];
-    }
-  };
-
   const startSession = async (voice: Voice) => {
     setIsLoading(true);
+    setError(null);
     try {
-      const { data } = await createVoiceSessionV1VoiceSessionsPost({
-        body: {
+      const { data, error: sessionError } = await tenantFetch<VoiceSession>('/v1/voice/sessions', {
+        method: 'POST',
+        body: JSON.stringify({
           voice: voice.id,
           workspace_id: codebaseId,
           session_id: sessionId,
           mode: mode,
           playback_style: playbackStyle,
-          user_id: userId,
-        },
-        headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
+        }),
       });
-      setConnectionInfo(data as VoiceSession);
+      if (sessionError || !data?.access_token || !data.livekit_url || !data.room_name || !data.user_id) {
+        throw new Error(sessionError || 'Voice server returned an incomplete connection');
+      }
+      setConnectionInfo(data);
       setIsOpen(true);
     } catch (e) {
-      console.error('Failed to start voice session:', e);
+      setError(e instanceof Error ? e.message : 'Failed to start voice session');
     } finally {
       setIsLoading(false);
     }
@@ -139,6 +99,22 @@ export default function VoiceChatButton({
     }
   };
 
+  const handleClose = async () => {
+    const room = connectionInfo?.room_name;
+    setIsOpen(false);
+    setConnectionInfo(null);
+    if (room) {
+      try {
+        const { error: cleanupError } = await tenantFetch(`/v1/voice/sessions/${encodeURIComponent(room)}`, {
+          method: 'DELETE',
+        });
+        if (cleanupError) setError(`Could not end voice session: ${cleanupError}`);
+      } catch (e) {
+        setError(`Could not end voice session: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+  };
+
   return (
     <>
       <button
@@ -157,6 +133,7 @@ export default function VoiceChatButton({
         )}
       </button>
 
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {showVoiceSelector && (
         <VoiceSelector
           selected={selectedVoice}
@@ -172,13 +149,8 @@ export default function VoiceChatButton({
           roomName={connectionInfo.room_name}
           voice={selectedVoice}
           sessionId={sessionId}
-          userId={userId}
-          accessToken={session?.accessToken}
-          apiBaseUrl={apiBaseUrl}
-          onClose={() => {
-            setIsOpen(false);
-            setConnectionInfo(null);
-          }}
+          userId={connectionInfo.user_id}
+          onClose={handleClose}
         />
       )}
 

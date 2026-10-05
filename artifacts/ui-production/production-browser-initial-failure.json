@@ -1,0 +1,36 @@
+{
+  "level": "live deployment/Argo",
+  "commit": "02f2edbdb0e7c49e849e35400990e2defe5520d9",
+  "image": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing:ui-02f2edbdb0e7",
+  "checks": [
+    {
+      "host": "codetether.run",
+      "requests": [
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/callback/keycloak",
+          "status": 302
+        }
+      ],
+      "versionStatus": 200,
+      "revision": "02f2edbdb0e7c49e849e35400990e2defe5520d9",
+      "callback": "https://codetether.run/api/auth/callback/keycloak",
+      "pkce": "S256"
+    }
+  ],
+  "mutations": [],
+  "testUserId": "54f1cd80-c6b2-4065-9615-5e2cfb2d04a6",
+  "error": "page.waitForURL: Timeout 60000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n  navigated to \"chrome-error://chromewebdata/\"\n============================================================",
+  "success": false,
+  "testUserDisabled": true
+}

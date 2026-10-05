@@ -1,0 +1,2272 @@
+---
+# Source: a2a-server/templates/harvester-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: a2a-server-harvester
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    app.kubernetes.io/component: harvester
+---
+# Source: a2a-server/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: a2a-server
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+automountServiceAccountToken: true
+---
+# Source: a2a-server/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: a2a-server-config
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+data:
+  # Server configuration
+  A2A_HOST: "0.0.0.0"
+  A2A_PORT: "8000"
+  A2A_LOG_LEVEL: "INFO"
+
+  # Redis configuration
+  A2A_REDIS_URL: "redis://a2a-server-redis-master:6379"
+
+  # Agent configuration
+  A2A_AGENT_NAME: "CodeTether Server"
+  A2A_AGENT_DESCRIPTION: "Production CodeTether A2A coordination server"
+  A2A_AGENT_ORG: "CodeTether"
+  A2A_AGENT_ORG_URL: "https://codetether.run"
+  A2A_AGENT_URL: "https://api.codetether.run"
+  A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
+
+  # Authentication enabled flag
+  A2A_AUTH_ENABLED: "true"
+
+  # Keycloak SSO configuration (non-secret values)
+  KEYCLOAK_URL: "https://auth.quantum-forge.io"
+  KEYCLOAK_ISSUER: "https://auth.quantum-forge.io/realms/quantum-forge"
+  KEYCLOAK_REALM: "quantum-forge"
+  KEYCLOAK_CLIENT_ID: "a2a-monitor"
+
+  # Worker authentication token lives in a Secret (worker-auth-secret.yaml).
+
+  # Sandbox execution
+
+  # RLS is enabled by default for multi-tenant isolation
+  RLS_ENABLED: "true"
+
+  # Durable Forgejo Temporal orchestration (non-secret client settings)
+  FORGEJO_TEMPORAL_ENABLED: "true"
+  TEMPORAL_ADDRESS: "temporal-frontend.temporal.svc.cluster.local:7233"
+  TEMPORAL_NAMESPACE: "codetether-prod"
+  TEMPORAL_FORGEJO_TASK_QUEUE: "codetether-forgejo-agent"
+
+  # Database persistence paths (use mounted volume for persistence across restarts)
+  MONITOR_DB_PATH: "/app/data/monitor.db"
+  SESSIONS_DB_PATH: "/app/data/sessions.db"
+  AGENT_DB_PATH: "/app/data/agent.db"
+  # Backward compat: old env var still recognized by the server
+  OPENCODE_DB_PATH: "/app/data/agent.db"
+---
+# Source: a2a-server/templates/spiffe-helper-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: a2a-server-spiffe-helper
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+data:
+  helper.conf: |
+    agent_address = "/spiffe-workload-api/spire-agent.sock"
+    cert_dir = "/svid"
+    daemon_mode = true
+    jwt_svids = [{jwt_audience = "a2a-server", jwt_svid_file_name = "jwt_svid.token"}]
+    jwt_svid_file_mode = 0600
+---
+# Source: a2a-server/templates/task-jobs.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: a2a-server-task-job-template
+data:
+  job.json: |
+    {
+      "apiVersion":"batch/v1","kind":"Job","metadata":{},
+      "spec":{"backoffLimit":0,"template":{"metadata":{},"spec":{
+        "restartPolicy":"Never",
+        "serviceAccountName":"a2a-server-harvester",
+        "securityContext":{"runAsNonRoot":true,"runAsUser":1000,"fsGroup":1000},
+        "imagePullSecrets":[{"name":"registry-credentials"}],
+        "initContainers":[{
+          "name":"spiffe-helper",
+          "image":"ghcr.io/spiffe/spiffe-helper:0.10.0",
+          "restartPolicy":"Always",
+          "args":["-config","/spiffe-helper/helper.conf"],
+          "securityContext":{"allowPrivilegeEscalation":false,"readOnlyRootFilesystem":true,"capabilities":{"drop":["ALL"]}},
+          "resources":{"requests":{"cpu":"10m","memory":"32Mi"},"limits":{"cpu":"100m","memory":"64Mi"}},
+          "volumeMounts":[
+            {"name":"spiffe-workload-api","mountPath":"/spiffe-workload-api","readOnly":true},
+            {"name":"spiffe-helper-config","mountPath":"/spiffe-helper","readOnly":true},
+            {"name":"svid","mountPath":"/svid"}
+          ]
+        }],
+        "containers":[{
+          "name":"worker",
+          "image":"registry.quantum-forge.net/cluster-ci-cache/codetether-worker:4.7.5-dev.49-forgejo-ro-599230d97ec3",
+          "command":["python3","/runner/job_worker.py"],
+          "terminationMessagePath":"/tmp/job-result.json",
+          "terminationMessagePolicy":"File",
+          "securityContext":{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}},
+          "env":[
+            {"name":"PATH","value":"/runner:/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"},
+            {"name":"CODETETHER_SERVER","value":"http://a2a-server:8000"},
+            {"name":"CODETETHER_SVID_PATH","value":"/svid/jwt_svid.token"},
+            {"name":"HOME","value":"/work"},
+            {"name":"XDG_CONFIG_HOME","value":"/work/.config"},
+            {"name":"XDG_DATA_HOME","value":"/work/.local/share"},
+            {"name":"CODETETHER_OPENAI_CODEX_ALLOW_CHATGPT_BACKEND","value":"1"},
+            {"name":"CODETETHER_WORKER_TARGETED_ONLY","value":"true"},
+            {"name":"CODETETHER_DEFAULT_MODEL","value":"openai-codex/gpt-6-astra-fast:high"},
+            {"name":"VAULT_ADDR","value":"http://vault.vault.svc.cluster.local:8200"},
+            {"name":"VAULT_ROLE","value":"codetether-harvester"},
+            {"name":"VAULT_AUTH_MOUNT","value":"kubernetes"},
+            {"name":"VAULT_K8S_SA_JWT_PATH","value":"/var/run/secrets/vault/token"},
+            {"name":"VAULT_MOUNT","value":"secret"},
+            {"name":"VAULT_SECRETS_PATH","value":"codetether/providers"},
+            {"name":"JOB_RESULT_PATH","value":"/tmp/job-result.json"},
+            {"name":"JOB_PRIVATE_LOG_PATH","value":"/work/worker.log"}
+          ],
+          "volumeMounts":[
+            {"name":"runner","mountPath":"/runner","readOnly":true},
+            {"name":"home","mountPath":"/work"},
+            {"name":"workspace","mountPath":"/var/lib/codetether/repos"},
+            {"name":"svid","mountPath":"/svid","readOnly":true},
+            {"name":"vault-jwt","mountPath":"/var/run/secrets/vault","readOnly":true}
+          ],
+          "resources":{"requests":{"cpu":"500m","memory":"2Gi","ephemeral-storage":"6Gi"},
+                       "limits":{"cpu":"4","memory":"6Gi","ephemeral-storage":"12Gi"}}
+        }],
+        "volumes":[
+          {"name":"runner","configMap":{"name":"a2a-server-task-job-runner","defaultMode":365}},
+          {"name":"home","emptyDir":{"sizeLimit":"8Gi"}},
+          {"name":"spiffe-workload-api","csi":{"driver":"csi.spiffe.io","readOnly":true}},
+          {"name":"spiffe-helper-config","configMap":{"name":"a2a-server-spiffe-helper"}},
+          {"name":"svid","emptyDir":{"medium":"Memory","sizeLimit":"1Mi"}},
+          {"name":"vault-jwt","projected":{"sources":[{"serviceAccountToken":{"audience":"vault","expirationSeconds":3600,"path":"token"}}]}}
+        ]
+      }}}}
+---
+# Source: a2a-server/templates/task-jobs.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: a2a-server-task-job-runner
+data:
+  job_worker.py: |
+    #!/usr/bin/env python3
+    """Finite, targeted Kubernetes Job supervisor (stdlib only, Linux/POSIX).
+    
+    Worker output stays in CodeTether, not the Job console. The termination result
+    contains metadata only. Local cleanup evidence never deletes files and does not
+    prove remote branch state; the controller owns workspace retention decisions.
+    """
+    
+    import json
+    import math
+    import os
+    import queue
+    import re
+    import shutil
+    import signal
+    import subprocess
+    import sys
+    import threading
+    import time
+    
+    from collections.abc import Callable
+    from contextlib import suppress
+    from dataclasses import dataclass, field
+    from http import HTTPStatus
+    from pathlib import Path
+    from typing import Self
+    from urllib.error import HTTPError
+    from urllib.parse import quote, urlsplit
+    from urllib.request import HTTPRedirectHandler, Request, build_opener
+    
+    
+    POLL_SECONDS = 2.0
+    TICK_SECONDS = 0.2
+    HTTP_TIMEOUT = 10.0
+    MAX_RESPONSE = 4 * 1024 * 1024
+    STOP_GRACE = 5.0
+    REAP_TIMEOUT = 2.0
+    GIT_TIMEOUT = 5.0
+    ASCII_CONTROL_LIMIT = 32
+    SVID_WAIT_SECONDS = 60.0
+    TERMINAL = {'completed', 'failed', 'cancelled'}
+    PENDING = {'pending', 'queued', 'assigned', 'running', 'working', 'in_progress'}
+    IDENTIFIER = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$')
+    OBJECT_ID = re.compile(r'(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})')
+    
+    
+    class DiagnosticError(Exception):
+        """A fixed diagnostic code, never a raw subprocess or HTTP exception."""
+    
+    
+    # Preserve the import name used by existing supervisor integrations.
+    Diagnostic = DiagnosticError
+    
+    
+    @dataclass(frozen=True)
+    class Config:
+        """Validated settings for one worker and its private result file."""
+    
+        task_id: str
+        worker_name: str
+        server: str
+        token: str = field(repr=False)
+        deadline: float
+        read_only: bool
+        workspace: str | None
+        result_path: str
+        svid_path: str | None = None
+    
+        def bearer(self) -> str:
+            """Return the current credential.
+    
+            SPIRE-native mode reads the JWT-SVID that spiffe-helper keeps fresh
+            (rotated before expiry), so the worker never holds a shared secret.
+            The file is re-read on every call so rotation takes effect at once.
+            """
+            if not self.svid_path:
+                return self.token
+            try:
+                value = Path(self.svid_path).read_text(encoding='ascii').strip()
+            except OSError:
+                raise Diagnostic('job_svid_unavailable') from None
+            if not value or any(ord(c) < ASCII_CONTROL_LIMIT for c in value):
+                raise Diagnostic('job_svid_invalid')
+            return value
+    
+        def wait_for_bearer(self, timeout: float = SVID_WAIT_SECONDS) -> None:
+            """Block until the sidecar has written the first SVID."""
+            deadline = time.monotonic() + timeout
+            while True:
+                try:
+                    self.bearer()
+                except Diagnostic:
+                    if time.monotonic() >= deadline:
+                        raise
+                    time.sleep(TICK_SECONDS)
+                else:
+                    return
+    
+        @classmethod
+        def from_env(cls, env) -> Self:
+            """Validate input without reflecting its values in diagnostics."""
+            try:
+                task, name = env['JOB_TASK_ID'], env['JOB_WORKER_NAME']
+                svid_path = env.get('CODETETHER_SVID_PATH') or None
+                server, token = (
+                    env['CODETETHER_SERVER'].rstrip('/'),
+                    env.get('CODETETHER_TOKEN', '')
+                    if svid_path
+                    else env['CODETETHER_TOKEN'],
+                )
+                seconds = float(env.get('JOB_DEADLINE_SECONDS', '3600'))
+                mode = env.get('JOB_READ_ONLY', 'false').lower()
+                url = urlsplit(server)
+                path = env.get('JOB_RESULT_PATH', '/tmp/job-result.json')
+                if not (
+                    IDENTIFIER.fullmatch(task)
+                    and IDENTIFIER.fullmatch(name)
+                    and url.scheme in {'http', 'https'}
+                    and url.hostname
+                    and not url.username
+                    and not url.password
+                    and not url.query
+                    and not url.fragment
+                    and (token or (svid_path and Path(svid_path).is_absolute()))
+                    and not any(
+                        ord(c) < ASCII_CONTROL_LIMIT for c in token + server
+                    )
+                    and math.isfinite(seconds)
+                    and seconds > 0
+                    and mode in {'true', 'false'}
+                    and Path(path).is_absolute()
+                ):
+                    raise ValueError
+                return cls(
+                    task,
+                    name,
+                    server,
+                    token,
+                    seconds,
+                    mode == 'true',
+                    env.get('JOB_WORKSPACE_PATH'),
+                    path,
+                    svid_path,
+                )
+            except (KeyError, TypeError, ValueError):
+                raise Diagnostic('job_configuration_invalid') from None
+    
+    
+    class NoRedirect(HTTPRedirectHandler):
+        """Do not forward credentials to redirects."""
+    
+        def redirect_request(self, *args: object, **kwargs: object) -> None:
+            return None
+    
+    
+    def _decode_status_response(body: bytes, task_id: str) -> dict[str, str]:
+        """Validate a bounded response without exposing its contents."""
+        if len(body) > MAX_RESPONSE:
+            return {'error': 'task_poll_response_too_large'}
+        data = json.loads(body)
+        if not isinstance(data, dict) or data.get('id') != task_id:
+            return {'error': 'task_poll_identity_invalid'}
+        status = data.get('status')
+        if not isinstance(status, str) or status not in TERMINAL | PENDING:
+            return {'error': 'task_poll_status_invalid'}
+        return {'status': status}
+    
+    
+    def read_status(config, timeout):
+        """Fetch the target status without logging request or response bodies."""
+        try:
+            request = Request(
+                config.server + '/v1/agent/tasks/' + quote(config.task_id, safe=''),
+                headers={
+                    'Authorization': 'Bearer ' + config.bearer(),
+                    'Accept': 'application/json',
+                    'User-Agent': 'CodeTether-Job-Supervisor/1.0',
+                },
+                method='GET',
+            )
+            with build_opener(NoRedirect()).open(
+                request, timeout=timeout
+            ) as response:
+                if response.status != HTTPStatus.OK:
+                    return {
+                        'error': 'task_poll_http_error',
+                        'http_status': response.status,
+                    }
+                body = response.read(MAX_RESPONSE + 1)
+            return _decode_status_response(body, config.task_id)
+        except HTTPError as error:
+            code = error.code
+            error.close()
+            return {'error': 'task_poll_http_error', 'http_status': code}
+        except (ValueError, UnicodeError):
+            return {'error': 'task_poll_response_invalid'}
+        except Exception:
+            return {'error': 'task_poll_transport_error'}
+    
+    
+    class Poller:
+        """One daemon thread keeps slow HTTP bodies from defeating the Job deadline.
+    
+        Socket timeouts are not whole-response deadlines. Never join this thread or
+        create overlapping request threads if one HTTP call is still blocked.
+        """
+    
+        def __init__(self, config, deadline):
+            self.config, self.deadline = config, deadline
+            self.stopped = threading.Event()
+            self.results = queue.Queue(maxsize=1)
+    
+        def start(self):
+            threading.Thread(target=self.run, daemon=True).start()
+    
+        def run(self):
+            while not self.stopped.is_set():
+                remaining = self.deadline - time.monotonic()
+                if remaining <= 0:
+                    return
+                result = read_status(self.config, min(HTTP_TIMEOUT, remaining))
+                if self.stopped.is_set():
+                    return
+                with suppress(queue.Full):
+                    self.results.put_nowait(result)
+                if self.stopped.wait(POLL_SECONDS):
+                    return
+    
+        def next(self, timeout):
+            try:
+                return self.results.get(timeout=timeout)
+            except queue.Empty:
+                return None
+    
+        def close(self):
+            self.stopped.set()
+    
+    
+    class Termination:
+        """Record signals; control flow performs bounded child-group shutdown."""
+    
+        received = None
+    
+        def handle(self, number, frame):
+            if self.received is None:
+                self.received = number
+    
+    
+    def child_exited(child):
+        """Peek without reaping, keeping PID/PGID reserved until group shutdown."""
+        try:
+            return (
+                os.waitid(os.P_PID, child.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+                is not None
+            )
+        except (ChildProcessError, OSError):
+            raise Diagnostic('worker_ownership_lost') from None
+    
+    
+    def stop_child(child, number):
+        """Never signal arbitrary PIDs: child is our unreaped new-session leader."""
+        try:
+            child_exited(child)
+            with suppress(ProcessLookupError):
+                os.killpg(child.pid, number)
+            # Do not reap the leader early: descendants get the full grace interval,
+            # and the PGID cannot be recycled before our final group signal.
+            end = time.monotonic() + STOP_GRACE
+            while time.monotonic() < end:
+                time.sleep(max(0, min(TICK_SECONDS, end - time.monotonic())))
+            with suppress(ProcessLookupError):
+                os.killpg(child.pid, signal.SIGKILL)
+            return child.wait(timeout=REAP_TIMEOUT), True
+        except Exception:
+            return None, False
+    
+    
+    def _audit_path(workspace: str) -> Path:
+        """Reject layouts whose local state cannot be audited conservatively."""
+        path = Path(workspace)
+        if not path.is_absolute() or path.resolve(strict=True) != path:
+            raise Diagnostic('audit_workspace_invalid')
+        gd = path / '.git'
+        if (
+            not gd.is_dir()
+            or gd.is_symlink()
+            or any(
+                p.exists()
+                for p in (
+                    gd / 'modules',
+                    gd / 'shallow',
+                    gd / 'info/grafts',
+                    gd / 'objects/info/alternates',
+                )
+            )
+        ):
+            raise Diagnostic('audit_git_layout_unsupported')
+        # Merely declaring .gitmodules is supported, not initialised submodules.
+        return path
+    
+    
+    def _git_reader(
+        path: Path, deadline: float, termination: Termination
+    ) -> Callable[..., bytes]:
+        """Build a bounded local-only Git reader without inherited Git overrides."""
+        env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+        env.update(
+            {
+                'GIT_OPTIONAL_LOCKS': '0',
+                'GIT_TERMINAL_PROMPT': '0',
+                'GIT_NO_LAZY_FETCH': '1',
+                'GIT_NO_REPLACE_OBJECTS': '1',
+                'GIT_CONFIG_NOSYSTEM': '1',
+                'GIT_CONFIG_GLOBAL': os.devnull,
+                'GIT_CEILING_DIRECTORIES': str(path.parent),
+            }
+        )
+    
+        def git(*args: str, allowed: tuple[int, ...] = (0,)) -> bytes:
+            remaining = deadline - time.monotonic()
+            if termination.received or remaining <= 0:
+                raise Diagnostic('audit_deadline_or_termination')
+            run = subprocess.run(
+                [
+                    'git',
+                    '--no-pager',
+                    '--no-optional-locks',
+                    '-c',
+                    'core.fsmonitor=false',
+                    '-c',
+                    'core.hooksPath=' + os.devnull,
+                    '-c',
+                    'log.showSignature=false',
+                    '-C',
+                    str(path),
+                    *args,
+                ],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                env=env,
+                timeout=min(GIT_TIMEOUT, remaining),
+                check=False,
+            )
+            if run.returncode not in allowed or len(run.stdout) > 1024 * 1024:
+                raise Diagnostic('audit_git_failed')
+            return run.stdout
+    
+        return git
+    
+    
+    def _local_branch_heads(git: Callable[..., bytes]) -> dict[str, str]:
+        """Read every branch head, exposing only validated ref/SHA metadata."""
+        records = (
+            git('for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads')
+            .decode()
+            .splitlines()
+        )
+        heads = {}
+        for record in records:
+            branch, separator, sha = record.partition(' ')
+            if not separator:
+                raise Diagnostic('audit_branch_invalid')
+            if (
+                not branch.startswith('refs/heads/')
+                or any(ord(c) < ASCII_CONTROL_LIMIT for c in branch)
+                or branch in heads
+            ):
+                raise Diagnostic('audit_branch_invalid')
+            if not OBJECT_ID.fullmatch(sha):
+                raise Diagnostic('audit_head_invalid')
+            # Let Git enforce every ref-format rule without fetching or mutating.
+            git('check-ref-format', branch)
+            heads[branch] = sha
+        if not heads:
+            raise Diagnostic('audit_refs_missing')
+        return heads
+    
+    
+    def _has_local_unpushed(
+        git: Callable[..., bytes], branches: dict[str, str]
+    ) -> bool:
+        """Keep the cached-remote heuristic separate from branch-head evidence."""
+        if not git('for-each-ref', '--format=%(refname)', 'refs/remotes').strip():
+            raise Diagnostic('audit_refs_missing')
+        unpushed = False
+        for branch in branches:
+            count = git('rev-list', '--count', branch, '--not', '--remotes').strip()
+            if not count.isdigit():
+                raise Diagnostic('audit_count_invalid')
+            unpushed = unpushed or int(count) > 0
+        return unpushed
+    
+    
+    def audit_workspace(config, deadline, termination):
+        """Local, conservative evidence after shutdown; never fetch or delete.
+    
+        Detached, shallow, partial, filtered and alternate-object repositories are
+        intentionally ineligible. Cached remote refs are not live remote proof.
+        """
+        result = {
+            'workspace_clean': None,
+            'stash_empty': None,
+            'unpushed': None,
+            'cleanup_eligible': False,
+            'local_branch_heads': None,
+            'audit_diagnostic': 'audit_unavailable',
+        }
+        if not config.workspace:
+            return {**result, 'audit_diagnostic': 'audit_workspace_unspecified'}
+        try:
+            path = _audit_path(config.workspace)
+            git = _git_reader(path, deadline, termination)
+    
+            if (
+                Path(git('rev-parse', '--show-toplevel').decode().strip()).resolve()
+                != path
+            ):
+                raise Diagnostic('audit_workspace_not_root')
+            if git(
+                'config',
+                '--local',
+                '--includes',
+                '--name-only',
+                '--get-regexp',
+                r'^(filter\.|remote\..*\.promisor$|extensions\.partialclone$)',
+                allowed=(0, 1),
+            ):
+                raise Diagnostic('audit_filters_or_partial_clone')
+            if git('rev-parse', '--is-shallow-repository').strip() != b'false':
+                raise Diagnostic('audit_shallow_repository')
+            if not git('symbolic-ref', '--quiet', 'HEAD').startswith(
+                b'refs/heads/'
+            ):
+                raise Diagnostic('audit_detached_head')
+            clean = not git(
+                'status',
+                '--porcelain',
+                '--untracked-files=normal',
+                '--ignore-submodules=none',
+            ).strip()
+            stash_empty = not git(
+                'stash', 'list', '--format=%gd', '--no-show-signature'
+            ).strip()
+            result['workspace_clean'] = clean and stash_empty
+            result['stash_empty'] = stash_empty
+            head = git('rev-parse', 'HEAD').decode().strip()
+            if not re.fullmatch(r'[0-9a-fA-F]{40,64}', head):
+                raise Diagnostic('audit_head_invalid')
+            result['head_sha'] = head
+            branches = _local_branch_heads(git)
+            unpushed = _has_local_unpushed(git, branches)
+            if termination.received or time.monotonic() >= deadline:
+                raise Diagnostic('audit_deadline_or_termination')
+            result.update(
+                local_branch_heads=branches,
+                unpushed=unpushed,
+                cleanup_eligible=clean and stash_empty and not unpushed,
+                audit_diagnostic='audit_local_refs_only',
+            )
+        except Diagnostic as error:
+            result['audit_diagnostic'] = error.args[0]
+        except subprocess.TimeoutExpired:
+            result['audit_diagnostic'] = 'audit_git_timeout'
+        except Exception:
+            result['audit_diagnostic'] = 'audit_unavailable'
+        return result
+    
+    
+    def write_result(path, result):
+        """Persist metadata only; refuse symlink result destinations."""
+        fd = os.open(
+            path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600
+        )
+        with os.fdopen(fd, 'w', encoding='utf-8') as output:
+            output.write(json.dumps(result, sort_keys=True) + '\n')
+            output.flush()
+            os.fsync(output.fileno())
+    
+    
+    def _poll_until_terminal(child, poller, deadline, termination, result) -> None:
+        """Observe only timely API outcomes; child exit is never task success."""
+        while True:
+            if termination.received:
+                raise Diagnostic('job_terminated')
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise Diagnostic('job_deadline_exceeded')
+            item = poller.next(min(TICK_SECONDS, remaining))
+            if termination.received:
+                raise Diagnostic('job_terminated')
+            if time.monotonic() >= deadline:
+                raise Diagnostic('job_deadline_exceeded')
+            if item and 'error' in item:
+                result['poll_errors'] += 1
+                result['last_poll_error'] = item['error']
+                if 'http_status' in item:
+                    result['last_http_status'] = item['http_status']
+            elif item:
+                result['task_status'] = item['status']
+                if item['status'] in TERMINAL:
+                    result['diagnostic'] = 'task_' + item['status']
+                    return
+            if child_exited(child):
+                raise Diagnostic('worker_exited_before_terminal_task')
+    
+    
+    def _finish_result(config, deadline, termination, result) -> None:
+        """Audit after shutdown and persist only metadata, retaining uncertainty."""
+        if termination.received:
+            result.update(diagnostic='job_terminated', signal=termination.received)
+        if result['diagnostic'] == 'task_completed' and not config.read_only:
+            result.update(audit_workspace(config, deadline, termination))
+        if termination.received:
+            result.update(
+                diagnostic='job_terminated',
+                signal=termination.received,
+                cleanup_eligible=False,
+            )
+        try:
+            write_result(config.result_path, result)
+        except Exception:
+            result.update(
+                diagnostic='job_result_write_failed', cleanup_eligible=False
+            )
+        print(json.dumps(result, sort_keys=True), flush=True)
+    
+    
+    def _install_signal_handlers(termination, previous) -> None:
+        """Record each original handler before installation can fail."""
+        for number in (signal.SIGTERM, signal.SIGINT, signal.SIGCHLD):
+            previous[number] = signal.getsignal(number)
+            signal.signal(
+                number,
+                signal.SIG_DFL if number == signal.SIGCHLD else termination.handle,
+            )
+    
+    
+    def _check_storage() -> None:
+        """Apply the configured free-space preflight before starting the worker."""
+        minimum = int(os.getenv('JOB_MIN_FREE_BYTES', '0'))
+        if minimum:
+            root = Path('/var/lib/codetether/repos')
+            root.mkdir(parents=True, exist_ok=True)
+            if shutil.disk_usage(root).free < minimum:
+                raise Diagnostic('job_storage_insufficient')
+    
+    
+    def supervise(config):
+        """Run one worker; zero means timely API-confirmed task completion."""
+        deadline = time.monotonic() + config.deadline
+        termination, previous = Termination(), {}
+        child = poller = None
+        worker_log = None
+        result = {
+            'schema_version': 1,
+            'task_status': None,
+            'diagnostic': 'supervisor_error',
+            'workspace_clean': None,
+            'stash_empty': None,
+            'unpushed': None,
+            'cleanup_eligible': False,
+            'local_branch_heads': None,
+            'audit_diagnostic': 'audit_not_applicable',
+            'poll_errors': 0,
+            'last_poll_error': None,
+            'worker_exit_code': None,
+        }
+        try:
+            _install_signal_handlers(termination, previous)
+            config.wait_for_bearer()
+            env = dict(os.environ)
+            env.update(
+                {
+                    'CODETETHER_SERVER': config.server,
+                    'CODETETHER_TOKEN': config.bearer(),
+                    'CODETETHER_WORKER_TARGETED_ONLY': '1',
+                    'HOME': '/work',
+                    'XDG_CONFIG_HOME': '/work/.config',
+                    'XDG_DATA_HOME': '/work/.local/share',
+                }
+            )
+            if termination.received:
+                raise Diagnostic('job_terminated')
+            _check_storage()
+            try:
+                # Retain startup logs privately, never in the Job console.
+                if os.getenv('JOB_PRIVATE_LOG_PATH'):
+                    fd = os.open(
+                        os.environ['JOB_PRIVATE_LOG_PATH'],
+                        os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW,
+                        0o600,
+                    )
+                    worker_log = os.fdopen(fd, 'wb')
+                child = subprocess.Popen(
+                    [
+                        'codetether',
+                        'worker',
+                        '--server',
+                        config.server,
+                        '--name',
+                        config.worker_name,
+                        '--workspaces',
+                        '/var/lib/codetether/repos',
+                        '--auto-approve',
+                        'safe' if config.read_only else 'all',
+                        '--max-concurrent-tasks',
+                        '1',
+                    ],
+                    env=env,
+                    start_new_session=True,
+                    stdin=subprocess.DEVNULL,
+                    stdout=worker_log
+                    if worker_log is not None
+                    else subprocess.DEVNULL,
+                    stderr=worker_log
+                    if worker_log is not None
+                    else subprocess.DEVNULL,
+                )
+            except Exception:
+                raise Diagnostic('worker_start_failed') from None
+            poller = Poller(config, deadline)
+            poller.start()
+            _poll_until_terminal(child, poller, deadline, termination, result)
+        except Diagnostic as error:
+            result['diagnostic'] = error.args[0]
+        except Exception:
+            result['diagnostic'] = 'supervisor_error'
+        finally:
+            if poller:
+                poller.close()
+            if child:
+                result['worker_exit_code'], stopped = stop_child(
+                    child, termination.received or signal.SIGTERM
+                )
+                if not stopped:
+                    result['diagnostic'] = 'worker_shutdown_unconfirmed'
+            _finish_result(config, deadline, termination, result)
+            if worker_log is not None:
+                worker_log.close()
+            for number, handler in previous.items():
+                signal.signal(number, handler)
+        if termination.received:
+            return 128 + termination.received
+        return 0 if result['diagnostic'] == 'task_completed' else 1
+    
+    
+    def main():
+        """Never print environment values or exception tracebacks."""
+        try:
+            return supervise(Config.from_env(os.environ))
+        except Exception:
+            print(
+                json.dumps(
+                    {
+                        'schema_version': 1,
+                        'task_status': None,
+                        'workspace_clean': None,
+                        'stash_empty': None,
+                        'unpushed': None,
+                        'local_branch_heads': None,
+                        'cleanup_eligible': False,
+                        'diagnostic': 'job_configuration_invalid',
+                    }
+                )
+            )
+            return 1
+    
+    
+    if __name__ == '__main__':
+        sys.exit(main())
+    
+  job_bootstrap.py: |
+    #!/usr/bin/env python3
+    """Reconstruct an isolated coding workspace from Git, never from an old pod disk."""
+    
+    import json
+    import os
+    import re
+    import shutil
+    import subprocess
+    
+    from pathlib import Path
+    from urllib.parse import urlsplit
+    
+    
+    def prepare(env):
+        """Clone an authenticated remote into an empty destination; preserve existing data."""
+        root = Path('/var/lib/codetether/repos')
+        workspace = env['JOB_WORKSPACE_ID']
+        if not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', workspace):
+            raise ValueError('workspace_identifier_invalid')
+        path = root / workspace
+        if path.exists():
+            raise ValueError('workspace_not_empty')
+        url = env['JOB_GIT_URL']
+        parsed = urlsplit(url)
+        if (
+            parsed.scheme != 'https'
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+        ):
+            raise ValueError('git_url_invalid')
+        branch = env['JOB_GIT_BRANCH']
+        target = env['JOB_TARGET_BRANCH']
+        sha = env.get('JOB_EXPECTED_HEAD', '')
+        for ref in (branch, target):
+            if not ref or ref.startswith('-') or any(c.isspace() for c in ref):
+                raise ValueError('branch_invalid')
+        if sha and not re.fullmatch(r'[0-9a-fA-F]{40}', sha):
+            raise ValueError('head_invalid')
+        server = env['CODETETHER_SERVER']
+        if not re.fullmatch(r'https?://[A-Za-z0-9._:/-]+', server):
+            raise ValueError('server_invalid')
+        helper = f'!codetether git-credential-helper --workspace-id {workspace} --server {server}'
+        child = {**env, 'GIT_TERMINAL_PROMPT': '0'}
+        # Measured: forgejo.quantum-forge.io serves a ~3.3 GiB repository at
+        # roughly 100 MiB/min per concurrent clone, so a full clone needs ~35 min.
+        # The 10-minute default only ever succeeded for a single clone at a time.
+        clone_timeout = int(env.get('JOB_CLONE_TIMEOUT_SECONDS', '3000'))
+    
+        def git(*args, timeout=600):
+            result = subprocess.run(
+                [
+                    'git',
+                    '-c',
+                    'credential.helper=' + helper,
+                    '-c',
+                    'credential.useHttpPath=true',
+                    *args,
+                ],
+                env=child,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=timeout,
+            )
+            if result.returncode:
+                if b'No space left on device' in result.stderr:
+                    raise ValueError('workspace_storage_exhausted')
+                if b'Authentication failed' in result.stderr:
+                    raise ValueError('workspace_git_auth_failed')
+                raise ValueError('git_bootstrap_failed')
+            return result.stdout.decode().strip()
+    
+        root.mkdir(parents=True, exist_ok=True)
+        # Measured: a spotlessbinco clone is ~4.5 GiB; require ~2x headroom.
+        if shutil.disk_usage(root).free < 10 * 1024**3:
+            raise ValueError('workspace_storage_insufficient')
+        git(
+            'clone',
+            '--no-tags',
+            '--single-branch',
+            '--branch',
+            branch,
+            '--',
+            url,
+            str(path),
+            timeout=clone_timeout,
+        )
+        current = git('-C', str(path), 'rev-parse', 'HEAD')
+        if sha and current != sha:
+            # Do not silently build another head after a remote branch move.
+            raise ValueError('remote_head_advanced')
+        if branch != target:
+            git('-C', str(path), 'checkout', '-b', target)
+        git('-C', str(path), 'config', 'credential.helper', helper)
+        git('-C', str(path), 'config', 'credential.useHttpPath', 'true')
+        return {
+            'diagnostic': 'workspace_bootstrapped',
+            'head': current,
+            'workspace': workspace,
+        }
+    
+    
+    def main():
+        result = {'diagnostic': 'workspace_bootstrap_failed'}
+        code = 1
+        try:
+            result = prepare(dict(os.environ))
+            code = 0
+        except ValueError as error:
+            if str(error) in {
+                'remote_head_advanced',
+                'workspace_storage_insufficient',
+                'workspace_storage_exhausted',
+                'workspace_git_auth_failed',
+                'workspace_not_empty',
+            }:
+                result['diagnostic'] = str(error)
+        except subprocess.TimeoutExpired:
+            result['diagnostic'] = 'workspace_bootstrap_timeout'
+        except KeyError:
+            pass
+        Path('/tmp/job-result.json').write_text(json.dumps(result) + '\n')
+        print(json.dumps(result))
+        return code
+    
+    
+    if __name__ == '__main__':
+        raise SystemExit(main())
+    
+  codetether: |
+    #!/usr/bin/python3
+    """Do not let CLI help render environment-backed credentials in Job output."""
+    
+    import os
+    import sys
+    
+    
+    def main():
+        env = dict(os.environ)
+        if any(arg in {'--help', '-h'} for arg in sys.argv[1:]):
+            env = {
+                k: v
+                for k, v in env.items()
+                if not any(
+                    s in k.upper()
+                    for s in ('TOKEN', 'SECRET', 'PASSWORD', 'API_KEY')
+                )
+            }
+        binary = '/usr/local/bin/codetether'
+        os.execve(binary, [binary, *sys.argv[1:]], env)
+    
+    
+    if __name__ == '__main__':
+        main()
+---
+# Source: a2a-server/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: a2a-server-data
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Source: a2a-server/templates/spiffe-bundle-rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: a2a-system-a2a-server-spiffe-bundle
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["spire-bundle"]
+    verbs: ["get"]
+---
+# Source: a2a-server/templates/spiffe-bundle-rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: a2a-system-a2a-server-spiffe-bundle
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: a2a-system-a2a-server-spiffe-bundle
+subjects:
+  - kind: ServiceAccount
+    name: a2a-server
+    namespace: a2a-system
+---
+# Source: a2a-server/templates/agent-identity-rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: a2a-server-agent-identity
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "create", "patch", "update"]
+---
+# Source: a2a-server/templates/task-jobs.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: a2a-server-task-jobs
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "create", "patch"]
+  - apiGroups: [""]
+    resources: ["pods", "configmaps"]
+    verbs: ["get", "list"]
+---
+# Source: a2a-server/templates/agent-identity-rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: a2a-server-agent-identity
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: a2a-server-agent-identity
+subjects:
+  - kind: ServiceAccount
+    name: a2a-server
+    namespace: a2a-system
+---
+# Source: a2a-server/templates/task-jobs.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: a2a-server-task-jobs
+subjects:
+  - kind: ServiceAccount
+    name: a2a-server
+    namespace: a2a-system
+roleRef:
+  kind: Role
+  name: a2a-server-task-jobs
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: a2a-server/templates/harvester-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: a2a-server-harvester
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    app.kubernetes.io/component: harvester
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/component: harvester
+  ports:
+    - name: health
+      port: 8080
+      targetPort: health
+      protocol: TCP
+    - name: a2a
+      port: 8081
+      targetPort: a2a
+      protocol: TCP
+---
+# Source: a2a-server/templates/redis.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: a2a-server-redis-master
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: redis
+      protocol: TCP
+      name: redis
+  selector:
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/component: redis
+---
+# Source: a2a-server/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: a2a-server
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+  annotations:
+    bluegreen/mode: "bluegreen"
+    bluegreen/active-color: "green"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+    # MCP is now integrated on the same port under /mcp/* paths
+    # No separate MCP port needed
+  selector:
+    app.kubernetes.io/name: a2a-server-bg
+    app.kubernetes.io/instance: a2a-server
+    color: "green"
+    app.kubernetes.io/component: server
+---
+# Source: a2a-server/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: a2a-server-deployment-blue
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server-bg
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    color: "blue"
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server-bg
+      app.kubernetes.io/instance: a2a-server
+      color: "blue"
+  template:
+    metadata:
+      annotations:
+        checksum/config: 2ffc5da24c8abd5c852a0fef48f06753a86b7891fd521393b8482a3a06e36669
+      labels:
+        helm.sh/chart: a2a-server-1.4.3
+        app.kubernetes.io/name: a2a-server-bg
+        app.kubernetes.io/instance: a2a-server
+        app.kubernetes.io/version: "1.4.3"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/managed-by: argocd
+        app.kubernetes.io/part-of: codetether
+        color: "blue"
+        app.kubernetes.io/component: server
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+      serviceAccountName: a2a-server
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: a2a-server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:x
+          imagePullPolicy: Always
+          command:
+            - python
+            - run_server.py
+            - run
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --enhanced
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+            # MCP is now integrated on the same port under /mcp/* paths
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          envFrom:
+            
+            - secretRef:
+                name: harvester-api-keys
+            - configMapRef:
+                name: a2a-server-config
+            - secretRef:
+                name: a2a-server-forgejo
+          env:
+            - name: OPA_LOCAL_MODE
+              value: "true"
+            - name: OPA_ENABLED
+              value: "true"
+            
+            - name: SPIFFE_ENABLED
+              value: "true"
+            - name: SPIFFE_TRUST_DOMAIN
+              value: "codetether.io"
+            - name: SPIFFE_ISSUER
+              value: "https://oidc-discovery.codetether.io"
+            - name: SPIFFE_WORKER_IDS
+              value: "spiffe://codetether.io/ns/a2a-system/sa/a2a-server-harvester"
+            - name: SPIFFE_AUDIENCE
+              value: "a2a-server"
+            - name: SPIFFE_JWKS_URL
+              value: "https://spire-spiffe-oidc-discovery-provider.spire.svc.cluster.local/keys"
+            - name: SPIFFE_JWKS_TTL
+              value: "300"
+            - name: SPIFFE_ALLOW_TOKEN_LEGACY
+              value: "true"
+            - name: SPIFFE_ROLE_MAP
+              value: ""
+            - name: SPIFFE_DEFAULT_ROLE
+              value: "a2a-agent"
+            - name: SPIFFE_BUNDLE_NAMESPACE
+              value: "spire"
+            - name: SPIFFE_BUNDLE_CONFIGMAP
+              value: "spire-bundle"
+            - name: SPIFFE_BUNDLE_KEY
+              value: "bundle.spiffe"
+            
+            
+            - name: AGENT_IDENTITY_NAMESPACE
+              value: "a2a-system"
+            - name: A2A_AUTH_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-auth-tokens
+                  key: A2A_AUTH_TOKENS
+            - name: KEYCLOAK_AGENT_REALM
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-identity-provisioner
+                  key: KEYCLOAK_AGENT_REALM
+            - name: KEYCLOAK_PROVISIONER_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-identity-provisioner
+                  key: KEYCLOAK_PROVISIONER_CLIENT_ID
+            - name: KEYCLOAK_PROVISIONER_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-identity-provisioner
+                  key: KEYCLOAK_PROVISIONER_CLIENT_SECRET
+            - name: KEYCLOAK_PROVISIONER_REALM
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-identity-provisioner
+                  key: KEYCLOAK_PROVISIONER_REALM
+            - name: A2A_AGENT_DESCRIPTION
+              value: "Production CodeTether A2A coordination server"
+            - name: A2A_AGENT_DOCS_URL
+              value: "https://docs.codetether.run"
+            - name: A2A_AGENT_NAME
+              value: "CodeTether Server"
+            - name: A2A_AGENT_ORG
+              value: "CodeTether"
+            - name: A2A_AGENT_ORG_URL
+              value: "https://codetether.run"
+            - name: A2A_AGENT_URL
+              value: "https://api.codetether.run"
+            - name: A2A_HOST
+              value: "0.0.0.0"
+            - name: A2A_LOG_LEVEL
+              value: "INFO"
+            - name: A2A_PORT
+              value: "8000"
+            - name: CODETETHER_DASHBOARD_URL
+              value: "https://codetether.run"
+            - name: FORGEJO_AUTOMATION_PAUSED_PRS
+              value: "riley/spotlessbinco#5873"
+            - name: FORGEJO_AUTO_MERGE_REQUIRED_CHECKS
+              value: "{\"riley/spotlessbinco\":[\n  \"Dev Image Builds / build-and-push (pull_request)\",\n  \"Dev Image Builds / Build and push Dev Rust backend (pull_request)\",\n  \"Dev Image Builds / build-and-push-dev-api (pull_request)\",\n  \"Dev Image Builds / Build and push Dev Fastify API (pull_request)\",\n  \"Secret Scan / gitleaks (pull_request)\",\n  \"CodeTether / Harvester Review\"\n]}"
+            - name: FORGEJO_REVIEW_RECOVERY_REPOS
+              value: "riley/spotlessbinco"
+            - name: FORGEJO_REVIEW_SAFE_WORKER
+              value: "harvester-pr-review"
+            - name: FORGEJO_SINGLE_REVIEW_REPOS
+              value: "riley/spotlessbinco"
+            - name: FORGEJO_STATUS_REMEDIATION_ENABLED
+              value: "false"
+            - name: GITHUB_APP_ACTIVE_WORK_ENABLED
+              value: "false"
+            - name: GITHUB_APP_AUTO_MERGE_ENABLED
+              value: "false"
+            - name: GITHUB_APP_MODEL_REF
+              value: "openai-codex/gpt-6-astra-fast:high"
+            - name: GITHUB_APP_STATUS_PUBLISHER
+              value: "off"
+            - name: HARVESTER_JOB_ALLOWED_NODES
+              value: "k8s-worker-1,k8s-worker-2,k8s-worker-3,k8s-worker-4"
+            - name: HARVESTER_JOB_EXCLUDED_NODES
+              value: "kube-worker-08,node7,storage-node,spotless-tv-gpu"
+            - name: HARVESTER_JOB_MAX_ACTIVE
+              value: "8"
+            - name: HARVESTER_JOB_MAX_ACTIVE_READONLY
+              value: "4"
+            - name: HARVESTER_JOB_MAX_RETAINED
+              value: "40"
+            - name: HARVESTER_JOB_NAMESPACE
+              value: "a2a-system"
+            - name: HARVESTER_JOB_REPOS
+              value: "riley/spotlessbinco"
+            - name: HARVESTER_JOB_TEMPLATE
+              value: "a2a-server-task-job-template"
+            - name: HARVESTER_JOB_TTL
+              value: "60"
+            - name: MARKETING_SITE_URL
+              value: "http://codetether-marketing.a2a-server.svc.cluster.local:3000"
+            - name: MCP_HTTP_ENABLED
+              value: "true"
+            - name: MCP_HTTP_HOST
+              value: "0.0.0.0"
+            - name: MCP_HTTP_PORT
+              value: "9000"
+            - name: WORKER_INFRA_CACHE_TTL_SECONDS
+              value: "30"
+            - name: WORKER_INFRA_NODE_MAP
+              value: ""
+            - name: FORGEJO_API_URL
+              value: "https://forgejo.quantum-forge.io/api/v1"
+            - name: FORGEJO_BOT_USERNAME
+              value: "codetether-bot"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-database
+                  key: DATABASE_URL
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: a2a-server-data
+---
+# Source: a2a-server/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: a2a-server-deployment-green
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server-bg
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    color: "green"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server-bg
+      app.kubernetes.io/instance: a2a-server
+      color: "green"
+  template:
+    metadata:
+      annotations:
+        checksum/config: 2ffc5da24c8abd5c852a0fef48f06753a86b7891fd521393b8482a3a06e36669
+        rollme: "issue-context-f4c760c48aad"
+      labels:
+        helm.sh/chart: a2a-server-1.4.3
+        app.kubernetes.io/name: a2a-server-bg
+        app.kubernetes.io/instance: a2a-server
+        app.kubernetes.io/version: "1.4.3"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/managed-by: argocd
+        app.kubernetes.io/part-of: codetether
+        color: "green"
+        app.kubernetes.io/component: server
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+      serviceAccountName: a2a-server
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: a2a-server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:issue-context-f4c760c48aad
+          imagePullPolicy: Always
+          command:
+            - python
+            - run_server.py
+            - run
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --enhanced
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+            # MCP is now integrated on the same port under /mcp/* paths
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          envFrom:
+            
+            - secretRef:
+                name: harvester-api-keys
+            - configMapRef:
+                name: a2a-server-config
+            - secretRef:
+                name: a2a-server-forgejo
+          env:
+            - name: OPA_LOCAL_MODE
+              value: "true"
+            - name: OPA_ENABLED
+              value: "true"
+            
+            - name: SPIFFE_ENABLED
+              value: "true"
+            - name: SPIFFE_TRUST_DOMAIN
+              value: "codetether.io"
+            - name: SPIFFE_ISSUER
+              value: "https://oidc-discovery.codetether.io"
+            - name: SPIFFE_WORKER_IDS
+              value: "spiffe://codetether.io/ns/a2a-system/sa/a2a-server-harvester"
+            - name: SPIFFE_AUDIENCE
+              value: "a2a-server"
+            - name: SPIFFE_JWKS_URL
+              value: "https://spire-spiffe-oidc-discovery-provider.spire.svc.cluster.local/keys"
+            - name: SPIFFE_JWKS_TTL
+              value: "300"
+            - name: SPIFFE_ALLOW_TOKEN_LEGACY
+              value: "true"
+            - name: SPIFFE_ROLE_MAP
+              value: ""
+            - name: SPIFFE_DEFAULT_ROLE
+              value: "a2a-agent"
+            - name: SPIFFE_BUNDLE_NAMESPACE
+              value: "spire"
+            - name: SPIFFE_BUNDLE_CONFIGMAP
+              value: "spire-bundle"
+            - name: SPIFFE_BUNDLE_KEY
+              value: "bundle.spiffe"
+            
+            
+            - name: AGENT_IDENTITY_NAMESPACE
+              value: "a2a-system"
+            - name: A2A_AUTH_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-auth-tokens
+                  key: A2A_AUTH_TOKENS
+            - name: KEYCLOAK_AGENT_REALM
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-identity-provisioner
+                  key: KEYCLOAK_AGENT_REALM
+            - name: KEYCLOAK_PROVISIONER_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-identity-provisioner
+                  key: KEYCLOAK_PROVISIONER_CLIENT_ID
+            - name: KEYCLOAK_PROVISIONER_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-identity-provisioner
+                  key: KEYCLOAK_PROVISIONER_CLIENT_SECRET
+            - name: KEYCLOAK_PROVISIONER_REALM
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-identity-provisioner
+                  key: KEYCLOAK_PROVISIONER_REALM
+            - name: A2A_AGENT_DESCRIPTION
+              value: "Production CodeTether A2A coordination server"
+            - name: A2A_AGENT_DOCS_URL
+              value: "https://docs.codetether.run"
+            - name: A2A_AGENT_NAME
+              value: "CodeTether Server"
+            - name: A2A_AGENT_ORG
+              value: "CodeTether"
+            - name: A2A_AGENT_ORG_URL
+              value: "https://codetether.run"
+            - name: A2A_AGENT_URL
+              value: "https://api.codetether.run"
+            - name: A2A_HOST
+              value: "0.0.0.0"
+            - name: A2A_LOG_LEVEL
+              value: "INFO"
+            - name: A2A_PORT
+              value: "8000"
+            - name: CODETETHER_DASHBOARD_URL
+              value: "https://codetether.run"
+            - name: FORGEJO_AUTOMATION_PAUSED_PRS
+              value: "riley/spotlessbinco#5873"
+            - name: FORGEJO_AUTO_MERGE_REQUIRED_CHECKS
+              value: "{\"riley/spotlessbinco\":[\n  \"Dev Image Builds / build-and-push (pull_request)\",\n  \"Dev Image Builds / Build and push Dev Rust backend (pull_request)\",\n  \"Dev Image Builds / build-and-push-dev-api (pull_request)\",\n  \"Dev Image Builds / Build and push Dev Fastify API (pull_request)\",\n  \"Secret Scan / gitleaks (pull_request)\",\n  \"CodeTether / Harvester Review\"\n]}"
+            - name: FORGEJO_REVIEW_RECOVERY_REPOS
+              value: "riley/spotlessbinco"
+            - name: FORGEJO_REVIEW_SAFE_WORKER
+              value: "harvester-pr-review"
+            - name: FORGEJO_SINGLE_REVIEW_REPOS
+              value: "riley/spotlessbinco"
+            - name: FORGEJO_STATUS_REMEDIATION_ENABLED
+              value: "false"
+            - name: GITHUB_APP_ACTIVE_WORK_ENABLED
+              value: "false"
+            - name: GITHUB_APP_AUTO_MERGE_ENABLED
+              value: "false"
+            - name: GITHUB_APP_MODEL_REF
+              value: "openai-codex/gpt-6-astra-fast:high"
+            - name: GITHUB_APP_STATUS_PUBLISHER
+              value: "off"
+            - name: HARVESTER_JOB_ALLOWED_NODES
+              value: "k8s-worker-1,k8s-worker-2,k8s-worker-3,k8s-worker-4"
+            - name: HARVESTER_JOB_EXCLUDED_NODES
+              value: "kube-worker-08,node7,storage-node,spotless-tv-gpu"
+            - name: HARVESTER_JOB_MAX_ACTIVE
+              value: "8"
+            - name: HARVESTER_JOB_MAX_ACTIVE_READONLY
+              value: "4"
+            - name: HARVESTER_JOB_MAX_RETAINED
+              value: "40"
+            - name: HARVESTER_JOB_NAMESPACE
+              value: "a2a-system"
+            - name: HARVESTER_JOB_REPOS
+              value: "riley/spotlessbinco"
+            - name: HARVESTER_JOB_TEMPLATE
+              value: "a2a-server-task-job-template"
+            - name: HARVESTER_JOB_TTL
+              value: "60"
+            - name: MARKETING_SITE_URL
+              value: "http://codetether-marketing.a2a-server.svc.cluster.local:3000"
+            - name: MCP_HTTP_ENABLED
+              value: "true"
+            - name: MCP_HTTP_HOST
+              value: "0.0.0.0"
+            - name: MCP_HTTP_PORT
+              value: "9000"
+            - name: WORKER_INFRA_CACHE_TTL_SECONDS
+              value: "30"
+            - name: WORKER_INFRA_NODE_MAP
+              value: ""
+            - name: FORGEJO_API_URL
+              value: "https://forgejo.quantum-forge.io/api/v1"
+            - name: FORGEJO_BOT_USERNAME
+              value: "codetether-bot"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-database
+                  key: DATABASE_URL
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: a2a-server-data
+---
+# Source: a2a-server/templates/redis.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: a2a-server-redis
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    app.kubernetes.io/component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server
+      app.kubernetes.io/instance: a2a-server
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: a2a-server
+        app.kubernetes.io/instance: a2a-server
+        app.kubernetes.io/component: redis
+    spec:
+      containers:
+        - name: redis
+          image: "redis:7-alpine"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              memory: 128Mi
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+# Source: a2a-server/templates/temporal-worker.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: a2a-server-temporal-worker
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    app.kubernetes.io/component: temporal-worker
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server
+      app.kubernetes.io/instance: a2a-server
+      app.kubernetes.io/component: temporal-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: a2a-server
+        app.kubernetes.io/instance: a2a-server
+        app.kubernetes.io/component: temporal-worker
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+      serviceAccountName: a2a-server
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: temporal-worker
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:x
+          imagePullPolicy: Always
+          command: ["python", "-m", "a2a_server.temporal.worker"]
+          envFrom:
+            - secretRef:
+                name: harvester-api-keys
+            - configMapRef:
+                name: a2a-server-config
+            - secretRef:
+                name: a2a-server-forgejo
+          env:
+            - name: FORGEJO_TEMPORAL_ENABLED
+              value: "true"
+            - name: TEMPORAL_ADDRESS
+              value: "temporal-frontend.temporal.svc.cluster.local:7233"
+            - name: TEMPORAL_NAMESPACE
+              value: "codetether-prod"
+            - name: TEMPORAL_FORGEJO_TASK_QUEUE
+              value: "codetether-forgejo-agent"
+            - name: FORGEJO_API_URL
+              value: "https://forgejo.quantum-forge.io/api/v1"
+            - name: FORGEJO_BOT_USERNAME
+              value: "codetether-bot"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-database
+                  key: DATABASE_URL
+            - name: A2A_AUTH_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-auth-tokens
+                  key: A2A_AUTH_TOKENS
+            - name: KEYCLOAK_AGENT_REALM
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-identity-provisioner
+                  key: KEYCLOAK_AGENT_REALM
+            - name: KEYCLOAK_PROVISIONER_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-identity-provisioner
+                  key: KEYCLOAK_PROVISIONER_CLIENT_ID
+            - name: KEYCLOAK_PROVISIONER_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-identity-provisioner
+                  key: KEYCLOAK_PROVISIONER_CLIENT_SECRET
+            - name: KEYCLOAK_PROVISIONER_REALM
+              valueFrom:
+                secretKeyRef:
+                  name: codetether-identity-provisioner
+                  key: KEYCLOAK_PROVISIONER_REALM
+            - name: A2A_AGENT_DESCRIPTION
+              value: "Production CodeTether A2A coordination server"
+            - name: A2A_AGENT_DOCS_URL
+              value: "https://docs.codetether.run"
+            - name: A2A_AGENT_NAME
+              value: "CodeTether Server"
+            - name: A2A_AGENT_ORG
+              value: "CodeTether"
+            - name: A2A_AGENT_ORG_URL
+              value: "https://codetether.run"
+            - name: A2A_AGENT_URL
+              value: "https://api.codetether.run"
+            - name: A2A_HOST
+              value: "0.0.0.0"
+            - name: A2A_LOG_LEVEL
+              value: "INFO"
+            - name: A2A_PORT
+              value: "8000"
+            - name: CODETETHER_DASHBOARD_URL
+              value: "https://codetether.run"
+            - name: FORGEJO_AUTOMATION_PAUSED_PRS
+              value: "riley/spotlessbinco#5873"
+            - name: FORGEJO_AUTO_MERGE_REQUIRED_CHECKS
+              value: "{\"riley/spotlessbinco\":[\n  \"Dev Image Builds / build-and-push (pull_request)\",\n  \"Dev Image Builds / Build and push Dev Rust backend (pull_request)\",\n  \"Dev Image Builds / build-and-push-dev-api (pull_request)\",\n  \"Dev Image Builds / Build and push Dev Fastify API (pull_request)\",\n  \"Secret Scan / gitleaks (pull_request)\",\n  \"CodeTether / Harvester Review\"\n]}"
+            - name: FORGEJO_REVIEW_RECOVERY_REPOS
+              value: "riley/spotlessbinco"
+            - name: FORGEJO_REVIEW_SAFE_WORKER
+              value: "harvester-pr-review"
+            - name: FORGEJO_SINGLE_REVIEW_REPOS
+              value: "riley/spotlessbinco"
+            - name: FORGEJO_STATUS_REMEDIATION_ENABLED
+              value: "false"
+            - name: GITHUB_APP_ACTIVE_WORK_ENABLED
+              value: "false"
+            - name: GITHUB_APP_AUTO_MERGE_ENABLED
+              value: "false"
+            - name: GITHUB_APP_MODEL_REF
+              value: "openai-codex/gpt-6-astra-fast:high"
+            - name: GITHUB_APP_STATUS_PUBLISHER
+              value: "off"
+            - name: HARVESTER_JOB_ALLOWED_NODES
+              value: "k8s-worker-1,k8s-worker-2,k8s-worker-3,k8s-worker-4"
+            - name: HARVESTER_JOB_EXCLUDED_NODES
+              value: "kube-worker-08,node7,storage-node,spotless-tv-gpu"
+            - name: HARVESTER_JOB_MAX_ACTIVE
+              value: "8"
+            - name: HARVESTER_JOB_MAX_ACTIVE_READONLY
+              value: "4"
+            - name: HARVESTER_JOB_MAX_RETAINED
+              value: "40"
+            - name: HARVESTER_JOB_NAMESPACE
+              value: "a2a-system"
+            - name: HARVESTER_JOB_REPOS
+              value: "riley/spotlessbinco"
+            - name: HARVESTER_JOB_TEMPLATE
+              value: "a2a-server-task-job-template"
+            - name: HARVESTER_JOB_TTL
+              value: "60"
+            - name: MARKETING_SITE_URL
+              value: "http://codetether-marketing.a2a-server.svc.cluster.local:3000"
+            - name: MCP_HTTP_ENABLED
+              value: "true"
+            - name: MCP_HTTP_HOST
+              value: "0.0.0.0"
+            - name: MCP_HTTP_PORT
+              value: "9000"
+            - name: WORKER_INFRA_CACHE_TTL_SECONDS
+              value: "30"
+            - name: WORKER_INFRA_NODE_MAP
+              value: ""
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+---
+# Source: a2a-server/templates/harvester-statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: a2a-server-harvester
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+    app.kubernetes.io/component: harvester
+spec:
+  serviceName: a2a-server-harvester
+  replicas: 0
+  # Drain legacy workers without restarting active tasks during the Job cutover.
+  updateStrategy:
+    type: OnDelete
+    rollingUpdate: null
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server
+      app.kubernetes.io/instance: a2a-server
+      app.kubernetes.io/component: harvester
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: a2a-server
+        app.kubernetes.io/instance: a2a-server
+        app.kubernetes.io/component: harvester
+      annotations:
+        checksum/config: 2ffc5da24c8abd5c852a0fef48f06753a86b7891fd521393b8482a3a06e36669
+    spec:
+      serviceAccountName: a2a-server-harvester
+      imagePullSecrets:
+        - name: registry-credentials
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        # Harvester workspaces are per-repository clones on a node-local volume.
+        # Without bounded retention they accumulate until the node crosses
+        # kubelet's DiskPressure threshold, which taints the node and leaves the
+        # harvester Pending, so queued tasks are accepted and never executed.
+        # This sidecar reclaims only clones that are older than the retention
+        # window AND have no uncommitted, unpushed, or stashed work.
+        - name: workspace-reclaim
+          image: "registry.quantum-forge.net/cluster-ci-cache/codetether-worker:4.7.5-dev.49-forgejo-ro-599230d97ec3"
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -u
+              root=/var/lib/codetether/repos
+              retain_days=3
+              interval=3600
+              min_free_pct=20
+              git config --global --add safe.directory '*' >/dev/null 2>&1 || true
+              while true; do
+                free_pct=$(df -P "$root" | awk 'NR==2 {print 100 - int($5)}')
+                echo "workspace-reclaim: free=${free_pct}% threshold=${min_free_pct}%"
+                if [ "$free_pct" -lt "$min_free_pct" ]; then
+                  find "$root" -maxdepth 1 -mindepth 1 -type d -mtime "+${retain_days}" 2>/dev/null |
+                  while read -r ws; do
+                    name=$(basename "$ws")
+                    case "$name" in .*) continue ;; esac
+                    gd=$(find "$ws" -maxdepth 2 -name .git -type d 2>/dev/null | head -1)
+                    if [ -n "$gd" ]; then
+                      wt=$(dirname "$gd")
+                      dirty=$(git -C "$wt" status --porcelain 2>/dev/null | wc -l)
+                      unpushed=$(git -C "$wt" log --branches --not --remotes --oneline 2>/dev/null | wc -l)
+                      stash=$(git -C "$wt" stash list 2>/dev/null | wc -l)
+                      readable=$(git -C "$wt" rev-parse --is-inside-work-tree 2>/dev/null || echo no)
+                      # Preserve anything unreadable or carrying unsaved work.
+                      if [ "$readable" != true ] ||
+                         [ "$dirty" -ne 0 ] || [ "$unpushed" -ne 0 ] || [ "$stash" -ne 0 ]; then
+                        echo "workspace-reclaim: preserving $name (dirty=$dirty unpushed=$unpushed stash=$stash)"
+                        continue
+                      fi
+                    fi
+                    echo "workspace-reclaim: reclaiming $name"
+                    rm -rf "$ws" || echo "workspace-reclaim: failed $name"
+                  done
+                fi
+                sleep "$interval"
+              done
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 25m
+              memory: 64Mi
+          volumeMounts:
+            - name: workspace
+              mountPath: /var/lib/codetether/repos
+        - name: harvester
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: "registry.quantum-forge.net/cluster-ci-cache/codetether-worker:4.7.5-dev.49-forgejo-ro-599230d97ec3"
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/local/bin/codetether
+          envFrom:
+            - secretRef:
+                name: harvester-api-keys
+          args:
+            - worker
+            - --server
+            - http://a2a-server:8000
+            - --workspaces
+            - /var/lib/codetether/repos
+            - --name
+            - "harvester-$(POD_NAME)"
+            - --auto-approve
+            - "all"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: PERSISTENT_WORKER_ENABLED
+              value: "true"
+            - name: PERSISTENT_WORKER_LEASE_SECONDS
+              value: "3600"
+            - name: PERSISTENT_WORKER_MAX_TIMEOUT
+              value: "604800"
+            - name: GITHUB_PROGRESS_ENABLED
+              value: "true"
+            - name: CODETETHER_HARVESTER_ENABLED
+              value: "true"
+            - name: CODETETHER_WORKER_A2A_MDNS
+              value: "true"
+            - name: CODETETHER_WORKER_PUBLIC_URL
+              value: "http://$(POD_NAME).a2a-server-harvester.a2a-system.svc.cluster.local:8080"
+            - name: CODETETHER_WORKER_PORT
+              value: "8080"
+            - name: CODETETHER_WORKER_A2A_PORT
+              value: "8081"
+            - name: CODETETHER_SERVER
+              value: http://a2a-server:8000
+            - name: CODETETHER_WORKER_CAPABILITIES
+              value: "harvester,persistent,persistent-workspace,persistent_workspace,git-clone,repo-cache"
+            - name: CODETETHER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: "a2a-server-worker-token"
+                  key: "CODETETHER_TOKEN"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-database
+                  key: DATABASE_URL
+            - name: HOME
+              value: "/var/lib/codetether/repos/.codetether-home"
+            - name: XDG_CONFIG_HOME
+              value: "/var/lib/codetether/repos/.codetether-home/.config"
+            - name: XDG_DATA_HOME
+              value: "/var/lib/codetether/repos/.codetether-home/.local/share"
+            - name: XDG_CACHE_HOME
+              value: "/var/lib/codetether/repos/.codetether-home/.cache"
+            - name: CODETETHER_AGENT_HOME
+              value: "/var/lib/codetether/repos/.codetether-home/.codetether-agent"
+            - name: CODETETHER_HOME
+              value: "/var/lib/codetether/repos/.codetether-home/.codetether-agent"
+            - name: VAULT_ADDR
+              value: "http://vault.vault.svc.cluster.local:8200"
+            - name: VAULT_ROLE
+              value: "codetether-harvester"
+            - name: VAULT_AUTH_MOUNT
+              value: "kubernetes"
+            - name: VAULT_K8S_SA_JWT_PATH
+              value: "/var/run/secrets/vault/token"
+            - name: VAULT_MOUNT
+              value: "secret"
+            - name: VAULT_SECRETS_PATH
+              value: "codetether/providers"
+            - name: CODETETHER_DEFAULT_PROVIDER
+              value: "openai-codex"
+            - name: CODETETHER_DEFAULT_MODEL
+              value: "openai-codex/gpt-6-astra-fast:high"
+            - name: CODETETHER_OPENAI_CODEX_ALLOW_CHATGPT_BACKEND
+              value: "1"
+          ports:
+            - name: health
+              containerPort: 8080
+              protocol: TCP
+            - name: a2a
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            limits:
+              cpu: "4"
+              memory: 16Gi
+            requests:
+              cpu: "1"
+              memory: 4Gi
+          volumeMounts:
+            - name: workspace
+              mountPath: /var/lib/codetether/repos
+            - name: workspace
+              mountPath: /home/worker
+              subPath: .worker-home
+            - name: vault-sa-token
+              mountPath: /var/run/secrets/vault
+              readOnly: true
+      volumes:
+        - name: vault-sa-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: "vault"
+                  expirationSeconds: 3600
+                  path: token
+  volumeClaimTemplates:
+    - metadata:
+        name: workspace
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 50Gi
+---
+# Source: a2a-server/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: a2a-server
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: a2a-server
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: codetether
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-issuer
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-allow-headers: DNT, User-Agent, X-Requested-With,
+      If-None-Match, If-Modified-Since, Content-Type, Range, Authorization, X-Tenant-ID,
+      X-API-Key
+    nginx.ingress.kubernetes.io/cors-allow-methods: GET, PUT, POST, DELETE, PATCH, OPTIONS
+    nginx.ingress.kubernetes.io/cors-allow-origin: https://codetether.run, https://docs.codetether.run,
+      https://quantum-forge.codetether.run
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - "api.codetether.run"
+      secretName: a2a-server-tls
+  rules:
+    - host: "api.codetether.run"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: a2a-server
+                port:
+                  number: 8000

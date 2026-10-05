@@ -1,0 +1,284 @@
+{
+  "capturedAt": "2026-10-05T14:52:17.238Z",
+  "pods": [
+    {
+      "name": "a2a-server-deployment-green-79f7bd48bf-5x67p",
+      "node": "k8s-worker-2",
+      "containers": [
+        {
+          "name": "a2a-server",
+          "ready": false,
+          "restarts": 3,
+          "previousReason": "OOMKilled",
+          "previousExit": 137,
+          "startedAt": "2026-10-05T14:52:11Z"
+        }
+      ],
+      "logs": [
+        {
+          "previous": true,
+          "available": true,
+          "requests": [
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/worker/connected",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/worker/connected",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/agent/workers",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/agent/workspaces/list",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/worker/connected",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/agent/workers",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/worker/connected",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/agent/workspaces",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            }
+          ],
+          "errorTypes": []
+        },
+        {
+          "previous": false,
+          "available": true,
+          "requests": [],
+          "errorTypes": []
+        }
+      ]
+    },
+    {
+      "name": "a2a-server-deployment-green-79f7bd48bf-lphd8",
+      "node": "k8s-worker-2",
+      "containers": [
+        {
+          "name": "a2a-server",
+          "ready": true,
+          "restarts": 2,
+          "previousReason": "OOMKilled",
+          "previousExit": 137,
+          "startedAt": "2026-10-05T14:50:59Z"
+        }
+      ],
+      "logs": [
+        {
+          "previous": true,
+          "available": true,
+          "requests": [
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/worker/connected",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            }
+          ],
+          "errorTypes": []
+        },
+        {
+          "previous": false,
+          "available": true,
+          "requests": [
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/worker/connected",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/agent/workspaces",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "POST",
+              "path": "/v1/agent/workers/register",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/agent/tasks",
+              "status": 200
+            },
+            {
+              "method": "POST",
+              "path": "/v1/agent/workers/wrk_1791203157_35195f4f7b97da0a/heartbeat",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/worker/tasks/stream",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/.well-known/agent-card.json",
+              "status": 200
+            },
+            {
+              "method": "GET",
+              "path": "/v1/worker/connected",
+              "status": 200
+            }
+          ],
+          "errorTypes": []
+        }
+      ]
+    }
+  ]
+}

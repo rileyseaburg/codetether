@@ -1,0 +1,38 @@
+{
+    "project": "benchmark-json-parser",
+    "feature": "JSON Configuration Parser",
+    "branch_name": "bench/t1-json-parser",
+    "version": "1.0",
+    "user_stories": [
+        {
+            "id": "US-001",
+            "title": "Parse and validate a config file",
+            "description": "Create a library that reads a JSON config file with fields: name (string, required), port (u16, default 8080), debug (bool, default false), tags (array of strings, optional). Validate all fields and return a typed Config struct. Return descriptive errors for invalid input.",
+            "acceptance_criteria": [
+                "Valid JSON with all fields parses correctly",
+                "Missing optional fields use defaults",
+                "Missing required 'name' field returns an error",
+                "Invalid types (e.g., port as string) return descriptive errors",
+                "Unit tests cover valid, partial, and invalid inputs"
+            ],
+            "passes": false,
+            "priority": 1,
+            "depends_on": [],
+            "complexity": 2
+        }
+    ],
+    "technical_requirements": [
+        "Use Rust with serde and serde_json",
+        "Define a Config struct with proper defaults",
+        "Use thiserror for error types",
+        "All tests must pass with cargo test"
+    ],
+    "quality_checks": {
+        "typecheck": "cargo check",
+        "test": "cargo test",
+        "lint": "cargo clippy -- -D warnings",
+        "build": "cargo build"
+    },
+    "created_at": "2026-02-10T00:00:00Z",
+    "updated_at": "2026-02-10T00:00:00Z"
+}

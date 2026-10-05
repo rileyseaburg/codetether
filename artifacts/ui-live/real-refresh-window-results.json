@@ -1,0 +1,124 @@
+{
+  "level": "live deployment/Argo",
+  "mode": "changed local UI with real services; no frontend deployment change",
+  "base": "http://localhost:3001",
+  "api": "http://localhost:3001/api/tenant",
+  "backend": {
+    "namespace": "a2a-server",
+    "service": "codetether-a2a-server"
+  },
+  "started": "2026-09-06T20:12:48.429Z",
+  "stage": "real-signin-and-refresh-finished",
+  "checks": [
+    {
+      "check": "real OAuth authorization",
+      "origin": "https://auth.quantum-forge.io",
+      "path": "/realms/quantum-forge/protocol/openid-connect/auth",
+      "clientId": "a2a-monitor",
+      "redirectUri": "http://localhost:3001/api/auth/callback/keycloak",
+      "pkce": true,
+      "statePresent": true
+    },
+    {
+      "check": "real session",
+      "authenticated": true,
+      "hasRefreshToken": true,
+      "tenantId": null,
+      "error": null
+    },
+    {
+      "check": "token lifetime",
+      "issuedAt": 1788725571,
+      "expiresAt": 1788726471,
+      "waitSeconds": 843
+    },
+    {
+      "check": "real automatic token refresh",
+      "success": true,
+      "previousExpiry": 1788726471,
+      "newExpiry": 1788727317,
+      "sameIdentity": true,
+      "error": null
+    }
+  ],
+  "requests": [
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/login",
+      "method": "POST",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "origin": "https://auth.quantum-forge.io",
+      "path": "/realms/quantum-forge/protocol/openid-connect/auth",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/callback/keycloak",
+      "method": "GET",
+      "status": 302
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    }
+  ]
+}

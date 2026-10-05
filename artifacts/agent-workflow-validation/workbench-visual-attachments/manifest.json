@@ -1,0 +1,35 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "C2DB3AC5-293F-4CAD-95DF-13221ECD0509",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "583CE12C-EF3B-4AB5-9057-F8005CD8CD08.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "work-chat-mocked_0_DF47AA5A-C629-42D6-AA80-69C643A04BFA.png",
+        "timestamp" : 1791227286.272
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "C2DB3AC5-293F-4CAD-95DF-13221ECD0509",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "30786932-E639-4614-86BA-8B874B79D747.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "new-work-session-mocked_0_3DF994DD-B7B1-4758-BFBF-FD61EAB1F469.png",
+        "timestamp" : 1791227285.47
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "C2DB3AC5-293F-4CAD-95DF-13221ECD0509",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "E9D8644A-0222-4D5A-BA7D-849C36BB416E.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "agents-home-mocked_0_0134BF56-E30B-4CE6-B38D-2E1594FFD542.png",
+        "timestamp" : 1791227284.682
+      }
+    ],
+    "testIdentifier" : "WorkSessionTests/testRenderedAgentAndChatScreens()",
+    "testIdentifierURL" : "test://com.apple.xcode/A2AMonitor/A2AMonitorTests/WorkSessionTests/testRenderedAgentAndChatScreens"
+  }
+]

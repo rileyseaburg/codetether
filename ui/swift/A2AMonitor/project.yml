@@ -26,3 +26,38 @@ targets:
       GENERATE_INFOPLIST_FILE: NO
       CODE_SIGN_IDENTITY: "Apple Development"
       PROVISIONING_PROFILE_SPECIFIER: "debug1"
+  A2AMonitorUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/UI
+      - path: Sources/A2AMonitor/Services/LoginFailure.swift
+    dependencies:
+      - target: A2AMonitor
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.a2a.monitor.uitests
+      GENERATE_INFOPLIST_FILE: YES
+      TEST_TARGET_NAME: A2AMonitor
+  A2AMonitorTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/Unit
+    dependencies:
+      - target: A2AMonitor
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.a2a.monitor.tests
+      GENERATE_INFOPLIST_FILE: YES
+schemes:
+  A2AMonitor:
+    build:
+      targets:
+        A2AMonitor: all
+        A2AMonitorUITests: [test]
+        A2AMonitorTests: [test]
+    test:
+      environmentVariables:
+        A2A_LIVE_SIMULATOR_TEST: "$(A2A_LIVE_SIMULATOR_TEST)"
+      targets:
+        - A2AMonitorUITests
+        - A2AMonitorTests

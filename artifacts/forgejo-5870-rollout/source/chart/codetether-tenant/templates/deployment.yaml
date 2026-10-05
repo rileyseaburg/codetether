@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "codetether-tenant.fullname" . }}
+  namespace: {{ include "codetether-tenant.namespace" . }}
+  labels:
+    {{- include "codetether-tenant.labels" . | nindent 4 }}
+spec:
+  replicas: {{ include "codetether-tenant.replicas" . }}
+  selector:
+    matchLabels:
+      {{- include "codetether-tenant.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "codetether-tenant.selectorLabels" . | nindent 8 }}
+        codetether.run/tenant-id: {{ .Values.tenant.id | quote }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+        runAsUser: {{ .Values.securityContext.runAsUser }}
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+      containers:
+        - name: a2a-server
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            - name: TENANT_ID
+              value: {{ .Values.tenant.id | quote }}
+            {{- if .Values.tenant.userId }}
+            - name: USER_ID
+              value: {{ .Values.tenant.userId | quote }}
+            {{- end }}
+            - name: A2A_HOST
+              value: {{ .Values.env.A2A_HOST | quote }}
+            - name: A2A_PORT
+              value: {{ .Values.env.A2A_PORT | quote }}
+            {{- if .Values.secrets.database }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.database }}
+                  key: DATABASE_URL
+                  optional: true
+            {{- end }}
+          resources:
+            {{- include "codetether-tenant.resources" . | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.healthCheck.readinessInitialDelay }}
+            periodSeconds: {{ .Values.healthCheck.readinessPeriod }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

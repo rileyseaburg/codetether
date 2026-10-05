@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
-import { listVoicesV1VoiceVoicesGet } from '@/lib/api';
+import { useTenantApi } from '@/hooks/useTenantApi';
 
 const CloseIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -29,27 +28,34 @@ interface Voice {
 }
 
 export default function VoiceSelector({ selected, onSelect, onClose }: VoiceSelectorProps) {
-  const { data: session } = useSession();
+  const { tenantFetch } = useTenantApi();
+  const [error, setError] = useState<string | null>(null);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [previewVoice, setPreviewVoice] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     const loadVoices = async () => {
       setIsLoading(true);
       try {
-        const { data } = await listVoicesV1VoiceVoicesGet({
-          headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
-        });
-        setVoices(((data as unknown as { voices?: Voice[] })?.voices) || []);
-      } catch {
-        console.error('Failed to load voices');
+        const { data, error: catalogError } = await tenantFetch<{ voices: Voice[] }>('/v1/voice/voices');
+        if (catalogError || !Array.isArray(data?.voices)) {
+          throw new Error(catalogError || 'Voice catalog is unavailable');
+        }
+        if (active) {
+          setVoices(data.voices);
+          setError(null);
+        }
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load voices');
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     };
     loadVoices();
-  }, [session?.accessToken]);
+    return () => { active = false; };
+  }, [tenantFetch]);
 
   const handlePreview = (voiceId: string) => {
     setPreviewVoice(voiceId);
@@ -62,6 +68,7 @@ export default function VoiceSelector({ selected, onSelect, onClose }: VoiceSele
           <h2 className="text-lg font-semibold">Select Voice</h2>
           <button
             onClick={onClose}
+            aria-label="Close voice selector"
             className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
           >
             <CloseIcon className="w-5 h-5" />
@@ -73,6 +80,8 @@ export default function VoiceSelector({ selected, onSelect, onClose }: VoiceSele
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
+          ) : error ? (
+            <p role="alert" className="text-red-600 dark:text-red-400">{error}</p>
           ) : voices.length === 0 ? (
             <p className="text-center text-gray-500 py-8">No voices available</p>
           ) : (

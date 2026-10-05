@@ -1,0 +1,113 @@
+{{- if .Values.temporal.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-temporal-worker
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: temporal-worker
+spec:
+  replicas: {{ .Values.temporal.replicas }}
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "a2a-server.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: temporal-worker
+  template:
+    metadata:
+      labels:
+        {{- include "a2a-server.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: temporal-worker
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "a2a-server.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: temporal-worker
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "a2a-server.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "a2a_server.temporal.worker"]
+          envFrom:
+            {{- range .Values.existingEnvFromSecrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+            {{- if .Values.configMap.create }}
+            - configMapRef:
+                name: {{ include "a2a-server.fullname" . }}-config
+            {{- end }}
+            {{- if .Values.forgejo.existingSecret }}
+            - secretRef:
+                name: {{ .Values.forgejo.existingSecret }}
+            {{- end }}
+          env:
+            - name: FORGEJO_TEMPORAL_ENABLED
+              value: "true"
+            - name: TEMPORAL_ADDRESS
+              value: {{ required "temporal.address is required when temporal.enabled=true" .Values.temporal.address | quote }}
+            - name: TEMPORAL_NAMESPACE
+              value: {{ .Values.temporal.namespace | quote }}
+            - name: TEMPORAL_FORGEJO_TASK_QUEUE
+              value: {{ .Values.temporal.taskQueue | quote }}
+            {{- if .Values.forgejo.apiUrl }}
+            - name: FORGEJO_API_URL
+              value: {{ .Values.forgejo.apiUrl | quote }}
+            - name: FORGEJO_BOT_USERNAME
+              value: {{ .Values.forgejo.botUsername | default "codetether" | quote }}
+            {{- end }}
+            {{- if .Values.externalPostgresql.url }}
+            - name: DATABASE_URL
+              value: {{ .Values.externalPostgresql.url | quote }}
+            {{- else if .Values.externalPostgresql.existingSecret }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalPostgresql.existingSecret }}
+                  key: {{ .Values.externalPostgresql.secretKey }}
+            {{- end }}
+            {{- range $key, $value := .Values.envFromSecret }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $value }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.temporal.tls.enabled }}
+            - name: TEMPORAL_TLS_CERT
+              value: /var/run/temporal-tls/{{ .Values.temporal.tls.certKey }}
+            - name: TEMPORAL_TLS_KEY
+              value: /var/run/temporal-tls/{{ .Values.temporal.tls.privateKeyKey }}
+            - name: TEMPORAL_TLS_SERVER_NAME
+              value: {{ .Values.temporal.tls.serverName | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.temporal.resources | nindent 12 }}
+          {{- if .Values.temporal.tls.enabled }}
+          volumeMounts:
+            - name: temporal-tls
+              mountPath: /var/run/temporal-tls
+              readOnly: true
+          {{- end }}
+      {{- if .Values.temporal.tls.enabled }}
+      volumes:
+        - name: temporal-tls
+          secret:
+            secretName: {{ required "temporal.existingSecret is required when temporal.tls.enabled=true" .Values.temporal.existingSecret }}
+      {{- end }}
+{{- end }}

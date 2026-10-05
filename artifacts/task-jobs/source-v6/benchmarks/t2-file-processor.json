@@ -1,0 +1,75 @@
+{
+    "project": "benchmark-file-processor",
+    "feature": "CSV to JSON File Processor",
+    "branch_name": "bench/t2-file-processor",
+    "version": "1.0",
+    "user_stories": [
+        {
+            "id": "US-001",
+            "title": "Build CSV parser with typed records",
+            "description": "Create a library that reads CSV files and parses them into typed Record structs. Support configurable delimiters and header detection. Handle malformed rows gracefully with line-number error reporting.",
+            "acceptance_criteria": [
+                "Parses well-formed CSV into Vec<Record>",
+                "Supports comma and tab delimiters",
+                "Auto-detects headers from first row",
+                "Reports line number for malformed rows",
+                "Unit tests cover normal, headerless, and malformed inputs"
+            ],
+            "passes": false,
+            "priority": 1,
+            "depends_on": [],
+            "complexity": 3
+        },
+        {
+            "id": "US-002",
+            "title": "Implement JSON output writer",
+            "description": "Add a JSON writer that converts parsed records to JSON output. Support both pretty-printed and compact formats. Support writing to file or stdout.",
+            "acceptance_criteria": [
+                "Converts records to valid JSON array",
+                "Supports --pretty flag for formatted output",
+                "Writes to file when --output is specified",
+                "Writes to stdout by default",
+                "Unit tests verify both output modes"
+            ],
+            "passes": false,
+            "priority": 2,
+            "depends_on": [
+                "US-001"
+            ],
+            "complexity": 2
+        },
+        {
+            "id": "US-003",
+            "title": "Add CLI interface with clap",
+            "description": "Create a CLI that accepts input file path, optional output path, delimiter choice, and format flags. Add a --stats flag that prints row count, column count, and file size.",
+            "acceptance_criteria": [
+                "csv2json input.csv converts and prints to stdout",
+                "csv2json input.csv --output out.json writes to file",
+                "csv2json input.csv --delimiter tab handles tab-separated files",
+                "csv2json input.csv --stats prints statistics",
+                "Integration test runs the full CLI pipeline"
+            ],
+            "passes": false,
+            "priority": 3,
+            "depends_on": [
+                "US-001",
+                "US-002"
+            ],
+            "complexity": 2
+        }
+    ],
+    "technical_requirements": [
+        "Use Rust with clap, serde, serde_json",
+        "No external CSV library — implement parsing manually",
+        "Proper error handling with anyhow or thiserror",
+        "All tests must pass with cargo test"
+    ],
+    "quality_checks": {
+        "typecheck": "cargo check",
+        "test": "cargo test",
+        "lint": "cargo clippy -- -D warnings",
+        "build": "cargo build"
+    },
+    "created_at": "2026-02-10T00:00:00Z",
+    "updated_at": "2026-02-10T00:00:00Z"
+}

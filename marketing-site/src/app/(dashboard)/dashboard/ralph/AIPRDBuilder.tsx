@@ -74,8 +74,8 @@ export function AIPRDBuilder({ onPRDComplete, onCancel, onMinimize, onSwitchToMa
         }
     }
 
-    const handleSend = () => {
-        if (input.trim()) {
+    const handleSend = (): void => {
+        if (!isLoading && input.trim()) {
             sendMessage(input)
             setInput('')
         }

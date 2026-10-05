@@ -1,0 +1,19 @@
+{
+  "episode_id": "ep3mdns",
+  "podcast_id": "ef302249",
+  "title": "CodeTether Radio Ep 3 - Why mDNS Is the Future of Agent Discovery",
+  "description": "A Gemini TTS CodeTether Radio episode about why mDNS matters for local-first agent discovery, peer visibility, and resilient autonomous developer tooling.",
+  "voice_id": "gemini-3.1-flash-tts-preview",
+  "voice_name": "Gemini TTS - Kore",
+  "model": "gemini-3.1-flash-tts-preview",
+  "audio_url": "http://192.168.50.101:8025/published/ef302249/episodes/ep3mdns.mp3",
+  "duration_seconds": 1959.888,
+  "duration_text": "32:40",
+  "file_size": 39198285,
+  "episode_number": 3,
+  "season_number": 1,
+  "episode_type": "full",
+  "explicit": "no",
+  "published_at": "2026-05-04T12:00:00",
+  "image_url": "http://192.168.50.101:8025/published/ef302249/art/recruit-the-swarm-rss-cover.png"
+}

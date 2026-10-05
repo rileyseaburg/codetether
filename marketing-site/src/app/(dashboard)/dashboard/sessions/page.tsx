@@ -116,7 +116,6 @@ function SessionsContent() {
   const {
     loading: resumeLoading,
     actionStatus,
-    setActionStatus,
     resumeSession,
   } = useSessionResume({
     selectedWorkspace,
@@ -259,13 +258,12 @@ function SessionsContent() {
       setMobilePane('sessions')
       setSessionQuery('')
       clearSessions()
-      setActionStatus(null)
       setAwaitingResponse(false)
       pendingResponseKeyRef.current = null
       setOptimisticMessages([])
       resetStream()
     },
-    [clearSessions, setActionStatus, resetStream],
+    [clearSessions, resetStream],
   )
 
   const onSessionSelect = useCallback((s: Session) => {

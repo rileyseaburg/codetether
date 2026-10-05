@@ -1,0 +1,43 @@
+[
+  {
+    "clientId": "a2a-monitor",
+    "redirectUris": [
+      "http://192.168.50.101:3001/*",
+      "https://192.168.50.101:3001/api/auth/*",
+      "http://localhost:3001/api/auth/*",
+      "https://localhost:3001/api/auth/*",
+      "http://localhost:8765/*",
+      "https://quantum-forge.codetether.run/*",
+      "https://quantum-forge.codetether.run/api/auth/callback/keycloak",
+      "https://codetether.run/*",
+      "http://127.0.0.1:3001/*",
+      "https://a2a.quantum-forge.net/api/auth/*",
+      "https://api.codetether.run/*",
+      "https://127.0.0.1:3001/api/auth/*",
+      "https://localhost:3001/*",
+      "https://quantum-forge.codetether.run/api/auth/*",
+      "http://127.0.0.1:3001/api/auth/*",
+      "https://192.168.50.101:3001/api/auth/callback/keycloak",
+      "https://192.168.50.101:3001/*",
+      "https://192.168.50.101:3002/*",
+      "http://127.0.0.1:8765/*",
+      "https://localhost:3002/api/auth/*",
+      "http://localhost:3001/*",
+      "https://127.0.0.1:3001/*"
+    ],
+    "webOrigins": [
+      "https://codetether.run",
+      "http://192.168.50.101:3001",
+      "https://localhost:3001",
+      "http://127.0.0.1:3001",
+      "http://127.0.0.1:8765",
+      "https://api.codetether.run",
+      "http://localhost:8765",
+      "http://localhost:3001",
+      "https://192.168.50.101:3001",
+      "https://a2a.quantum-forge.net",
+      "https://quantum-forge.codetether.run",
+      "https://127.0.0.1:3001"
+    ]
+  }
+]

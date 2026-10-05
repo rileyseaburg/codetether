@@ -1,0 +1,884 @@
+# Default values for a2a-server (CodeTether Server).
+# Documentation: https://docs.codetether.run
+# A2A Protocol: https://a2a-protocol.org
+#
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Application configuration
+app:
+  name: "CodeTether Server"
+  description: "Production A2A coordination server"
+  logLevel: "INFO"
+  enhanced: true
+  # Documentation and support URLs
+  docs: "https://docs.codetether.run"
+  support: "https://github.com/rileyseaburg/codetether/issues"
+
+# Image configuration
+image:
+  repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
+  pullPolicy: Always
+  tag: "latest"
+
+imagePullSecrets:
+  - name: registry-credentials
+nameOverride: ""
+fullnameOverride: ""
+
+# Deployment configuration
+replicaCount: 1
+
+# Blue/Green deployment configuration
+#
+# This chart supports two modes:
+# - blueGreen.enabled=false (default): deploy a single legacy Deployment.
+# - blueGreen.enabled=true:
+#     - mode=legacy: keep routing traffic to the legacy Deployment while you stage
+#       a new version in the inactive color Deployment.
+#     - mode=bluegreen: route traffic via Service selector to the active color.
+#
+# The production `make k8s-prod` pipeline uses the deploy script to:
+# 1) helm upgrade with mode=legacy (traffic stays on legacy/current)
+# 2) wait for the inactive color to be Ready
+# 3) helm upgrade with mode=bluegreen (traffic switches)
+blueGreen:
+  enabled: true
+  # One of: legacy | bluegreen
+  mode: bluegreen
+  # Which color the Service should route to when mode=bluegreen
+  serviceColor: green
+  # Optional rollout IDs. When set, the value is added to the Pod template
+  # as an annotation to force Kubernetes to roll that specific workload.
+  #
+  # This is especially useful when deploying the same tag (e.g. "latest")
+  # and relying on `image.pullPolicy=Always`.
+  rolloutId:
+    legacy: ""
+    blue: ""
+    green: ""
+  # Optional image override for the legacy Deployment (full reference).
+  # When set, it takes precedence over the global `image.*` for the legacy workload.
+  legacyImage:
+    image: ""
+  # Replicas for the legacy Deployment (used when mode=legacy; typically 0 in steady-state)
+  legacyReplicaCount: 1
+  # Replicas for each color deployment
+  replicas:
+    blue: 0
+    green: 0
+  # Optional per-color image overrides.
+  # Prefer setting `image` to the full reference (e.g. repo:tag or repo@sha256:...).
+  images:
+    blue:
+      image: ""
+    green:
+      image: ""
+
+# Service account configuration
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+# Additional plain environment variables for the main server container.
+env: {}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Service configuration
+# NOTE: MCP protocol is now integrated on the same port under /mcp/* paths
+# No separate MCP port needed - this simplifies deployment and networking
+service:
+  type: ClusterIP
+  # Required only when type is ExternalName.
+  externalName: ""
+  port: 8000
+  targetPort: 8000
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "cloudflare-issuer"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # CORS — allow the marketing dashboard and docs site to call the API
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://codetether.run, https://docs.codetether.run, http://localhost:3000, http://localhost:8000"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT, User-Agent, X-Requested-With, If-None-Match, If-Modified-Since, Content-Type, Range, Authorization, X-Tenant-ID, X-API-Key"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
+  hosts:
+    - host: api.codetether.run
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 8000
+        # MCP is now available at /mcp/* on the same port
+  tls:
+    - secretName: a2a-server-tls
+      hosts:
+        - api.codetether.run
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /.well-known/agent-card.json
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /.well-known/agent-card.json
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Startup probe for slow starting containers
+startupProbe:
+  httpGet:
+    path: /.well-known/agent-card.json
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+
+# Autoscaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Additional volumes
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volume mounts
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity rules
+affinity: {}
+
+# Environment variables
+env:
+  # Basic server configuration
+  A2A_HOST: "0.0.0.0"
+  A2A_PORT: "8000"
+  A2A_LOG_LEVEL: "INFO"
+
+  # MCP HTTP server configuration
+  MCP_HTTP_ENABLED: "true"
+  MCP_HTTP_HOST: "0.0.0.0"
+  MCP_HTTP_PORT: "9000"
+
+  # Application configuration
+  A2A_AGENT_NAME: "CodeTether Server"
+  A2A_AGENT_DESCRIPTION: "Production A2A coordination server"
+  A2A_AGENT_ORG: "CodeTether"
+  A2A_AGENT_ORG_URL: "https://codetether.run"
+  A2A_AGENT_URL: "https://api.codetether.run"
+  A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
+
+  # Worker infrastructure attribution for /v1/agent/workers:
+  # - WORKER_INFRA_CACHE_TTL_SECONDS: refresh cadence for pod/node lookup
+  # - WORKER_INFRA_NODE_MAP: optional node->provider overrides
+  #   JSON: {"k8s-worker-1":"harvester"} or CSV: k8s-worker-1=harvester
+  WORKER_INFRA_CACHE_TTL_SECONDS: "30"
+  WORKER_INFRA_NODE_MAP: ""
+
+# Import every key from existing Kubernetes secrets into server containers.
+existingEnvFromSecrets: []
+
+# Environment variables from individual secret keys
+envFromSecret: {}
+# Example:
+# envFromSecret:
+#   A2A_AUTH_TOKENS: a2a-server-auth-tokens
+
+# Authentication configuration
+auth:
+  enabled: false
+  tokens: {}
+  # Example:
+  # tokens:
+  #   agent1: "secret123"
+  #   agent2: "secret456"
+
+# GitHub App configuration for app-wide @codetether webhook handling
+githubApp:
+  existingSecret: ""
+  appId: ""
+  privateKey: ""
+  webhookSecret: ""
+  apiBaseUrl: "https://api.github.com"
+
+# Native Forgejo @codetether integration. Credentials belong in existingSecret.
+forgejo:
+  existingSecret: ""
+  apiUrl: ""
+  botUsername: "codetether"
+
+# Durable Forgejo orchestration. Disabled by default for safe rollout.
+temporal:
+  enabled: false
+  address: "temporal-frontend.temporal.svc.cluster.local:7233"
+  namespace: "default"
+  taskQueue: "codetether-forgejo-agent"
+  replicas: 1
+  existingSecret: ""
+  tls:
+    enabled: false
+    certKey: "tls.crt"
+    privateKeyKey: "tls.key"
+    serverName: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# PostgreSQL configuration for durable persistence
+# This provides durable storage for workers, codebases, tasks, and sessions
+# that survives pod restarts and works across multiple replicas.
+postgresql:
+  # Enable the built-in PostgreSQL subchart (bitnami/postgresql)
+  enabled: false
+  # PostgreSQL auth settings (when using subchart)
+  auth:
+    database: a2a_server
+    username: a2a
+    password: "" # Set this or use existingSecret
+    existingSecret: ""
+    secretKeys:
+      adminPasswordKey: postgres-password
+      userPasswordKey: password
+  # Primary configuration
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        memory: 256Mi
+
+# External PostgreSQL configuration (when postgresql.enabled: false)
+externalPostgresql:
+  # Database URL format: postgresql://user:password@host:port/database
+  url: ""
+  # Or use existing secret with DATABASE_URL key
+  existingSecret: ""
+  secretKey: "DATABASE_URL"
+
+# Redis configuration
+# This chart deploys a simple in-cluster Redis (Deployment + ClusterIP Service) when enabled.
+# If you prefer an external Redis, set redis.enabled=false and configure externalRedis.*.
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      memory: 128Mi
+
+# External Redis configuration (when redis.enabled: false)
+externalRedis:
+  host: "redis-master"
+  port: 6379
+  password: ""
+  database: 0
+
+# LiveKit configuration for voice features
+# LiveKit enables real-time voice interactions with the AI agent
+livekit:
+  enabled: true
+  # LiveKit server URL (internal k8s service for API calls)
+  url: "http://livekit-server.quantum-forge.svc.cluster.local:80"
+  # Public LiveKit URL (WebSocket URL for client connections)
+  publicUrl: "wss://live.quantum-forge.net"
+  # Credentials - use existing secrets for production
+  # These can be set directly or via existingSecret
+  apiKey: ""
+  apiSecret: ""
+  # Use existing Kubernetes secrets for credentials
+  # These match the secrets used by codetether-voice-agent
+  existingSecret:
+    # Secret containing LIVEKIT_API_KEY
+    apiKey:
+      name: "livekit-api-key"
+      key: "LIVEKIT_API_KEY"
+    # Secret containing LIVEKIT_API_SECRET
+    apiSecret:
+      name: "livekit-api-secret"
+      key: "LIVEKIT_API_SECRET"
+
+# Persistence configuration for SQLite monitor database
+persistence:
+  enabled: true
+  # Use existing PVC or create a new one
+  existingClaim: ""
+  # Storage class for dynamic provisioning
+  storageClass: ""
+  # Access mode (ReadWriteOnce for SQLite)
+  accessMode: ReadWriteOnce
+  # Storage size
+  size: 1Gi
+  # Mount path in container
+  mountPath: /app/data
+  # Annotations for the PVC
+  annotations: {}
+
+# MinIO/S3 storage configuration (alternative to SQLite persistence)
+minio:
+  enabled: false
+  # MinIO endpoint (e.g., "192.168.50.223:9000" or "minio.storage.svc:9000")
+  endpoint: ""
+  # Bucket name for storing monitor data
+  bucket: "a2a-monitor"
+  # Use HTTPS for MinIO connection
+  secure: false
+  # Credentials (can also use existing secret)
+  accessKey: ""
+  secretKey: ""
+  # Use existing secret for credentials (must have accessKey and secretKey keys)
+  existingSecret: ""
+
+# ConfigMap configuration
+configMap:
+  create: true
+  annotations: {}
+
+# Secret configuration
+secret:
+  create: true
+  annotations: {}
+
+# Network policies
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+  ingress: []
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Monitoring and observability
+monitoring:
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+    annotations: {}
+
+  prometheusRule:
+    enabled: false
+    namespace: ""
+    labels: {}
+    annotations: {}
+    rules: []
+
+# Additional labels to apply to all resources
+commonLabels: {}
+
+# Additional annotations to apply to all resources
+commonAnnotations: {}
+
+# Extra manifests to deploy as an array
+extraDeploy: []
+
+# Persona instances receive a unique Kubernetes service account. The installed
+# SPIRE fallback ClusterSPIFFEID projects that account into a JWT/X509 SVID.
+agentIdentity:
+  enabled: false
+  # Inject KEYCLOAK_PROVISIONER_CLIENT_SECRET with envFromSecret. The client
+  # needs only clients, users, groups, and realm-role management permissions.
+
+# Knative per-session worker configuration
+# When enabled, creates a Broker for event routing and ConfigMap with
+# Service/Trigger templates for the Python spawner to use
+knative:
+  enabled: false
+  broker: task-broker
+  cron:
+    # Cron scheduler backend: auto | app | knative | disabled
+    driver: auto
+    # Shared token expected by /v1/cronjobs/internal/{id}/trigger
+    # Prefer setting via internalTokenSecret rather than plaintext.
+    internalToken: ""
+    # Existing secret containing CRON_INTERNAL_TOKEN
+    internalTokenSecret: ""
+    internalTokenSecretKey: "CRON_INTERNAL_TOKEN"
+    # Optional explicit callback URL for cronjobs.
+    # Default: http://<release-name>.<namespace>.svc.cluster.local:<service.port>
+    triggerBaseUrl: ""
+    # Container image used by generated Kubernetes CronJob resources
+    jobImage: "curlimages/curl:8.11.1"
+    # Prefer tenant.k8s_namespace when available
+    tenantNamespaceMode: true
+    # Allow reconciling cronjobs outside this release namespace
+    allowCrossNamespace: false
+    # Optional service account for generated CronJob pods
+    serviceAccountName: ""
+    # Kubernetes CronJob tuning
+    startingDeadlineSeconds: 300
+    successHistoryLimit: 1
+    failureHistoryLimit: 3
+    jobTtlSeconds: 600
+  worker:
+    # Default uses Google Artifact Registry with versioned tag.
+    # Override with --set-string knative.worker.image=<registry>/<image>:<tag>
+    image: "registry.quantum-forge.net/cluster-ci-cache/codetether-worker:latest"
+    # ServiceAccount used by Knative session workers.
+    # This ServiceAccount must be bound to the Vault Kubernetes auth role below.
+    serviceAccountName: "codetether-worker"
+    # Scale to 0 after 5 minutes of no activity
+    idleTimeoutSeconds: 300
+    # Maximum time for a single task (requires Knative config-map patch:
+    #   kubectl patch configmap config-defaults -n knative-serving
+    #   --type merge -p '{"data":{"max-revision-timeout-seconds":"1200"}}')
+    maxTimeoutSeconds: 1200
+    # One task at a time (hardware-bound)
+    containerConcurrency: 1
+    # Optional extra capabilities for generated Knative session workers.
+    # Leave empty unless these workers should claim persistent automation tasks.
+    capabilities: []
+    resources:
+      limits:
+        memory: 2Gi
+        cpu: "2"
+      requests:
+        memory: 512Mi
+        cpu: "250m"
+    # Session TTL before garbage collection (24 hours)
+    sessionTTLHours: 24
+    # Native Kubernetes auth configuration for Knative workers.
+    # The worker binary uses the pod's service account JWT to authenticate
+    # directly to Vault — no Vault Agent sidecar or static token is needed.
+    vault:
+      enabled: false
+      role: "codetether-worker"
+      address: "https://vault.spotlessbinco.com"
+      # Vault auth backend mount path (must match the Kubernetes auth backend
+      # configured on your Vault server: vault auth enable -path=kubernetes kubernetes)
+      authMount: "kubernetes"
+      tlsSkipVerify: true
+    # Workspace PVCs for per-workspace persistent storage in Knative workers.
+    # Recommended on Harvester/Longhorn: enabled=true, accessModes=[ReadWriteMany].
+    workspacePersistence:
+      enabled: false
+      # PVC size for each workspace volume
+      size: "20Gi"
+      # Access modes for workspace PVCs
+      accessModes:
+        - ReadWriteMany
+      # StorageClass for workspace PVCs (e.g., longhorn)
+      # Empty string uses cluster default StorageClass
+      storageClass: ""
+      # Prefix for dynamically-created workspace PVC names
+      pvcNamePrefix: "codetether-workspace"
+      # Mount point inside Knative worker pods
+      mountPath: "/workspace"
+      # Subdirectory under mountPath used by git_service clone operations
+      reposSubPath: "repos"
+    # Secret containing AI provider API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)
+    # Create this secret manually: kubectl create secret generic ai-provider-keys \
+    #   --from-literal=ANTHROPIC_API_KEY=sk-ant-xxx \
+    #   --from-literal=OPENAI_API_KEY=sk-xxx
+    apiKeySecret: ""
+    # Secret containing codetether-agent auth credentials for AI providers
+    # (Legacy: was CodeTether auth.json — now used by codetether-agent Rust worker)
+    # Create: kubectl create secret generic agent-auth \
+    #   --from-file=auth.json=$HOME/.config/codetether/auth.json -n a2a-server
+    authSecret: ""
+    # Secret containing codetether-agent config file
+    # (Legacy: was codetether.json — now used by codetether-agent Rust worker)
+    # Create: kubectl create secret generic agent-config \
+    #   --from-file=config.json=$HOME/.config/codetether/config.json -n a2a-server
+    configSecret: ""
+    # Secret containing GCP service account credentials for Vertex AI
+    # Create: kubectl create secret generic gcp-vertex-credentials \
+    #   --from-file=credentials.json=/path/to/service-account.json -n a2a-server
+    gcpCredentialsSecret: ""
+    # Google Vertex AI configuration (when using gcpCredentialsSecret)
+    googleVertexLocation: "us-central1"
+    googleVertexProject: "spotlessbinco"
+    # Secret containing SendGrid API key and from email
+    # Create: kubectl create secret generic sendgrid-credentials \
+    #   --from-literal=SENDGRID_API_KEY=SG.xxx \
+    #   --from-literal=SENDGRID_FROM_EMAIL=noreply@codetether.run -n a2a-server
+    sendgridSecret: ""
+    # Domain for inbound email replies (optional)
+    emailInboundDomain: ""
+    # Secret containing database encryption key for API key encryption
+    # Create: kubectl create secret generic db-encryption-key \
+    #   --from-literal=encryption-key=your-32-byte-key-here -n a2a-server
+    dbEncryptionSecret: ""
+
+# VM workspace provisioning (KubeVirt/Harvester-compatible)
+# When enabled, /v1/agent/workspaces accepts runtime=vm and provisions a
+# VirtualMachine per workspace using Kubernetes CRDs.
+vmWorkspaces:
+  enabled: false
+  namespace: ""
+  apiGroup: "kubevirt.io"
+  apiVersion: "v1"
+  plural: "virtualmachines"
+  defaultImage: "quay.io/containerdisks/ubuntu:22.04"
+  defaultCpuCores: 2
+  defaultMemory: "8Gi"
+  defaultDiskSize: "30Gi"
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  pvcPrefix: "codetether-vm-workspace"
+  createSSHService: true
+  sshServiceType: "ClusterIP"
+  sshUser: "coder"
+  # Optional SSH public key injected via cloud-init.
+  sshPublicKey: ""
+
+# Marketing site configuration
+marketing:
+  enabled: false
+  imagePullSecrets:
+    - name: registry-credentials
+  image:
+    repository: registry.quantum-forge.net/cluster-ci-cache/codetether-marketing
+    pullPolicy: Always
+    tag: "latest"
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "cloudflare-issuer"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: codetether.run
+    tls:
+      secretName: codetether-marketing-tls
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  # Environment variables for marketing site
+  env:
+    SENDGRID_API_KEY: ""
+    SENDGRID_FROM_EMAIL: "noreply@codetether.run"
+    CONTACT_NOTIFICATION_EMAIL: "riley@spotlessbinco.com"
+  # Or use existing secret for sensitive values
+  envFromSecret: {}
+  # Example:
+  # envFromSecret:
+  #   SENDGRID_API_KEY: marketing-secrets
+
+# Documentation site configuration
+docs:
+  enabled: false
+  imagePullSecrets:
+    - name: registry-credentials
+  image:
+    repository: registry.quantum-forge.net/cluster-ci-cache/codetether-docs
+    pullPolicy: Always
+    tag: "latest"
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "cloudflare-issuer"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: docs.codetether.run
+    tls:
+      secretName: codetether-docs-tls
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# ── Keycloak SSO ───────────────────────────────────────────────
+# Keycloak connection for OAuth2/OIDC authentication.
+# Client secret should be set via --set or a sealed secret.
+keycloak:
+  url: "https://auth.quantum-forge.io"
+  issuer: "https://auth.quantum-forge.io/realms/quantum-forge"
+  realm: "quantum-forge"
+  clientId: "a2a-monitor"
+  # clientSecret: ""  # Set via --set keycloak.clientSecret=<value>
+
+# ── Stripe Billing ────────────────────────────────────────────
+# Stripe keys for subscription billing. Set via --set or sealed secret.
+# Alternatively, store at Vault path kv/codetether/stripe with keys:
+#   api_key, webhook_secret
+stripe:
+  apiKey: "" # Set via --set stripe.apiKey=sk_live_...
+  webhookSecret: "" # Set via --set stripe.webhookSecret=whsec_...
+
+# ── Worker Authentication ──────────────────────────────────────
+# Shared secret token for worker API endpoints (register, heartbeat, task poll).
+# When set, workers must pass --token <value> to authenticate.
+# When empty, worker endpoints remain open (for internal/trusted networks).
+workerAuthToken: "" # Set via --set workerAuthToken=<secret>
+
+# ── Sandbox Execution ─────────────────────────────────────────
+# Run agent tasks inside ephemeral Docker containers for isolation.
+sandbox:
+  enabled: false
+  image: "ghcr.io/rileyseaburg/codetether-worker:latest"
+  memoryLimit: "2g"
+  cpuLimit: "2.0"
+  timeout: 600 # seconds
+
+# ── OPA Policy Engine Sidecar ──────────────────────────────────
+# Runs Open Policy Agent alongside the A2A server for centralized
+# authorization decisions. Policies are loaded from the opa-policies
+# ConfigMap (built from policies/ directory at chart install time).
+opa:
+  enabled: false
+  policies: {}
+  image:
+    repository: openpolicyagent/opa
+    tag: "1.3.0"
+    pullPolicy: IfNotPresent
+  logLevel: "info"
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# ── SPIFFE / SPIRE: workload identity for agent trust ────────────
+# When enabled, the server validates SPIFFE JWT-SVIDs presented as
+# `Authorization: Bearer <jwt-svid>` against the SPIRE OIDC JWKS, and maps
+# the SPIFFE ID into the OPA authorization flow (see a2a_server/spiffe_auth.py).
+#
+# Deploying SPIRE itself (server + agent DaemonSet) is normally done with the
+# upstream spiffe/spire-server + spiffe/spire-agent charts. The block below
+# (a) flips on SVID validation in the server via env vars, and (b) optionally
+# renders a minimal SPIRE server Deployment + ConfigMap for dev/test clusters.
+spiffe:
+  # Enable JWT-SVID validation in the A2A server (sets SPIFFE_ENABLED=true).
+  enabled: false
+  # SPIFFE trust domain. Must match the SPIRE server's trust_domain.
+  trustDomain: "codetether.run"
+  # Expected audience(s) the SVID must be minted for (comma-separated).
+  audience: "a2a-server"
+  # JWKS endpoint published by SPIRE's OIDC Discovery Provider.
+  jwksUrl: "https://spire-spiffe-oidc-discovery-provider.spire.svc.cluster.local/keys"
+  # JWKS cache TTL in seconds.
+  jwksTtl: 300
+  # During migration, still accept legacy A2A_AUTH_TOKENS when no SVID is sent.
+  allowTokenLegacy: true
+  # SPIFFE path role -> app RBAC role map ("svid-role:rbac-role,..."). Empty
+  # means every SVID caller gets the defaultRole below.
+  roleMap: ""
+  # RBAC role for SVID callers without an explicit roleMap entry.
+  defaultRole: "a2a-agent"
+  # Optional rotating CA source for an in-cluster SPIRE OIDC endpoint. The
+  # chart grants this service account get access to only this ConfigMap name.
+  bundle:
+    namespace: "spire"
+    configMap: ""
+    key: "bundle.spiffe"
+  # Optional in-cluster SPIRE server (dev/test only — production should use the
+  # upstream spiffe/spire-server chart with proper node attestation + storage).
+  server:
+    enabled: false
+    image:
+      repository: ghcr.io/spiffe/spire-server
+      tag: "1.9.6"
+      pullPolicy: IfNotPresent
+    logLevel: "info"
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+# ── Harvester: Persistent Worker StatefulSet ─────────────────────
+# The harvester is a StatefulSet of codetether-agent workers that
+# run 24/7 on our compute. They claim tasks from the webhook pipeline
+# via fire-and-forget dispatch and can run tasks up to 7 days.
+#
+# Entry point: POST /v1/webhooks/github → handle_fix_request() →
+#   create_and_dispatch_task() → SSE notification → harvester claims
+harvester:
+  enabled: false
+  replicaCount: 1
+  agentName: harvester
+  leaseSeconds: 3600
+  maxTimeout: 604800  # 7 days
+  # Defaults to the codetether-worker image (Rust binary with /usr/local/bin/codetether).
+  # If empty, falls back to .Values.image.repository (the Python server image, which
+  # does NOT contain the codetether binary).
+  image:
+    repository: "registry.quantum-forge.net/cluster-ci-cache/codetether-worker"
+    tag: "latest"
+    pullPolicy: ""   # defaults to .Values.image.pullPolicy
+  storage:
+    className: ""    # defaults to cluster default StorageClass
+    size: 50Gi
+  # Per-repository clones live on a node-local volume. Unbounded retention drove
+  # nodes into kubelet DiskPressure, which taints the node, leaves the harvester
+  # Pending, and silently strands queued tasks. Reclaim runs only when free space
+  # falls below minFreePercent and never removes a clone with unsaved work.
+  workspaceReclaim:
+    enabled: true
+    retainDays: 3
+    intervalSeconds: 3600
+    minFreePercent: 20
+    resources:
+      limits:
+        cpu: "250m"
+        memory: 256Mi
+      requests:
+        cpu: "25m"
+        memory: 64Mi
+  resources:
+    limits:
+      cpu: "4"
+      memory: 16Gi
+    requests:
+      cpu: "1"
+      memory: 4Gi
+  podSecurityContext:
+    fsGroup: 1000
+    runAsNonRoot: true
+    runAsUser: 1000
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+    runAsUser: 1000
+  # Auto-approve policy for tool calls: all, safe (read-only), none.
+  # Harvester workers edit files, commit, push, and open PRs — use "all".
+  autoApprove: "all"
+  # Additional capabilities advertised by the Rust worker. Cron and GitHub
+  # automation tasks are routed to workers with these persistent-workspace caps.
+  capabilities:
+    - harvester
+    - persistent
+    - persistent-workspace
+    - persistent_workspace
+    - git-clone
+    - repo-cache
+  # Keep codetether state and telemetry on the workspace PVC so the worker's
+  # install ID survives restarts and the non-root user has a writable home.
+  homePath: "/var/lib/codetether/repos/.codetether-home"
+  # Native Kubernetes auth configuration for the harvester worker.
+  # The worker binary uses the projected service account JWT below, so no
+  # static Vault token is mounted in the pod.
+  vault:
+    enabled: false
+    role: "codetether-harvester"
+    address: "http://vault.vault.svc.cluster.local:8200"
+    authMount: "kubernetes"
+    audience: "vault"
+    tokenExpirationSeconds: 3600
+    tlsSkipVerify: false
+    mount: "secret"
+    secretsPath: "codetether/providers"
+    # Optional static-token mode for clusters that use a pre-provisioned Vault
+    # token Secret instead of native Kubernetes auth. When tokenSecret.name is
+    # set, VAULT_ADDR/VAULT_TOKEN are sourced from that Secret and the projected
+    # service-account JWT volume is not required.
+    tokenSecret:
+      name: ""
+      addressKey: VAULT_ADDR
+      tokenKey: VAULT_TOKEN
+  defaultProvider: ""
+  defaultModel: ""
+  providerSecrets:
+    # Mount all keys from these Secrets as environment variables for provider
+    # env resolution, for example OPENROUTER_API_KEY or ANTHROPIC_API_KEY.
+    envFrom: []
+  tokenSecret:
+    name: ""
+    key: CODETETHER_TOKEN
+  extraArgs: []
+  extraEnv: []
+  extraVolumeMounts: []
+  extraVolumes: []

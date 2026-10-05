@@ -8,6 +8,7 @@ module.exports = createJestConfig({
     '<rootDir>/tests/auth-readiness.test.cjs',
     '<rootDir>/tests/dashboard-navigation.test.cjs',
     '<rootDir>/tests/design-shell.test.cjs',
+    '<rootDir>/tests/prd-composer-navigation.test.cjs',
   ],
   moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
   modulePathIgnorePatterns: ['<rootDir>/.next/'],

@@ -44,13 +44,13 @@ class A2AClient: ObservableObject {
     /// Reusable ISO8601 formatter for outgoing timestamps (avoids per-call allocation).
     private static let iso8601Output = ISO8601DateFormatter()
 
-    init(baseURL: String = "https://api.codetether.run") {
+    init(baseURL: String = "https://api.codetether.run", session: URLSession? = nil) {
         self.baseURL = URL(string: baseURL)!
 
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 300
-        self.session = URLSession(configuration: config)
+        self.session = session ?? URLSession(configuration: config)
     }
 
     func updateBaseURL(_ url: String) {
@@ -60,6 +60,15 @@ class A2AClient: ObservableObject {
     }
 
     // MARK: - Auth Header Helper
+
+    private func checkHTTPResponse(_ response: URLResponse) throws {
+        guard let http = response as? HTTPURLResponse else {
+            throw A2AError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw A2AError.httpFailure(http.statusCode)
+        }
+    }
 
     private func addAuthHeader(to request: inout URLRequest) {
         if let authHeader = authService?.authorizationHeader {
@@ -247,28 +256,29 @@ class A2AClient: ObservableObject {
     // MARK: - OpenCode API
 
     func fetchOpenCodeStatus() async throws -> OpenCodeStatus {
-        let url = baseURL.appendingPathComponent("/v1/opencode/status")
+        let url = baseURL.appendingPathComponent("/v1/agent/status")
         let request = authenticatedRequest(for: url)
         let (data, _) = try await session.data(for: request)
         return try jsonDecoder.decode(OpenCodeStatus.self, from: data)
     }
 
     func fetchModels() async throws -> ModelsResponse {
-        let url = baseURL.appendingPathComponent("/v1/opencode/models")
+        let url = baseURL.appendingPathComponent("/v1/agent/models")
         let request = authenticatedRequest(for: url)
         let (data, _) = try await session.data(for: request)
         return try jsonDecoder.decode(ModelsResponse.self, from: data)
     }
 
     func fetchCodebases() async throws -> [Codebase] {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces")
         let request = authenticatedRequest(for: url)
-        let (data, _) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
+        try checkHTTPResponse(response)
         return try jsonDecoder.decode([Codebase].self, from: data)
     }
 
     func registerCodebase(name: String, path: String, description: String?) async throws -> Codebase {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -288,6 +298,10 @@ class A2AClient: ObservableObject {
         struct CodebaseResponse: Codable {
             let success: Bool
             let codebase: Codebase
+
+            enum CodingKeys: String, CodingKey {
+                case success, codebase = "workspace"
+            }
         }
 
         let response = try jsonDecoder.decode(CodebaseResponse.self, from: data)
@@ -295,7 +309,7 @@ class A2AClient: ObservableObject {
     }
 
     func unregisterCodebase(id: String) async throws {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(id)")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(id)")
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         addAuthHeader(to: &request)
@@ -307,7 +321,7 @@ class A2AClient: ObservableObject {
     }
 
     func triggerAgent(codebaseId: String, prompt: String, agent: String = "build", model: String? = nil) async throws -> TriggerResponse {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/trigger")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/trigger")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -322,12 +336,13 @@ class A2AClient: ObservableObject {
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
+        try checkHTTPResponse(response)
         return try jsonDecoder.decode(TriggerResponse.self, from: data)
     }
 
     func interruptAgent(codebaseId: String) async throws {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/interrupt")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/interrupt")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         addAuthHeader(to: &request)
@@ -336,7 +351,7 @@ class A2AClient: ObservableObject {
     }
 
     func stopAgent(codebaseId: String) async throws {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/stop")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/stop")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         addAuthHeader(to: &request)
@@ -345,7 +360,7 @@ class A2AClient: ObservableObject {
     }
 
     func startWatchMode(codebaseId: String, interval: Int = 5) async throws {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/watch/start")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/watch/start")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -358,7 +373,7 @@ class A2AClient: ObservableObject {
     }
 
     func stopWatchMode(codebaseId: String) async throws {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/watch/stop")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/watch/stop")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         addAuthHeader(to: &request)
@@ -369,7 +384,7 @@ class A2AClient: ObservableObject {
     // MARK: - Task API
 
     func fetchSessions(codebaseId: String) async throws -> [SessionSummary] {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/sessions")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/sessions")
         let request = authenticatedRequest(for: url)
         let (data, _) = try await session.data(for: request)
 
@@ -383,7 +398,7 @@ class A2AClient: ObservableObject {
 
     func fetchSessionMessages(codebaseId: String, sessionId: String, limit: Int = 100) async throws -> [SessionMessage] {
         var components = URLComponents(
-            url: baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/sessions/\(sessionId)/messages"),
+            url: baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/sessions/\(sessionId)/messages"),
             resolvingAgainstBaseURL: false
         )!
         components.queryItems = [URLQueryItem(name: "limit", value: "\(limit)")]
@@ -429,7 +444,7 @@ class A2AClient: ObservableObject {
         agent: String = "build",
         model: String? = nil
     ) async throws -> ResumeSessionResponse {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/sessions/\(sessionId)/resume")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/sessions/\(sessionId)/resume")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -472,21 +487,22 @@ class A2AClient: ObservableObject {
     }
 
     func fetchTasks() async throws -> [AgentTask] {
-        let url = baseURL.appendingPathComponent("/v1/opencode/tasks")
+        let url = baseURL.appendingPathComponent("/v1/agent/tasks")
         let request = authenticatedRequest(for: url)
         let (data, _) = try await session.data(for: request)
         return try jsonDecoder.decode([AgentTask].self, from: data)
     }
 
     func fetchTask(taskId: String) async throws -> AgentTask {
-        let url = baseURL.appendingPathComponent("/v1/opencode/tasks/\(taskId)")
+        let url = baseURL.appendingPathComponent("/v1/agent/tasks/\(taskId)")
         let request = authenticatedRequest(for: url)
-        let (data, _) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
+        try checkHTTPResponse(response)
         return try jsonDecoder.decode(AgentTask.self, from: data)
     }
 
-    func createTask(codebaseId: String, title: String, description: String, priority: TaskPriority, context: String?, agentType: String = "build") async throws -> AgentTask {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/tasks")
+    func createTask(codebaseId: String, title: String, description: String, priority: TaskPriority, context: String?, agentType: String = "build", targetWorkerId: String? = nil, model: String? = nil, targetAgentName: String? = nil, resumeSessionId: String? = nil, contextId: String? = nil) async throws -> AgentTask {
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/tasks")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -494,32 +510,44 @@ class A2AClient: ObservableObject {
 
         var body: [String: Any] = [
             "title": title,
-            "description": description,
+            "prompt": description,
             "priority": priority.rawValue,
             "agent_type": agentType
         ]
-        if let context = context {
-            body["context"] = context
+        if let model, !model.isEmpty { body["model"] = model }
+        var metadata: [String: String] = [:]
+        if let context { metadata["context"] = context }
+        if let targetWorkerId, !targetWorkerId.isEmpty {
+            metadata["target_worker_id"] = targetWorkerId
         }
+        if !metadata.isEmpty { body["metadata"] = metadata }
+        if let targetAgentName, !targetAgentName.isEmpty { metadata["target_agent_name"] = targetAgentName; body["metadata"] = metadata }
+        if let resumeSessionId, !resumeSessionId.isEmpty { metadata["resume_session_id"] = resumeSessionId; body["metadata"] = metadata }
+        if let contextId, !contextId.isEmpty { metadata["context_id"] = contextId; body["metadata"] = metadata }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await session.data(for: request)
-        return try jsonDecoder.decode(AgentTask.self, from: data)
+        let (data, response) = try await session.data(for: request)
+        try checkHTTPResponse(response)
+        struct TaskResponse: Decodable {
+            let task: AgentTask
+        }
+        return try jsonDecoder.decode(TaskResponse.self, from: data).task
     }
 
     func cancelTask(taskId: String) async throws {
-        let url = baseURL.appendingPathComponent("/v1/opencode/tasks/\(taskId)/cancel")
+        let url = baseURL.appendingPathComponent("/v1/agent/tasks/\(taskId)/cancel")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         addAuthHeader(to: &request)
 
-        let (_, _) = try await session.data(for: request)
+        let (_, response) = try await session.data(for: request)
+        try checkHTTPResponse(response)
     }
 
     // MARK: - OpenCode Events SSE (Agent Output Streaming)
 
     func connectToAgentEvents(codebaseId: String, onEvent: @escaping (AgentEvent) -> Void) -> URLSessionDataTask? {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/events")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/events")
         var request = URLRequest(url: url)
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
@@ -533,7 +561,7 @@ class A2AClient: ObservableObject {
     }
 
     func fetchSessionMessages(codebaseId: String, limit: Int = 50) async throws -> [SessionMessage] {
-        var components = URLComponents(url: baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/messages"), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(url: baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/messages"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "limit", value: "\(limit)")]
 
         let request = authenticatedRequest(for: components.url!)
@@ -554,14 +582,14 @@ class A2AClient: ObservableObject {
     }
 
     func fetchAgentStatus(codebaseId: String) async throws -> AgentStatusResponse {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/status")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/status")
         let request = authenticatedRequest(for: url)
         let (data, _) = try await session.data(for: request)
         return try jsonDecoder.decode(AgentStatusResponse.self, from: data)
     }
 
     func sendAgentMessage(codebaseId: String, message: String, agent: String? = nil) async throws -> TriggerResponse {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/message")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/message")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -580,14 +608,14 @@ class A2AClient: ObservableObject {
     // MARK: - Worker API
 
     func fetchWorkers() async throws -> [Worker] {
-        let url = baseURL.appendingPathComponent("/v1/opencode/workers")
+        let url = baseURL.appendingPathComponent("/v1/agent/workers")
         let request = authenticatedRequest(for: url)
         let (data, _) = try await session.data(for: request)
         return try jsonDecoder.decode([Worker].self, from: data)
     }
 
     func registerWorker(workerId: String, name: String, capabilities: [String], hostname: String?) async throws -> Worker {
-        let url = baseURL.appendingPathComponent("/v1/opencode/workers/register")
+        let url = baseURL.appendingPathComponent("/v1/agent/workers/register")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -615,7 +643,7 @@ class A2AClient: ObservableObject {
     }
 
     func unregisterWorker(workerId: String) async throws {
-        let url = baseURL.appendingPathComponent("/v1/opencode/workers/\(workerId)/unregister")
+        let url = baseURL.appendingPathComponent("/v1/agent/workers/\(workerId)/unregister")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
@@ -623,7 +651,7 @@ class A2AClient: ObservableObject {
     }
 
     func workerHeartbeat(workerId: String) async throws {
-        let url = baseURL.appendingPathComponent("/v1/opencode/workers/\(workerId)/heartbeat")
+        let url = baseURL.appendingPathComponent("/v1/agent/workers/\(workerId)/heartbeat")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
@@ -633,7 +661,7 @@ class A2AClient: ObservableObject {
     // MARK: - Watch Mode Status
 
     func fetchWatchStatus(codebaseId: String) async throws -> WatchStatus {
-        let url = baseURL.appendingPathComponent("/v1/opencode/codebases/\(codebaseId)/watch/status")
+        let url = baseURL.appendingPathComponent("/v1/agent/workspaces/\(codebaseId)/watch/status")
         let (data, _) = try await session.data(from: url)
         return try jsonDecoder.decode(WatchStatus.self, from: data)
     }
@@ -711,7 +739,8 @@ class A2AClient: ObservableObject {
         if !items.isEmpty { components.queryItems = items }
 
         let request = authenticatedRequest(for: components.url!)
-        let (data, _) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
+        try checkHTTPResponse(response)
         return try jsonDecoder.decode([AgentWorker].self, from: data)
     }
 
@@ -838,6 +867,7 @@ enum A2AError: LocalizedError {
     case deleteFailed
     case connectionFailed
     case invalidResponse
+    case httpFailure(Int)
 
     var errorDescription: String? {
         switch self {
@@ -845,6 +875,7 @@ enum A2AError: LocalizedError {
         case .deleteFailed: return "Failed to delete resource"
         case .connectionFailed: return "Failed to connect to server"
         case .invalidResponse: return "Invalid response from server"
+        case .httpFailure(let status): return "Server request failed (HTTP \(status)). Check your sign-in and workspace access."
         }
     }
 }

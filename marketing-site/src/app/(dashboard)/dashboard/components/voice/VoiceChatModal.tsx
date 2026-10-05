@@ -7,30 +7,13 @@ import {
   useConnectionState,
   useRoomContext,
   useTracks,
+  useAudioWaveform,
   useParticipants,
 } from '@livekit/components-react';
-import { ConnectionState, Track, RoomEvent, DataPacket_Kind } from 'livekit-client';
+import { ConnectionState, Track, RoomEvent, DataPacket_Kind, ParticipantKind, RemoteParticipant } from 'livekit-client';
 import '@livekit/components-styles';
-import { getVoiceSessionV1VoiceSessionsRoomNameGet, getVoiceSessionStateV1VoiceSessionsRoomNameStateGet } from '@/lib/api';
-
-// Agent state type for polling
-type AgentState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'tool_calling' | 'tool_complete' | 'error';
-
-// Data message types from agent
-type AgentStateMessage = {
-  type: 'agent_state';
-  state: AgentState;
-  tool_name?: string;
-  result?: string;
-};
-
-type TranscriptMessage = {
-  type: 'transcript';
-  role: 'user' | 'agent';
-  text: string;
-};
-
-type DataMessage = AgentStateMessage | TranscriptMessage;
+import { useTenantApi } from '@/hooks/useTenantApi';
+import { isVoiceDataMessage, parseAgentState, type AgentState, type VoiceDataMessage as DataMessage } from './voiceTelemetry';
 
 // Transcript entry for display
 type TranscriptEntry = {
@@ -42,6 +25,9 @@ type TranscriptEntry = {
   isExpanded?: boolean;
   timestamp: Date;
 };
+
+const MAX_RECONNECT_ATTEMPTS = 3;
+const RECONNECT_DELAY_MS = 2000;
 
 const CloseIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -120,57 +106,104 @@ export default function VoiceChatModal({
   voice,
   sessionId,
   userId,
-  accessToken,
-  apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run',
   onClose,
   children,
 }: VoiceChatModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState(initialToken);
   const [serverUrl, setServerUrl] = useState(initialServerUrl);
+  const [reconnectMessage, setReconnectMessage] = useState<string | null>(null);
   const [roomName, setRoomName] = useState(initialRoomName);
   const [isConnected, setIsConnected] = useState(false);
+  const [stateError, setStateError] = useState<string | null>(null);
   const [agentState, setAgentState] = useState<AgentState>('idle');
+  const reconnectAttempts = useRef(0);
+  const reconnecting = useRef(false);
   const [currentToolName, setCurrentToolName] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const intentionalDisconnect = useRef(false);
+  const retryDisabled = useRef(false);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { tenantFetch } = useTenantApi();
 
-  // Reconnect to an existing session
-  const reconnectToSession = useCallback(async (room: string) => {
-    if (!userId) return;
-
-    try {
-      const { data } = await getVoiceSessionV1VoiceSessionsRoomNameGet({
-        path: { room_name: room },
-        query: { user_id: userId },
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-      });
-
-      setToken(((data as unknown as { access_token?: string })?.access_token) || '');
-      setServerUrl(((data as unknown as { livekit_url?: string })?.livekit_url) || '');
-      setRoomName(((data as unknown as { room_name?: string })?.room_name) || '');
-    } catch (err) {
-      console.error('Reconnection failed:', err);
-    }
-  }, [userId, accessToken]);
-
-  const handleError = useCallback((err: Error) => {
-    console.error('LiveKit error:', err);
-    setError(err.message);
+  useEffect(() => {
+    intentionalDisconnect.current = false;
+    return () => {
+      intentionalDisconnect.current = true;
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+    };
   }, []);
 
-  const handleDisconnected = useCallback(() => {
-    console.log('Disconnected from room');
-    setIsConnected(false);
-
-    // Auto-reconnect after brief delay if not intentional
-    if (roomName && !intentionalDisconnect.current) {
-      setTimeout(() => reconnectToSession(roomName), 2000);
+  // Bound token refresh retries and ignore callbacks after an intentional close.
+  const reconnectToSession = useCallback(async function reconnect(room: string): Promise<void> {
+    reconnectTimer.current = null;
+    if (intentionalDisconnect.current || retryDisabled.current || reconnecting.current || !userId ||
+        reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) return;
+    reconnecting.current = true;
+    reconnectAttempts.current += 1;
+    setReconnectMessage(`Reconnecting (${reconnectAttempts.current}/${MAX_RECONNECT_ATTEMPTS})…`);
+    try {
+      const { data, error: reconnectError } = await tenantFetch<{
+        access_token?: string; livekit_url?: string; room_name?: string; user_id?: string;
+      }>(`/v1/voice/sessions/${encodeURIComponent(room)}?user_id=${encodeURIComponent(userId)}`);
+      if (intentionalDisconnect.current || retryDisabled.current) return;
+      if (reconnectError || !data?.access_token || !data.livekit_url ||
+          data.room_name !== room || data.user_id !== userId) {
+        throw new Error(reconnectError || 'Voice server returned an invalid reconnection identity');
+      }
+      setToken(data.access_token);
+      setServerUrl(data.livekit_url);
+      setRoomName(data.room_name);
+    } catch (err) {
+      if (intentionalDisconnect.current || retryDisabled.current) return;
+      const message = err instanceof Error ? err.message : 'Reconnection failed';
+      if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+        setError(`Reconnection failed after ${MAX_RECONNECT_ATTEMPTS} attempts: ${message}`);
+      } else {
+        setReconnectMessage(`${message}. Retrying…`);
+        reconnectTimer.current = setTimeout(() => reconnect(room), RECONNECT_DELAY_MS);
+      }
+    } finally {
+      reconnecting.current = false;
     }
-  }, [roomName, reconnectToSession]);
+  }, [userId, tenantFetch]);
+
+  const handleDisconnected = useCallback(() => {
+    if (intentionalDisconnect.current || retryDisabled.current) return;
+    setIsConnected(false);
+    setStateError(null);
+    if (!userId || reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+      setError('Voice connection lost. Close this call and start a new session.');
+      return;
+    }
+    if (roomName && !reconnectTimer.current && !reconnecting.current) {
+      setReconnectMessage('Voice connection lost. Reconnecting…');
+      reconnectTimer.current = setTimeout(() => reconnectToSession(roomName), RECONNECT_DELAY_MS);
+    }
+  }, [roomName, userId, reconnectToSession]);
+
+  const handleError = useCallback((err: Error) => {
+    if (intentionalDisconnect.current) return;
+    // Permission failures need user action, not token-refresh retries.
+    if (err.name === 'NotAllowedError' || err.name === 'NotFoundError') {
+      retryDisabled.current = true;
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      reconnectTimer.current = null;
+      setReconnectMessage(null);
+      setIsConnected(false);
+      setError(err.message);
+      return;
+    }
+    handleDisconnected();
+  }, [handleDisconnected]);
 
   const handleConnected = useCallback(() => {
-    console.log('Connected to room');
+    if (intentionalDisconnect.current || retryDisabled.current) return;
+    if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+    reconnectTimer.current = null;
+    reconnectAttempts.current = 0;
+    setReconnectMessage(null);
+    setError(null);
     setIsConnected(true);
   }, []);
 
@@ -220,31 +253,45 @@ export default function VoiceChatModal({
     }
   }, []);
 
+  const handleClose = () => {
+    intentionalDisconnect.current = true;
+    if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+    reconnectTimer.current = null;
+    setIsConnected(false);
+    onClose();
+  };
+
   // Poll agent state every second when connected (fallback for non-data-channel updates)
   useEffect(() => {
     if (!roomName || !isConnected) return;
 
-    const pollState = async () => {
-      try {
-        const { data } = await getVoiceSessionStateV1VoiceSessionsRoomNameStateGet({
-          path: { room_name: roomName },
-          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-        });
+    let cancelled = false;
+    let polling = false;
 
-        if (data) {
-          const state = typeof data === 'string' ? data.replace(/"/g, '') : 'idle';
-          if (agentState !== 'tool_calling') {
-            setAgentState(state as AgentState);
-          }
+    const pollState = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const { data, error: stateError } = await tenantFetch<string>(`/v1/voice/sessions/${encodeURIComponent(roomName)}/state`);
+        if (stateError) throw new Error(stateError);
+        if (!cancelled) {
+          setAgentState(parseAgentState(data));
+          setStateError(null);
         }
-      } catch {
+      } catch (err) {
+        if (!cancelled) {
+          setAgentState('unknown');
+          setStateError(err instanceof Error ? err.message : 'Unable to read voice session state');
+        }
+      } finally {
+        polling = false;
       }
     };
 
     pollState();
     const interval = setInterval(pollState, 1000);
-    return () => clearInterval(interval);
-  }, [roomName, isConnected, accessToken, agentState]);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [roomName, isConnected, tenantFetch]);
 
   // Toggle tool result expansion
   const toggleToolExpansion = useCallback((id: string) => {
@@ -258,7 +305,7 @@ export default function VoiceChatModal({
     return (
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
-          <ModalHeader voice={voice} onClose={onClose} />
+          <ModalHeader voice={voice} onClose={handleClose} />
           <div className="p-6">{children}</div>
           <ModalFooterSimple sessionId={sessionId} roomName={roomName} />
         </div>
@@ -270,13 +317,13 @@ export default function VoiceChatModal({
     return (
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
-          <ModalHeader voice={voice} onClose={onClose} />
+          <ModalHeader voice={voice} onClose={handleClose} />
           <div className="p-6">
             <div className="text-center py-8">
               <div className="text-red-500 mb-4">Connection Error</div>
               <p className="text-gray-500">{error}</p>
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
               >
                 Close
@@ -292,17 +339,11 @@ export default function VoiceChatModal({
   // Check if mediaDevices is available (requires HTTPS or localhost)
   const mediaDevicesAvailable = typeof navigator !== 'undefined' && !!navigator.mediaDevices;
 
-  // Handle intentional close
-  const handleClose = () => {
-    intentionalDisconnect.current = true;
-    onClose();
-  };
-
   if (!mediaDevicesAvailable) {
     return (
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
-          <ModalHeader voice={voice} onClose={onClose} />
+          <ModalHeader voice={voice} onClose={handleClose} />
           <div className="p-6">
             <div className="text-center py-8">
               <div className="text-red-500 mb-4">Microphone Unavailable</div>
@@ -313,7 +354,7 @@ export default function VoiceChatModal({
                 Please access this page via HTTPS or localhost to use voice features.
               </p>
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
               >
                 Close
@@ -346,6 +387,12 @@ export default function VoiceChatModal({
             currentToolName={currentToolName}
           />
           <div className="flex-1 overflow-hidden flex flex-col">
+            {reconnectMessage && (
+              <p role="status" className="px-6 pt-3 text-sm text-amber-700 dark:text-amber-300">{reconnectMessage}</p>
+            )}
+            {stateError && (
+              <p role="status" className="px-6 pt-3 text-sm text-amber-700 dark:text-amber-300">State unavailable: {stateError}. Retrying…</p>
+            )}
             <VoiceUI
               voice={voice}
               onClose={handleClose}
@@ -388,6 +435,7 @@ function ModalHeader({
     tool_calling: 'from-purple-500 to-violet-600',
     tool_complete: 'from-green-500 to-emerald-600',
     error: 'from-red-500 to-red-600',
+    unknown: 'from-gray-500 to-gray-600',
   };
 
   const gradientClass = agentState ? stateColors[agentState] : 'from-blue-600 to-indigo-600';
@@ -396,7 +444,7 @@ function ModalHeader({
     if (agentState === 'tool_calling' && currentToolName) {
       return `Calling ${currentToolName}...`;
     }
-    return agentState || 'connecting';
+    return agentState === 'unknown' ? 'State unavailable' : agentState || 'connecting';
   };
 
   return (
@@ -423,6 +471,7 @@ function ModalHeader({
         )}
         <button
           onClick={onClose}
+          aria-label="Close voice call"
           className="p-2 hover:bg-white/20 rounded-full transition-colors"
         >
           <CloseIcon className="w-5 h-5 text-white" />
@@ -489,6 +538,7 @@ function ConnectionStatus({ agentState, currentToolName }: { agentState?: AgentS
     tool_calling: 'bg-purple-500 animate-pulse',
     tool_complete: 'bg-green-500',
     error: 'bg-red-500',
+    unknown: 'bg-gray-500',
   };
 
   const dotColor = agentState && isConnected
@@ -649,24 +699,30 @@ function VoiceUI({
   const participants = useParticipants();
   const [isMuted, setIsMuted] = useState(false);
 
-  // Track audio sources (used for visualization reference)
-  useTracks([Track.Source.Microphone, Track.Source.ScreenShareAudio]);
+  // Visualize subscribed agent audio (or the local microphone while listening).
+  const audioTracks = useTracks([Track.Source.Microphone]);
+  const audioTrack = audioTracks.find(track => track.participant.kind === ParticipantKind.AGENT) ??
+    audioTracks.find(track => track.participant.isLocal);
+  const { bars } = useAudioWaveform(audioTrack, { barCount: 20 });
+
 
   const isConnected = connectionState === ConnectionState.Connected;
-  const agentParticipant = participants.find(p => p.identity.startsWith('agent'));
+  const agentParticipant = participants.find(p => p.kind === ParticipantKind.AGENT);
   const hasAgent = !!agentParticipant;
 
   // Listen for data messages from the agent
   useEffect(() => {
     if (!room) return;
 
-    const handleDataReceived = (payload: Uint8Array) => {
+    const handleDataReceived = (payload: Uint8Array, participant?: RemoteParticipant) => {
+      // Identity prefixes are caller-controlled; only server-assigned agents may publish telemetry.
+      if (participant?.kind !== ParticipantKind.AGENT) return;
       try {
         const decoder = new TextDecoder();
         const jsonStr = decoder.decode(payload);
-        const message = JSON.parse(jsonStr) as DataMessage;
+        const message: unknown = JSON.parse(jsonStr);
 
-        if (message.type === 'agent_state' || message.type === 'transcript') {
+        if (isVoiceDataMessage(message)) {
           onDataMessage(message);
         }
       } catch (err) {
@@ -690,6 +746,7 @@ function VoiceUI({
     tool_calling: { gradient: 'from-purple-400 to-violet-600', label: `Calling ${currentToolName || 'tool'}...`, animate: true },
     tool_complete: { gradient: 'from-green-400 to-green-600', label: 'Tool completed', animate: false },
     error: { gradient: 'from-red-400 to-red-600', label: 'Error', animate: false },
+    unknown: { gradient: 'from-gray-400 to-gray-600', label: 'State unavailable', animate: false },
   };
 
   const currentStateConfig = agentState ? agentStateConfig[agentState] : null;
@@ -750,10 +807,9 @@ function VoiceUI({
 
         {/* Audio visualization */}
         <div className="w-full max-w-xs mb-4">
-          <div className="flex items-end justify-center gap-1 h-12">
-            {[...Array(20)].map((_, i) => {
-              const isActive = agentState === 'speaking' || agentState === 'listening' || hasAgent;
-              const baseHeight = isActive ? 20 + Math.sin(Date.now() / 200 + i) * 15 : 4;
+          <div role="img" aria-label="Live audio waveform" className="flex items-end justify-center gap-1 h-12">
+            {bars.map((volume, i) => {
+              const baseHeight = Math.max(4, Math.min(100, volume * 100));
 
               const barGradient = agentState === 'speaking'
                 ? 'bg-gradient-to-t from-green-500 to-emerald-400'

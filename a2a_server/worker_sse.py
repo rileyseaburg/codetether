@@ -55,6 +55,7 @@ from .stream_emit import format_event
 from .sequencer_store import SequencerStore
 from .stream_resume_handshake import resume_frames
 from .worker_queue import make_worker_queue, try_enqueue
+from .worker_visibility import filter_connected_workers, visible_worker_ids
 
 logger = logging.getLogger(__name__)
 
@@ -1867,7 +1868,7 @@ async def list_connected_workers(request: Request):
     await _verify_worker_or_user_auth(request)
 
     registry = get_worker_registry()
-    workers = await registry.list_workers()
+    workers = await filter_connected_workers(request, await registry.list_workers())
 
     return {
         'workers': workers,
@@ -1884,10 +1885,11 @@ async def get_connected_worker(
     """Get details about a specific connected worker."""
     await _verify_worker_or_user_auth(request)
 
+    visible = await visible_worker_ids(request)
     registry = get_worker_registry()
     worker = await registry.get_worker(worker_id)
 
-    if not worker:
+    if not worker or (visible is not None and worker_id not in visible):
         raise HTTPException(
             status_code=404,
             detail=f'Worker {worker_id} not found or not connected',

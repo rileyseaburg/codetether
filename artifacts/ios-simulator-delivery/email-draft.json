@@ -1,0 +1,22 @@
+{
+  "personalizations": [
+    {
+      "to": [
+        {
+          "email": "riley@spotlessbinco.com"
+        }
+      ]
+    }
+  ],
+  "from": {
+    "email": "noreply@codetether.run",
+    "name": "CodeTether"
+  },
+  "subject": "A2A Monitor iPhone build — signed IPA and live simulator proof",
+  "content": [
+    {
+      "type": "text/plain",
+      "value": "Riley,\n\nThe signed A2A Monitor iOS test build is ready on the NAS.\n\nDownload / installation page:\nhttps://server.codetether.run/downloads/a2amonitor/20261005/\n\nDirect signed IPA:\nhttps://server.codetether.run/downloads/a2amonitor/20261005/A2AMonitor-1.0.0-2.ipa\n\nVersion: 1.0.0 (2), bundle com.a2a.monitor.\nSigning: Apple Distribution / Ad Hoc profile including your registered iPhone.\nOpen the installation page in Safari on that iPhone and use Install, or download the IPA for Apple Configurator/Xcode installation.\n\nSimulator proof (completed BEFORE this email):\n- Xcode live integration: 1 passed, 0 failed, 0 skipped.\n- Native Swift client in iOS Simulator created real task b009806e-6184-4d5f-a5cb-2ca7ccf93214.\n- The local worker created and hosted the HTML page; the simulator received its result and verified the actual file, HTTP 200, SHA-256 and running service.\n- HTML SHA-256: 247622e8664c42843fe3f8d5515bfbf83b906846049b862b980f22c80058a69a\n\nImportant limits: this test used a temporary, restricted service-auth harness. It did NOT test user password entry, the Keycloak sign-in UI, or installation on the disconnected physical iPhone. The build does not contain those service credentials. This is an Ad Hoc test build, not an App Store release.\n\nAfter signing in, use Command > Tasks & Responses. You can select github-copilot/gpt-5-mini in the optional Model field; the app tracks the real task ID and shows its returned response.\n\nIPA SHA-256:\n4679f356dde97dbbfd82c5b64c68cd3911ad4431e497d7e2253767d449319109\n\nThe dedicated test account is codetether-ios-e2e@example.invalid. Its password remains in Vault at secret/codetether/ios-e2e-user; no password is included in this message.\n"
+    }
+  ]
+}

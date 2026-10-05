@@ -1,0 +1,30 @@
+{
+  "level": "live integration: changed local UI with real remote services",
+  "base": "http://localhost:3001",
+  "started": "2026-09-06T19:51:57.783Z",
+  "stage": "real-workspace-signup",
+  "checks": [],
+  "requests": [
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "testIdentityCredentialPath": "kv/codetether/playwright/ui-live-cb1e678f",
+  "error": {
+    "name": "TimeoutError",
+    "message": "page.waitForResponse: Timeout 180000ms exceeded while waiting for event \"response\""
+  },
+  "page": "http://localhost:3001/register",
+  "alerts": [
+    ""
+  ]
+}

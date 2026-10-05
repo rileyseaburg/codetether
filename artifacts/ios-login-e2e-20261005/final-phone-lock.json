@@ -1,0 +1,32 @@
+{
+  "error" : {
+    "code" : 1000,
+    "domain" : "com.apple.dt.CoreDeviceError",
+    "userInfo" : {
+      "NSLocalizedDescription" : {
+        "string" : "The specified device was not found."
+      }
+    }
+  },
+  "info" : {
+    "arguments" : [
+      "devicectl",
+      "device",
+      "info",
+      "lockState",
+      "--device",
+      "00008110-001879C23E0A401E",
+      "--timeout",
+      "10",
+      "--json-output",
+      "/Users/rileyseaburg/a2amonitor-login-20261005/evidence/final-phone-lock.json"
+    ],
+    "commandType" : "devicectl.device.info.lockState",
+    "environment" : {
+
+    },
+    "jsonVersion" : 2,
+    "outcome" : "failed",
+    "version" : "443.24"
+  }
+}

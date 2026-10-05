@@ -1,0 +1,706 @@
+---
+# Source: a2a-server/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: t-a2a-server
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: t
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: a2a-server/templates/worker-auth-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: t-a2a-server-worker-auth
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: t
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+type: Opaque
+data:
+  WORKER_AUTH_TOKEN: "UExBQ0VIT0xERVI="
+---
+# Source: a2a-server/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t-a2a-server-config
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: t
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+data:
+  # Server configuration
+  A2A_HOST: "0.0.0.0"
+  A2A_PORT: "8000"
+  A2A_LOG_LEVEL: "INFO"
+
+  # Redis configuration
+  A2A_REDIS_URL: "redis://t-a2a-server-redis-master:6379"
+
+  # Agent configuration
+  A2A_AGENT_NAME: "CodeTether Server"
+  A2A_AGENT_DESCRIPTION: "Production A2A coordination server"
+  A2A_AGENT_ORG: "CodeTether"
+  A2A_AGENT_ORG_URL: "https://codetether.run"
+  A2A_AGENT_URL: "https://api.codetether.run"
+  A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
+
+  # Authentication enabled flag
+  A2A_AUTH_ENABLED: "false"
+
+  # Keycloak SSO configuration (non-secret values)
+  KEYCLOAK_URL: "https://auth.quantum-forge.io"
+  KEYCLOAK_ISSUER: "https://auth.quantum-forge.io/realms/quantum-forge"
+  KEYCLOAK_REALM: "quantum-forge"
+  KEYCLOAK_CLIENT_ID: "a2a-monitor"
+
+  # Worker authentication token lives in a Secret (worker-auth-secret.yaml).
+
+  # Sandbox execution
+
+  # RLS is enabled by default for multi-tenant isolation
+  RLS_ENABLED: "true"
+
+  # Durable Forgejo Temporal orchestration (non-secret client settings)
+  FORGEJO_TEMPORAL_ENABLED: "false"
+
+  # Database persistence paths (use mounted volume for persistence across restarts)
+  MONITOR_DB_PATH: "/app/data/monitor.db"
+  SESSIONS_DB_PATH: "/app/data/sessions.db"
+  AGENT_DB_PATH: "/app/data/agent.db"
+  # Backward compat: old env var still recognized by the server
+  OPENCODE_DB_PATH: "/app/data/agent.db"
+---
+# Source: a2a-server/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: t-a2a-server-data
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: t
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# Source: a2a-server/templates/redis.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: t-a2a-server-redis-master
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: t
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: redis
+      protocol: TCP
+      name: redis
+  selector:
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: t
+    app.kubernetes.io/component: redis
+---
+# Source: a2a-server/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: t-a2a-server
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: t
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    bluegreen/mode: "bluegreen"
+    bluegreen/active-color: "green"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+    # MCP is now integrated on the same port under /mcp/* paths
+    # No separate MCP port needed
+  selector:
+    app.kubernetes.io/name: a2a-server-bg
+    app.kubernetes.io/instance: t
+    color: "green"
+    app.kubernetes.io/component: server
+---
+# Source: a2a-server/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: t-a2a-server
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: t
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server
+      app.kubernetes.io/instance: t
+  template:
+    metadata:
+      annotations:
+        checksum/config: 5cfbcdd9571773dea697c4695b32575a83036a5a74a7488f52d08d518bcc4565
+      labels:
+        helm.sh/chart: a2a-server-1.4.3
+        app.kubernetes.io/name: a2a-server
+        app.kubernetes.io/instance: t
+        app.kubernetes.io/version: "1.4.3"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+      serviceAccountName: t-a2a-server
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: a2a-server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:latest
+          imagePullPolicy: Always
+          command:
+            - python
+            - run_server.py
+            - run
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --enhanced
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+            # MCP is now integrated on the same port under /mcp/* paths
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          envFrom:
+            
+            - secretRef:
+                name: t-a2a-server-worker-auth
+            - configMapRef:
+                name: t-a2a-server-config
+          env:
+            - name: OPA_LOCAL_MODE
+              value: "true"
+            - name: OPA_ENABLED
+              value: "true"
+            
+            
+            
+            - name: A2A_AGENT_DESCRIPTION
+              value: "Production A2A coordination server"
+            - name: A2A_AGENT_DOCS_URL
+              value: "https://docs.codetether.run"
+            - name: A2A_AGENT_NAME
+              value: "CodeTether Server"
+            - name: A2A_AGENT_ORG
+              value: "CodeTether"
+            - name: A2A_AGENT_ORG_URL
+              value: "https://codetether.run"
+            - name: A2A_AGENT_URL
+              value: "https://api.codetether.run"
+            - name: A2A_HOST
+              value: "0.0.0.0"
+            - name: A2A_LOG_LEVEL
+              value: "INFO"
+            - name: A2A_PORT
+              value: "8000"
+            - name: MCP_HTTP_ENABLED
+              value: "true"
+            - name: MCP_HTTP_HOST
+              value: "0.0.0.0"
+            - name: MCP_HTTP_PORT
+              value: "9000"
+            - name: WORKER_INFRA_CACHE_TTL_SECONDS
+              value: "30"
+            - name: WORKER_INFRA_NODE_MAP
+              value: ""
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: t-a2a-server-data
+---
+# Source: a2a-server/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: t-a2a-server-deployment-blue
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server-bg
+    app.kubernetes.io/instance: t
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    color: "blue"
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server-bg
+      app.kubernetes.io/instance: t
+      color: "blue"
+  template:
+    metadata:
+      annotations:
+        checksum/config: 5cfbcdd9571773dea697c4695b32575a83036a5a74a7488f52d08d518bcc4565
+      labels:
+        helm.sh/chart: a2a-server-1.4.3
+        app.kubernetes.io/name: a2a-server-bg
+        app.kubernetes.io/instance: t
+        app.kubernetes.io/version: "1.4.3"
+        app.kubernetes.io/managed-by: Helm
+        color: "blue"
+        app.kubernetes.io/component: server
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+      serviceAccountName: t-a2a-server
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: a2a-server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:latest
+          imagePullPolicy: Always
+          command:
+            - python
+            - run_server.py
+            - run
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --enhanced
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+            # MCP is now integrated on the same port under /mcp/* paths
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          envFrom:
+            
+            - secretRef:
+                name: t-a2a-server-worker-auth
+            - configMapRef:
+                name: t-a2a-server-config
+          env:
+            - name: OPA_LOCAL_MODE
+              value: "true"
+            - name: OPA_ENABLED
+              value: "true"
+            
+            
+            
+            - name: A2A_AGENT_DESCRIPTION
+              value: "Production A2A coordination server"
+            - name: A2A_AGENT_DOCS_URL
+              value: "https://docs.codetether.run"
+            - name: A2A_AGENT_NAME
+              value: "CodeTether Server"
+            - name: A2A_AGENT_ORG
+              value: "CodeTether"
+            - name: A2A_AGENT_ORG_URL
+              value: "https://codetether.run"
+            - name: A2A_AGENT_URL
+              value: "https://api.codetether.run"
+            - name: A2A_HOST
+              value: "0.0.0.0"
+            - name: A2A_LOG_LEVEL
+              value: "INFO"
+            - name: A2A_PORT
+              value: "8000"
+            - name: MCP_HTTP_ENABLED
+              value: "true"
+            - name: MCP_HTTP_HOST
+              value: "0.0.0.0"
+            - name: MCP_HTTP_PORT
+              value: "9000"
+            - name: WORKER_INFRA_CACHE_TTL_SECONDS
+              value: "30"
+            - name: WORKER_INFRA_NODE_MAP
+              value: ""
+            - name: LIVEKIT_URL
+              value: "http://livekit-server.quantum-forge.svc.cluster.local:80"
+            - name: LIVEKIT_PUBLIC_URL
+              value: "wss://live.quantum-forge.net"
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: livekit-api-key
+                  key: LIVEKIT_API_KEY
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: livekit-api-secret
+                  key: LIVEKIT_API_SECRET
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: t-a2a-server-data
+---
+# Source: a2a-server/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: t-a2a-server-deployment-green
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server-bg
+    app.kubernetes.io/instance: t
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    color: "green"
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server-bg
+      app.kubernetes.io/instance: t
+      color: "green"
+  template:
+    metadata:
+      annotations:
+        checksum/config: 5cfbcdd9571773dea697c4695b32575a83036a5a74a7488f52d08d518bcc4565
+      labels:
+        helm.sh/chart: a2a-server-1.4.3
+        app.kubernetes.io/name: a2a-server-bg
+        app.kubernetes.io/instance: t
+        app.kubernetes.io/version: "1.4.3"
+        app.kubernetes.io/managed-by: Helm
+        color: "green"
+        app.kubernetes.io/component: server
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+      serviceAccountName: t-a2a-server
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: a2a-server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+          image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:latest
+          imagePullPolicy: Always
+          command:
+            - python
+            - run_server.py
+            - run
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            - --enhanced
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+            # MCP is now integrated on the same port under /mcp/* paths
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /.well-known/agent-card.json
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          envFrom:
+            
+            - secretRef:
+                name: t-a2a-server-worker-auth
+            - configMapRef:
+                name: t-a2a-server-config
+          env:
+            - name: OPA_LOCAL_MODE
+              value: "true"
+            - name: OPA_ENABLED
+              value: "true"
+            
+            
+            
+            - name: A2A_AGENT_DESCRIPTION
+              value: "Production A2A coordination server"
+            - name: A2A_AGENT_DOCS_URL
+              value: "https://docs.codetether.run"
+            - name: A2A_AGENT_NAME
+              value: "CodeTether Server"
+            - name: A2A_AGENT_ORG
+              value: "CodeTether"
+            - name: A2A_AGENT_ORG_URL
+              value: "https://codetether.run"
+            - name: A2A_AGENT_URL
+              value: "https://api.codetether.run"
+            - name: A2A_HOST
+              value: "0.0.0.0"
+            - name: A2A_LOG_LEVEL
+              value: "INFO"
+            - name: A2A_PORT
+              value: "8000"
+            - name: MCP_HTTP_ENABLED
+              value: "true"
+            - name: MCP_HTTP_HOST
+              value: "0.0.0.0"
+            - name: MCP_HTTP_PORT
+              value: "9000"
+            - name: WORKER_INFRA_CACHE_TTL_SECONDS
+              value: "30"
+            - name: WORKER_INFRA_NODE_MAP
+              value: ""
+            - name: LIVEKIT_URL
+              value: "http://livekit-server.quantum-forge.svc.cluster.local:80"
+            - name: LIVEKIT_PUBLIC_URL
+              value: "wss://live.quantum-forge.net"
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: livekit-api-key
+                  key: LIVEKIT_API_KEY
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: livekit-api-secret
+                  key: LIVEKIT_API_SECRET
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: t-a2a-server-data
+---
+# Source: a2a-server/templates/redis.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: t-a2a-server-redis
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: t
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: a2a-server
+      app.kubernetes.io/instance: t
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: a2a-server
+        app.kubernetes.io/instance: t
+        app.kubernetes.io/component: redis
+    spec:
+      containers:
+        - name: redis
+          image: "redis:7-alpine"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              memory: 128Mi
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+# Source: a2a-server/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: t-a2a-server
+  labels:
+    helm.sh/chart: a2a-server-1.4.3
+    app.kubernetes.io/name: a2a-server
+    app.kubernetes.io/instance: t
+    app.kubernetes.io/version: "1.4.3"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-issuer
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-allow-headers: DNT, User-Agent, X-Requested-With,
+      If-None-Match, If-Modified-Since, Content-Type, Range, Authorization, X-Tenant-ID,
+      X-API-Key
+    nginx.ingress.kubernetes.io/cors-allow-methods: GET, PUT, POST, DELETE, PATCH, OPTIONS
+    nginx.ingress.kubernetes.io/cors-allow-origin: https://codetether.run, https://docs.codetether.run,
+      http://localhost:3000, http://localhost:8000
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - "api.codetether.run"
+      secretName: a2a-server-tls
+  rules:
+    - host: "api.codetether.run"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: t-a2a-server
+                port:
+                  number: 8000

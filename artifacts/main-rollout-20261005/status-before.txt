@@ -1,0 +1,145 @@
+ M a2a_server/github_app/issue_review_task.py
+ M a2a_server/github_app/mention.py
+ M a2a_server/keycloak_auth.py
+ M a2a_server/mcp_http_server.py
+ M a2a_server/monitor_api.py
+ M a2a_server/policy_middleware.py
+ M a2a_server/spiffe_auth.py
+ M a2a_server/tenant_service.py
+ M a2a_server/worker_auth.py
+ M apps/README.md
+ M chart/a2a-server/files/job_worker.py
+ M chart/a2a-server/templates/_helpers.tpl
+ M chart/a2a-server/templates/configmap.yaml
+ M chart/a2a-server/templates/deployment.yaml
+ M chart/a2a-server/templates/task-jobs.yaml
+ M chart/a2a-server/values.yaml
+ M codetether-agent
+ M deploy/argocd/marketing.yaml
+ M marketing-site/.dockerignore
+ M marketing-site/Dockerfile
+ M marketing-site/package-lock.json
+ M marketing-site/package.json
+ M marketing-site/src/app/(auth)/login/login-form.tsx
+ M marketing-site/src/app/(auth)/register/page.tsx
+ M marketing-site/src/app/(dashboard)/dashboard/billing/page.tsx
+ M marketing-site/src/app/(dashboard)/dashboard/output/page.tsx
+ M marketing-site/src/app/(dashboard)/dashboard/page.tsx
+ M marketing-site/src/app/(dashboard)/dashboard/security/page.tsx
+ M marketing-site/src/app/(dashboard)/dashboard/sessions/components/ChatHeader.tsx
+ M marketing-site/src/app/(dashboard)/dashboard/sessions/components/ChatInput.tsx
+ M marketing-site/src/app/(dashboard)/dashboard/sessions/components/ChatMessages.tsx
+ M marketing-site/src/app/(dashboard)/dashboard/sessions/components/SessionItem.tsx
+ M marketing-site/src/app/(dashboard)/dashboard/sessions/components/SessionList.tsx
+ M marketing-site/src/app/(dashboard)/dashboard/sessions/hooks/useSessions.ts
+ M marketing-site/src/app/(dashboard)/dashboard/sessions/hooks/useWorkspaces.ts
+ M marketing-site/src/app/(dashboard)/dashboard/settings/page.tsx
+ M marketing-site/src/app/(dashboard)/dashboard/tasks/page.tsx
+ M marketing-site/src/app/(dashboard)/layout.tsx
+ M marketing-site/src/app/(main)/privacy/page.tsx
+ M marketing-site/src/app/api/auth/[...nextauth]/route.ts
+ M marketing-site/src/app/security-whitepaper/page.tsx
+ M marketing-site/src/auth.ts
+ M marketing-site/src/components/ApiAuthSync.tsx
+ M marketing-site/src/components/Button.tsx
+ M marketing-site/src/components/CISOBanner.tsx
+ M marketing-site/src/components/ChatWidget.tsx
+ M marketing-site/src/components/CopilotComparison.tsx
+ M marketing-site/src/components/Faqs.tsx
+ M marketing-site/src/components/Header.tsx
+ M marketing-site/src/components/ModelSelector.tsx
+ M marketing-site/src/components/ModelSelector/CardSelector.tsx
+ M marketing-site/src/components/ModelSelector/CompactSelector.tsx
+ M marketing-site/src/components/ModelSelector/DefaultSelector.tsx
+ M marketing-site/src/components/ModelSelector/DropdownOptionItem.tsx
+ M marketing-site/src/components/ModelSelector/SearchableDropdown.tsx
+ M marketing-site/src/components/ModelSelector/SessionsSelector.tsx
+ M marketing-site/src/components/ModelSelector/useDropdownFilter.ts
+ M marketing-site/src/components/ModelSelector/useDropdownPosition.ts
+ M marketing-site/src/components/OpenClawComparison.tsx
+ M marketing-site/src/components/Pricing.tsx
+ M marketing-site/src/components/PrimaryFeatures.tsx
+ M marketing-site/src/components/SocialProof.tsx
+ M marketing-site/src/components/TemporalComparison.tsx
+ M marketing-site/src/components/UseCases.tsx
+ M marketing-site/src/content/pricing.ts
+ M marketing-site/src/hooks/useTenantApi.ts
+ M marketing-site/src/lib/optimization/funnelBrain.ts
+ M marketing-site/src/middleware.ts
+ M scripts/harvester/JOBS.md
+ M scripts/harvester/job_worker.py
+ M tests/test_github_app_issue_review_flow.py
+ M tests/test_github_app_mentions.py
+ M tests/test_job_worker_supervisor.py
+ M tests/test_policy_middleware.py
+ M tests/test_stream_live_acceptance.py
+ M tests/test_worker_claim_polling.py
+?? .codetether-todos.json
+?? .codetether-worktrees/
+?? .codetether/
+?? a2a_server/agent_bridge.py.rej
+?? a2a_server/keycloak_audience.py
+?? a2a_server/task_metadata_trust.py
+?? apps/remote_employee/
+?? artifacts/ada-greeting.wav
+?? artifacts/ci-runner-vault/
+?? artifacts/forgejo-5863-retry/
+?? artifacts/forgejo-5870-rollout/
+?? artifacts/forgejo-automerge/
+?? artifacts/forgejo-pr-publication/
+?? artifacts/forgejo-pr-safety/
+?? artifacts/forgejo-review-472/
+?? artifacts/harvester-codex-5878/
+?? artifacts/harvester-review-access/
+?? artifacts/harvester-vault-fix/
+?? artifacts/main-rollout-20261005/
+?? artifacts/remote-employee-empty-office.png
+?? artifacts/review-capacity-5907/
+?? artifacts/review-recovery/
+?? artifacts/single-review/
+?? artifacts/task-jobs/
+?? artifacts/ui-audit/
+?? artifacts/ui-fixes/
+?? artifacts/ui-live/
+?? artifacts/ui-pass2/
+?? artifacts/ui-production/
+?? artifacts/ui-redesign/
+?? artifacts/ui-sessions-redesign/
+?? artifacts/ui-tasks-resilience/
+?? artifacts/vault-review-runtime/
+?? artifacts/vault-token-recovery/
+?? chart/a2a-server/templates/_worker_auth.tpl
+?? chart/a2a-server/templates/spiffe-helper-configmap.yaml
+?? chart/a2a-server/templates/worker-auth-secret.yaml
+?? docs/spire-native-workers.md
+?? marketing-site/UI_VALIDATION.md
+?? marketing-site/e2e/ui-regressions.spec.ts
+?? marketing-site/jest.dashboard-shell.config.cjs
+?? marketing-site/jest.model-selector.config.cjs
+?? marketing-site/jest.sessions-resilience.config.cjs
+?? marketing-site/jest.settings-billing.config.cjs
+?? marketing-site/jest.tasks-resilience.config.cjs
+?? marketing-site/src/app/(auth)/actions.ts
+?? marketing-site/src/app/(dashboard)/dashboard/components/workspace-home/
+?? marketing-site/src/app/(dashboard)/dashboard/error.tsx
+?? marketing-site/src/app/(dashboard)/dashboard/loading.tsx
+?? marketing-site/src/app/api/ui-version/
+?? marketing-site/src/components/DashboardNavigation.tsx
+?? marketing-site/src/hooks/useClientReady.ts
+?? marketing-site/src/hooks/useDashboardAuth.ts
+?? marketing-site/src/hooks/useDashboardTheme.ts
+?? marketing-site/src/lib/api-origin.ts
+?? marketing-site/src/lib/auth-token.ts
+?? marketing-site/src/lib/auth-ui.test.ts
+?? marketing-site/src/lib/billing-display.ts
+?? marketing-site/src/lib/request-origin.ts
+?? marketing-site/src/lib/task-queue-response.ts
+?? marketing-site/src/lib/tenant-auth.ts
+?? marketing-site/tests/
+?? scripts/spire_svid_check.py
+?? tests/remote_employee/
+?? tests/test_github_app_provenance_session.py
+?? tests/test_spire_native_workers.py
+?? tests/test_task_metadata_trust.py
+?? tests/test_worker_path_zero_trust.py
+?? tests/test_zero_trust_auth.py

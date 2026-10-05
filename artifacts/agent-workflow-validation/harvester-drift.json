@@ -1,0 +1,116 @@
+[
+  {
+    "path": "/spec/template/metadata/annotations/kubectl.kubernetes.io/restartedAt",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/metadata/creationTimestamp",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/containers/0/env/0/valueFrom/fieldRef/apiVersion",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/containers/0/env/30/valueFrom/fieldRef/apiVersion",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/containers/0/livenessProbe/httpGet/scheme",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/containers/0/livenessProbe/successThreshold",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/containers/0/readinessProbe/httpGet/scheme",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/containers/0/readinessProbe/failureThreshold",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/containers/0/readinessProbe/successThreshold",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/containers/0/terminationMessagePath",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/containers/0/terminationMessagePolicy",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/imagePullSecrets/0/name",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/imagePullSecrets/1",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/volumes/0/projected/defaultMode",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/dnsPolicy",
+    "live": "ClusterFirst"
+  },
+  {
+    "path": "/spec/template/spec/restartPolicy",
+    "live": "Always"
+  },
+  {
+    "path": "/spec/template/spec/schedulerName",
+    "live": "default-scheduler"
+  },
+  {
+    "path": "/spec/template/spec/serviceAccount",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/template/spec/terminationGracePeriodSeconds",
+    "live": 30
+  },
+  {
+    "path": "/spec/updateStrategy/rollingUpdate",
+    "desired": null
+  },
+  {
+    "path": "/spec/volumeClaimTemplates/0/metadata/creationTimestamp",
+    "live": null
+  },
+  {
+    "path": "/spec/volumeClaimTemplates/0/spec/volumeMode",
+    "live": "Filesystem"
+  },
+  {
+    "path": "/spec/volumeClaimTemplates/0/apiVersion",
+    "live": "v1"
+  },
+  {
+    "path": "/spec/volumeClaimTemplates/0/kind",
+    "live": "PersistentVolumeClaim"
+  },
+  {
+    "path": "/spec/volumeClaimTemplates/0/status",
+    "live": {
+      "phase": "Pending"
+    }
+  },
+  {
+    "path": "/spec/persistentVolumeClaimRetentionPolicy",
+    "valuesSuppressed": true
+  },
+  {
+    "path": "/spec/podManagementPolicy",
+    "live": "OrderedReady"
+  },
+  {
+    "path": "/spec/revisionHistoryLimit",
+    "live": 10
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "workerId": "ubuntu-dev-sessions",
+    "workspaceId": "ios-e2e-ubuntu-dev",
+    "label": "local",
+    "marker": "a192e28cdf46eaec6607a027",
+    "taskIds": [
+      "e0b86a85-23d7-4058-9afb-2c3dfb035f7c"
+    ],
+    "firstPrompt": "Remember this exact code for this conversation: a192e28cdf46eaec6607a027. Reply READY. Do not use tools or read files.",
+    "contextId": "ios-58fd696f-709a-4a53-b0d7-4a796bf786d4"
+  }
+]

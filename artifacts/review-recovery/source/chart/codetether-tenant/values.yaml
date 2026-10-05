@@ -1,0 +1,111 @@
+# Default values for codetether-tenant
+# This chart provisions a dedicated A2A server instance for a tenant
+
+# Tenant identification
+tenant:
+  id: ""  # Required: Tenant UUID
+  orgSlug: ""  # Required: Organization slug (e.g., "riley-041b27")
+  userId: ""  # Optional: User ID who owns this tenant
+
+# Image configuration
+image:
+  repository: us-central1-docker.pkg.dev/spotlessbinco/codetether/a2a-server-mcp
+  tag: latest
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: gcr-pull-secret
+
+# Resource configuration by tier
+tier: free  # free, pro, agency, enterprise
+
+resources:
+  free:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  pro:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  agency:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  enterprise:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+
+# Replica configuration by tier
+replicas:
+  free: 1
+  pro: 1
+  agency: 2
+  enterprise: 3
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8000
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  baseDomain: codetether.run
+  annotations:
+    cert-manager.io/cluster-issuer: cloudflare-issuer
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  tls:
+    enabled: true
+
+# Environment variables
+env:
+  A2A_HOST: "0.0.0.0"
+  A2A_PORT: "8000"
+  # DATABASE_URL is injected from secret
+  # Add other env vars as needed
+
+# External secrets to mount
+secrets:
+  # Name of secret containing DATABASE_URL
+  database: codetether-db-credentials
+  # Name of secret containing API keys
+  apiKeys: codetether-api-keys
+
+# Health check configuration  
+healthCheck:
+  path: /.well-known/agent-card.json
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  readinessInitialDelay: 5
+  readinessPeriod: 5
+
+# Pod security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Node selector (optional)
+nodeSelector: {}
+
+# Tolerations (optional)
+tolerations: []
+
+# Affinity (optional)
+affinity: {}

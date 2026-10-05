@@ -1,0 +1,77 @@
+---
+# Source: a2a-server/templates/review-harvester.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: a2a-server-review-harvester
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: review-harvester
+      app.kubernetes.io/instance: a2a-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: review-harvester
+        app.kubernetes.io/instance: a2a-server
+    spec:
+      serviceAccountName: a2a-server-harvester
+      imagePullSecrets:
+        - name: registry-credentials
+      containers:
+        - name: harvester
+          image: "registry.quantum-forge.net/cluster-ci-cache/codetether-worker:latest"
+          command: ["/usr/local/bin/codetether"]
+          args: ["worker", "--server", "http://a2a-server:8000", "--name", "harvester-pr-review", "--workspaces", "/review", "--auto-approve", "safe", "--max-concurrent-tasks", "2"]
+          env:
+            - name: CODETETHER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: a2a-server-worker-token
+                  key: CODETETHER_TOKEN
+            - name: CODETETHER_WORKER_TARGETED_ONLY
+              value: "true"
+            - name: CODETETHER_OPENAI_CODEX_ALLOW_CHATGPT_BACKEND
+              value: "1"
+            - name: CODETETHER_WORKER_CAPABILITIES
+              value: "review-readonly"
+            - name: CODETETHER_DEFAULT_MODEL
+              value: ""
+            - name: VAULT_ADDR
+              value: "http://vault.vault.svc.cluster.local:8200"
+            - name: VAULT_ROLE
+              value: "codetether-harvester"
+            - name: VAULT_AUTH_MOUNT
+              value: "kubernetes"
+            - name: VAULT_K8S_SA_JWT_PATH
+              value: "/var/run/secrets/vault/token"
+            - name: VAULT_MOUNT
+              value: "secret"
+            - name: VAULT_SECRETS_PATH
+              value: "codetether/providers"
+          volumeMounts:
+            - name: scratch
+              mountPath: /review
+            - name: vault-jwt
+              mountPath: /var/run/secrets/vault
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: "250m", memory: "512Mi"}
+            limits: {cpu: "2", memory: "2Gi"}
+      volumes:
+        - name: scratch
+          emptyDir: {}
+        - name: vault-jwt
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: vault
+                  expirationSeconds: 3600
+                  path: token

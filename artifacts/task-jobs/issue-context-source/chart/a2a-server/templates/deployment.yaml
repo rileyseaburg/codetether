@@ -1,0 +1,932 @@
+{{- if not .Values.blueGreen.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "a2a-server.fullname" . }}
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+  {{- with include "a2a-server.annotations" . }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "a2a-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if and .Values.auth.enabled .Values.auth.tokens }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        rollme: {{ randAlphaNum 5 | quote }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with include "a2a-server.annotations" . }}
+        {{- . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "a2a-server.labels" . | nindent 8 }}
+        app.kubernetes.io/component: server
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "a2a-server.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "a2a-server.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - python
+            - run_server.py
+            - run
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            {{- if .Values.app.enhanced }}
+            - --enhanced
+            {{- else }}
+            - --basic
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+            # MCP is now integrated on the same port under /mcp/* paths
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          envFrom:
+            {{- range .Values.existingEnvFromSecrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+            {{- if .Values.configMap.create }}
+            - configMapRef:
+                name: {{ include "a2a-server.fullname" . }}-config
+            {{- end }}
+            {{- if and .Values.auth.enabled .Values.auth.tokens }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" . }}-auth
+            {{- end }}
+            {{- if .Values.keycloak.clientSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" . }}-keycloak
+            {{- end }}
+            {{- if or .Values.stripe.apiKey .Values.stripe.webhookSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" . }}-stripe
+            {{- end }}
+            {{- if or .Values.githubApp.existingSecret .Values.githubApp.appId .Values.githubApp.privateKey .Values.githubApp.webhookSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.githubAppSecretName" . }}
+            {{- end }}
+            {{- if .Values.forgejo.existingSecret }}
+            - secretRef:
+                name: {{ .Values.forgejo.existingSecret }}
+            {{- end }}
+          env:
+            {{- if .Values.opa.enabled }}
+            - name: OPA_URL
+              value: "http://localhost:8181"
+            - name: OPA_LOCAL_MODE
+              value: "false"
+            - name: OPA_ENABLED
+              value: "true"
+            {{- else }}
+            - name: OPA_LOCAL_MODE
+              value: "true"
+            - name: OPA_ENABLED
+              value: "true"
+            {{- end }}
+            {{- include "a2a-server.spiffeEnv" . | nindent 12 }}
+            {{- include "a2a-server.agentIdentityEnv" . | nindent 12 }}
+            {{- range $key, $value := .Values.envFromSecret }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $value }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.forgejo.apiUrl }}
+            - name: FORGEJO_API_URL
+              value: {{ .Values.forgejo.apiUrl | quote }}
+            - name: FORGEJO_BOT_USERNAME
+              value: {{ .Values.forgejo.botUsername | default "codetether" | quote }}
+            {{- end }}
+            {{- if .Values.minio.enabled }}
+            - name: MINIO_ENDPOINT
+              value: {{ .Values.minio.endpoint | quote }}
+            - name: MINIO_BUCKET
+              value: {{ .Values.minio.bucket | quote }}
+            - name: MINIO_SECURE
+              value: {{ .Values.minio.secure | quote }}
+            {{- if .Values.minio.existingSecret }}
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.existingSecret }}
+                  key: accessKey
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.existingSecret }}
+                  key: secretKey
+            {{- else }}
+            - name: MINIO_ACCESS_KEY
+              value: {{ .Values.minio.accessKey | quote }}
+            - name: MINIO_SECRET_KEY
+              value: {{ .Values.minio.secretKey | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.postgresql.enabled }}
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgresql.auth.username }}:$(POSTGRES_PASSWORD)@{{ include "a2a-server.fullname" . }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgresql.auth.existingSecret | default (printf "%s-postgresql" (include "a2a-server.fullname" .)) }}
+                  key: {{ .Values.postgresql.auth.secretKeys.userPasswordKey | default "password" }}
+            {{- else if .Values.externalPostgresql.url }}
+            - name: DATABASE_URL
+              value: {{ .Values.externalPostgresql.url | quote }}
+            {{- else if .Values.externalPostgresql.existingSecret }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalPostgresql.existingSecret }}
+                  key: {{ .Values.externalPostgresql.secretKey | default "DATABASE_URL" }}
+            {{- end }}
+            {{- if .Values.knative }}
+            {{- if .Values.knative.enabled }}
+            - name: KNATIVE_ENABLED
+              value: "true"
+            - name: KNATIVE_BROKER_URL
+              value: "http://broker-ingress.knative-eventing.svc.cluster.local/{{ .Release.Namespace }}/{{ .Values.knative.broker | default "task-broker" }}"
+            - name: KNATIVE_TEMPLATE_CONFIGMAP
+              value: "{{ include "a2a-server.fullname" . }}-knative-worker-template"
+            - name: KUBERNETES_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_ENABLED
+              value: {{ .Values.knative.worker.workspacePersistence.enabled | default false | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_STORAGE_CLASS
+              value: {{ .Values.knative.worker.workspacePersistence.storageClass | default "" | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_SIZE
+              value: {{ .Values.knative.worker.workspacePersistence.size | default "20Gi" | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_ACCESS_MODES
+              value: {{ join "," (.Values.knative.worker.workspacePersistence.accessModes | default (list "ReadWriteMany")) | quote }}
+            - name: KNATIVE_WORKSPACE_MOUNT_PATH
+              value: {{ .Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
+            - name: KNATIVE_WORKSPACE_BASE_PATH
+              value: {{ printf "%s/%s" ((.Values.knative.worker.workspacePersistence.mountPath | default "/workspace") | trimSuffix "/") ((.Values.knative.worker.workspacePersistence.reposSubPath | default "repos") | trimPrefix "/") | quote }}
+            - name: KNATIVE_WORKSPACE_PVC_PREFIX
+              value: {{ .Values.knative.worker.workspacePersistence.pvcNamePrefix | default "codetether-workspace" | quote }}
+            - name: CRON_DRIVER
+              value: {{ .Values.knative.cron.driver | default "auto" | quote }}
+            - name: CRON_DEFAULT_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: CRON_TRIGGER_BASE_URL
+              value: {{ default (printf "http://%s.%s.svc.cluster.local:%v" (include "a2a-server.fullname" .) .Release.Namespace .Values.service.port) .Values.knative.cron.triggerBaseUrl | quote }}
+            {{- if .Values.knative.cron.internalTokenSecret }}
+            - name: CRON_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.knative.cron.internalTokenSecret | quote }}
+                  key: {{ .Values.knative.cron.internalTokenSecretKey | default "CRON_INTERNAL_TOKEN" | quote }}
+            {{- else }}
+            - name: CRON_INTERNAL_TOKEN
+              value: {{ .Values.knative.cron.internalToken | quote }}
+            {{- end }}
+            - name: CRON_JOB_IMAGE
+              value: {{ .Values.knative.cron.jobImage | default "curlimages/curl:8.11.1" | quote }}
+            - name: CRON_TENANT_NAMESPACE_MODE
+              value: {{ .Values.knative.cron.tenantNamespaceMode | default true | quote }}
+            - name: CRON_ALLOW_CROSS_NAMESPACE
+              value: {{ .Values.knative.cron.allowCrossNamespace | default false | quote }}
+            - name: CRON_STARTING_DEADLINE_SECONDS
+              value: {{ .Values.knative.cron.startingDeadlineSeconds | default 300 | quote }}
+            - name: CRON_SUCCESS_HISTORY_LIMIT
+              value: {{ .Values.knative.cron.successHistoryLimit | default 1 | quote }}
+            - name: CRON_FAILURE_HISTORY_LIMIT
+              value: {{ .Values.knative.cron.failureHistoryLimit | default 3 | quote }}
+            - name: CRON_JOB_TTL_SECONDS
+              value: {{ .Values.knative.cron.jobTtlSeconds | default 600 | quote }}
+            {{- if .Values.knative.cron.serviceAccountName }}
+            - name: CRON_JOB_SERVICE_ACCOUNT
+              value: {{ .Values.knative.cron.serviceAccountName | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- if .Values.opa.enabled }}
+        - name: opa
+          image: {{ .Values.opa.image.repository }}:{{ .Values.opa.image.tag }}
+          imagePullPolicy: {{ .Values.opa.image.pullPolicy | default "IfNotPresent" }}
+          args:
+            - "run"
+            - "--server"
+            - "--addr=0.0.0.0:8181"
+            - "--log-level={{ .Values.opa.logLevel | default "info" }}"
+            - "--set=decision_logs.console=true"
+            - "/policies"
+          ports:
+            - name: opa
+              containerPort: 8181
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.opa.resources | nindent 12 }}
+          volumeMounts:
+            - name: opa-policies
+              mountPath: /policies/data.json
+              subPath: data.json
+              readOnly: true
+            - name: opa-policies
+              mountPath: /policies/authz.rego
+              subPath: authz.rego
+              readOnly: true
+            - name: opa-policies
+              mountPath: /policies/api_keys.rego
+              subPath: api_keys.rego
+              readOnly: true
+            - name: opa-policies
+              mountPath: /policies/tenants.rego
+              subPath: tenants.rego
+              readOnly: true
+        {{- end }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "a2a-server.fullname" .)) }}
+        {{- end }}
+        {{- if .Values.opa.enabled }}
+        - name: opa-policies
+          configMap:
+            name: {{ include "a2a-server.fullname" . }}-opa-policies
+        {{- end }}
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+{{- end }}
+
+{{- if .Values.blueGreen.enabled }}
+{{- $legacyReplicas := (.Values.blueGreen.legacyReplicaCount | int) -}}
+{{- if gt $legacyReplicas 0 }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "a2a-server.fullname" . }}
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+  {{- with include "a2a-server.annotations" . }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ $legacyReplicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "a2a-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if and .Values.auth.enabled .Values.auth.tokens }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if .Values.blueGreen.rolloutId.legacy }}
+        rollme: {{ .Values.blueGreen.rolloutId.legacy | quote }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with include "a2a-server.annotations" . }}
+        {{- . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "a2a-server.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "a2a-server.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "a2a-server.legacyImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - python
+            - run_server.py
+            - run
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            {{- if .Values.app.enhanced }}
+            - --enhanced
+            {{- else }}
+            - --basic
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+            # MCP is now integrated on the same port under /mcp/* paths
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          envFrom:
+            {{- range .Values.existingEnvFromSecrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+            {{- if .Values.configMap.create }}
+            - configMapRef:
+                name: {{ include "a2a-server.fullname" . }}-config
+            {{- end }}
+            {{- if and .Values.auth.enabled .Values.auth.tokens }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" . }}-auth
+            {{- end }}
+            {{- if .Values.keycloak.clientSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" . }}-keycloak
+            {{- end }}
+            {{- if or .Values.stripe.apiKey .Values.stripe.webhookSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" . }}-stripe
+            {{- end }}
+            {{- if or .Values.githubApp.existingSecret .Values.githubApp.appId .Values.githubApp.privateKey .Values.githubApp.webhookSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.githubAppSecretName" . }}
+            {{- end }}
+            {{- if .Values.forgejo.existingSecret }}
+            - secretRef:
+                name: {{ .Values.forgejo.existingSecret }}
+            {{- end }}
+          env:
+            {{- if .Values.opa.enabled }}
+            - name: OPA_URL
+              value: "http://localhost:8181"
+            - name: OPA_LOCAL_MODE
+              value: "false"
+            - name: OPA_ENABLED
+              value: "true"
+            {{- else }}
+            - name: OPA_LOCAL_MODE
+              value: "true"
+            - name: OPA_ENABLED
+              value: "true"
+            {{- end }}
+            {{- include "a2a-server.spiffeEnv" . | nindent 12 }}
+            {{- include "a2a-server.agentIdentityEnv" . | nindent 12 }}
+            {{- range $key, $value := .Values.envFromSecret }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $value }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.forgejo.apiUrl }}
+            - name: FORGEJO_API_URL
+              value: {{ .Values.forgejo.apiUrl | quote }}
+            - name: FORGEJO_BOT_USERNAME
+              value: {{ .Values.forgejo.botUsername | default "codetether" | quote }}
+            {{- end }}
+            {{- if .Values.minio.enabled }}
+            - name: MINIO_ENDPOINT
+              value: {{ .Values.minio.endpoint | quote }}
+            - name: MINIO_BUCKET
+              value: {{ .Values.minio.bucket | quote }}
+            - name: MINIO_SECURE
+              value: {{ .Values.minio.secure | quote }}
+            {{- if .Values.minio.existingSecret }}
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.existingSecret }}
+                  key: accessKey
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.minio.existingSecret }}
+                  key: secretKey
+            {{- else }}
+            - name: MINIO_ACCESS_KEY
+              value: {{ .Values.minio.accessKey | quote }}
+            - name: MINIO_SECRET_KEY
+              value: {{ .Values.minio.secretKey | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.knative.enabled }}
+            - name: KNATIVE_ENABLED
+              value: "true"
+            - name: KNATIVE_BROKER_URL
+              value: "http://broker-ingress.knative-eventing.svc.cluster.local/{{ .Release.Namespace }}/{{ .Values.knative.broker | default "task-broker" }}"
+            - name: KNATIVE_TEMPLATE_CONFIGMAP
+              value: "{{ include "a2a-server.fullname" . }}-knative-worker-template"
+            - name: KUBERNETES_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_ENABLED
+              value: {{ .Values.knative.worker.workspacePersistence.enabled | default false | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_STORAGE_CLASS
+              value: {{ .Values.knative.worker.workspacePersistence.storageClass | default "" | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_SIZE
+              value: {{ .Values.knative.worker.workspacePersistence.size | default "20Gi" | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_ACCESS_MODES
+              value: {{ join "," (.Values.knative.worker.workspacePersistence.accessModes | default (list "ReadWriteMany")) | quote }}
+            - name: KNATIVE_WORKSPACE_MOUNT_PATH
+              value: {{ .Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
+            - name: KNATIVE_WORKSPACE_BASE_PATH
+              value: {{ printf "%s/%s" ((.Values.knative.worker.workspacePersistence.mountPath | default "/workspace") | trimSuffix "/") ((.Values.knative.worker.workspacePersistence.reposSubPath | default "repos") | trimPrefix "/") | quote }}
+            - name: KNATIVE_WORKSPACE_PVC_PREFIX
+              value: {{ .Values.knative.worker.workspacePersistence.pvcNamePrefix | default "codetether-workspace" | quote }}
+            - name: CRON_DRIVER
+              value: {{ .Values.knative.cron.driver | default "auto" | quote }}
+            - name: CRON_DEFAULT_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: CRON_TRIGGER_BASE_URL
+              value: {{ default (printf "http://%s.%s.svc.cluster.local:%v" (include "a2a-server.fullname" .) .Release.Namespace .Values.service.port) .Values.knative.cron.triggerBaseUrl | quote }}
+            {{- if .Values.knative.cron.internalTokenSecret }}
+            - name: CRON_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.knative.cron.internalTokenSecret | quote }}
+                  key: {{ .Values.knative.cron.internalTokenSecretKey | default "CRON_INTERNAL_TOKEN" | quote }}
+            {{- else }}
+            - name: CRON_INTERNAL_TOKEN
+              value: {{ .Values.knative.cron.internalToken | quote }}
+            {{- end }}
+            - name: CRON_JOB_IMAGE
+              value: {{ .Values.knative.cron.jobImage | default "curlimages/curl:8.11.1" | quote }}
+            - name: CRON_TENANT_NAMESPACE_MODE
+              value: {{ .Values.knative.cron.tenantNamespaceMode | default true | quote }}
+            - name: CRON_ALLOW_CROSS_NAMESPACE
+              value: {{ .Values.knative.cron.allowCrossNamespace | default false | quote }}
+            - name: CRON_STARTING_DEADLINE_SECONDS
+              value: {{ .Values.knative.cron.startingDeadlineSeconds | default 300 | quote }}
+            - name: CRON_SUCCESS_HISTORY_LIMIT
+              value: {{ .Values.knative.cron.successHistoryLimit | default 1 | quote }}
+            - name: CRON_FAILURE_HISTORY_LIMIT
+              value: {{ .Values.knative.cron.failureHistoryLimit | default 3 | quote }}
+            - name: CRON_JOB_TTL_SECONDS
+              value: {{ .Values.knative.cron.jobTtlSeconds | default 600 | quote }}
+            {{- if .Values.knative.cron.serviceAccountName }}
+            - name: CRON_JOB_SERVICE_ACCOUNT
+              value: {{ .Values.knative.cron.serviceAccountName | quote }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-data" (include "a2a-server.fullname" .)) }}
+        {{- end }}
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+{{- end }}
+
+{{- $colors := list "blue" "green" -}}
+{{- range $i, $color := $colors }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "a2a-server.fullname" $ }}-deployment-{{ $color }}
+  labels:
+    {{- include "a2a-server.blueGreenLabels" $ | nindent 4 }}
+    color: {{ $color | quote }}
+  {{- with include "a2a-server.annotations" $ }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not $.Values.autoscaling.enabled }}
+  replicas: {{ (index $.Values.blueGreen.replicas $color) | default 0 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "a2a-server.blueGreenSelectorLabels" $ | nindent 6 }}
+      color: {{ $color | quote }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
+        {{- if and $.Values.auth.enabled $.Values.auth.tokens }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") $ | sha256sum }}
+        {{- end }}
+        {{- if (index $.Values.blueGreen.rolloutId $color) }}
+        rollme: {{ (index $.Values.blueGreen.rolloutId $color) | quote }}
+        {{- end }}
+        {{- with $.Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with include "a2a-server.annotations" $ }}
+        {{- . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "a2a-server.blueGreenLabels" $ | nindent 8 }}
+        color: {{ $color | quote }}
+        app.kubernetes.io/component: server
+        {{- with $.Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "a2a-server.serviceAccountName" $ }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ $.Chart.Name }}
+          securityContext:
+            {{- toYaml $.Values.securityContext | nindent 12 }}
+          image: {{ include "a2a-server.blueGreenImage" (dict "root" $ "color" $color) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          command:
+            - python
+            - run_server.py
+            - run
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+            {{- if $.Values.app.enhanced }}
+            - --enhanced
+            {{- else }}
+            - --basic
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ $.Values.service.targetPort }}
+              protocol: TCP
+            # MCP is now integrated on the same port under /mcp/* paths
+          livenessProbe:
+            {{- toYaml $.Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml $.Values.readinessProbe | nindent 12 }}
+          startupProbe:
+            {{- toYaml $.Values.startupProbe | nindent 12 }}
+          envFrom:
+            {{- range $.Values.existingEnvFromSecrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+            {{- if $.Values.configMap.create }}
+            - configMapRef:
+                name: {{ include "a2a-server.fullname" $ }}-config
+            {{- end }}
+            {{- if and $.Values.auth.enabled $.Values.auth.tokens }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" $ }}-auth
+            {{- end }}
+            {{- if $.Values.keycloak.clientSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" $ }}-keycloak
+            {{- end }}
+            {{- if or $.Values.stripe.apiKey $.Values.stripe.webhookSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.fullname" $ }}-stripe
+            {{- end }}
+            {{- if or $.Values.githubApp.existingSecret $.Values.githubApp.appId $.Values.githubApp.privateKey $.Values.githubApp.webhookSecret }}
+            - secretRef:
+                name: {{ include "a2a-server.githubAppSecretName" $ }}
+            {{- end }}
+            {{- if $.Values.forgejo.existingSecret }}
+            - secretRef:
+                name: {{ $.Values.forgejo.existingSecret }}
+            {{- end }}
+          env:
+            {{- if $.Values.opa.enabled }}
+            - name: OPA_URL
+              value: "http://localhost:8181"
+            - name: OPA_LOCAL_MODE
+              value: "false"
+            - name: OPA_ENABLED
+              value: "true"
+            {{- else }}
+            - name: OPA_LOCAL_MODE
+              value: "true"
+            - name: OPA_ENABLED
+              value: "true"
+            {{- end }}
+            {{- include "a2a-server.spiffeEnv" $ | nindent 12 }}
+            {{- include "a2a-server.agentIdentityEnv" $ | nindent 12 }}
+            {{- range $key, $value := $.Values.envFromSecret }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $value }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- range $key, $value := $.Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if $.Values.forgejo.apiUrl }}
+            - name: FORGEJO_API_URL
+              value: {{ $.Values.forgejo.apiUrl | quote }}
+            - name: FORGEJO_BOT_USERNAME
+              value: {{ $.Values.forgejo.botUsername | default "codetether" | quote }}
+            {{- end }}
+            {{- if $.Values.minio.enabled }}
+            - name: MINIO_ENDPOINT
+              value: {{ $.Values.minio.endpoint | quote }}
+            - name: MINIO_BUCKET
+              value: {{ $.Values.minio.bucket | quote }}
+            - name: MINIO_SECURE
+              value: {{ $.Values.minio.secure | quote }}
+            {{- if $.Values.minio.existingSecret }}
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.minio.existingSecret }}
+                  key: accessKey
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.minio.existingSecret }}
+                  key: secretKey
+            {{- else }}
+            - name: MINIO_ACCESS_KEY
+              value: {{ $.Values.minio.accessKey | quote }}
+            - name: MINIO_SECRET_KEY
+              value: {{ $.Values.minio.secretKey | quote }}
+            {{- end }}
+            {{- end }}
+            {{- if $.Values.postgresql.enabled }}
+            - name: DATABASE_URL
+              value: "postgresql://{{ $.Values.postgresql.auth.username }}:$(POSTGRES_PASSWORD)@{{ include "a2a-server.fullname" $ }}-postgresql:5432/{{ $.Values.postgresql.auth.database }}"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.postgresql.auth.existingSecret | default (printf "%s-postgresql" (include "a2a-server.fullname" $)) }}
+                  key: {{ $.Values.postgresql.auth.secretKeys.userPasswordKey | default "password" }}
+            {{- else if $.Values.externalPostgresql.url }}
+            - name: DATABASE_URL
+              value: {{ $.Values.externalPostgresql.url | quote }}
+            {{- else if $.Values.externalPostgresql.existingSecret }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.externalPostgresql.existingSecret }}
+                  key: {{ $.Values.externalPostgresql.secretKey | default "DATABASE_URL" }}
+            {{- end }}
+            {{- if $.Values.livekit.enabled }}
+            - name: LIVEKIT_URL
+              value: {{ $.Values.livekit.url | quote }}
+            - name: LIVEKIT_PUBLIC_URL
+              value: {{ $.Values.livekit.publicUrl | quote }}
+            {{- if $.Values.livekit.apiKey }}
+            - name: LIVEKIT_API_KEY
+              value: {{ $.Values.livekit.apiKey | quote }}
+            {{- else if $.Values.livekit.existingSecret.apiKey.name }}
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.livekit.existingSecret.apiKey.name }}
+                  key: {{ $.Values.livekit.existingSecret.apiKey.key }}
+            {{- end }}
+            {{- if $.Values.livekit.apiSecret }}
+            - name: LIVEKIT_API_SECRET
+              value: {{ $.Values.livekit.apiSecret | quote }}
+            {{- else if $.Values.livekit.existingSecret.apiSecret.name }}
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.livekit.existingSecret.apiSecret.name }}
+                  key: {{ $.Values.livekit.existingSecret.apiSecret.key }}
+            {{- end }}
+            {{- end }}
+            {{- if $.Values.knative.enabled }}
+            - name: KNATIVE_ENABLED
+              value: "true"
+            - name: KNATIVE_BROKER_URL
+              value: "http://broker-ingress.knative-eventing.svc.cluster.local/{{ $.Release.Namespace }}/{{ $.Values.knative.broker | default "task-broker" }}"
+            - name: KNATIVE_TEMPLATE_CONFIGMAP
+              value: "{{ include "a2a-server.fullname" $ }}-knative-worker-template"
+            - name: KUBERNETES_NAMESPACE
+              value: {{ $.Release.Namespace | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_ENABLED
+              value: {{ $.Values.knative.worker.workspacePersistence.enabled | default false | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_STORAGE_CLASS
+              value: {{ $.Values.knative.worker.workspacePersistence.storageClass | default "" | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_SIZE
+              value: {{ $.Values.knative.worker.workspacePersistence.size | default "20Gi" | quote }}
+            - name: KNATIVE_WORKSPACE_PERSISTENCE_ACCESS_MODES
+              value: {{ join "," ($.Values.knative.worker.workspacePersistence.accessModes | default (list "ReadWriteMany")) | quote }}
+            - name: KNATIVE_WORKSPACE_MOUNT_PATH
+              value: {{ $.Values.knative.worker.workspacePersistence.mountPath | default "/workspace" | quote }}
+            - name: KNATIVE_WORKSPACE_BASE_PATH
+              value: {{ printf "%s/%s" (($.Values.knative.worker.workspacePersistence.mountPath | default "/workspace") | trimSuffix "/") (($.Values.knative.worker.workspacePersistence.reposSubPath | default "repos") | trimPrefix "/") | quote }}
+            - name: KNATIVE_WORKSPACE_PVC_PREFIX
+              value: {{ $.Values.knative.worker.workspacePersistence.pvcNamePrefix | default "codetether-workspace" | quote }}
+            - name: CRON_DRIVER
+              value: {{ $.Values.knative.cron.driver | default "auto" | quote }}
+            - name: CRON_DEFAULT_NAMESPACE
+              value: {{ $.Release.Namespace | quote }}
+            - name: CRON_TRIGGER_BASE_URL
+              value: {{ default (printf "http://%s.%s.svc.cluster.local:%v" (include "a2a-server.fullname" $) $.Release.Namespace $.Values.service.port) $.Values.knative.cron.triggerBaseUrl | quote }}
+            {{- if $.Values.knative.cron.internalTokenSecret }}
+            - name: CRON_INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.knative.cron.internalTokenSecret | quote }}
+                  key: {{ $.Values.knative.cron.internalTokenSecretKey | default "CRON_INTERNAL_TOKEN" | quote }}
+            {{- else }}
+            - name: CRON_INTERNAL_TOKEN
+              value: {{ $.Values.knative.cron.internalToken | quote }}
+            {{- end }}
+            - name: CRON_JOB_IMAGE
+              value: {{ $.Values.knative.cron.jobImage | default "curlimages/curl:8.11.1" | quote }}
+            - name: CRON_TENANT_NAMESPACE_MODE
+              value: {{ $.Values.knative.cron.tenantNamespaceMode | default true | quote }}
+            - name: CRON_ALLOW_CROSS_NAMESPACE
+              value: {{ $.Values.knative.cron.allowCrossNamespace | default false | quote }}
+            - name: CRON_STARTING_DEADLINE_SECONDS
+              value: {{ $.Values.knative.cron.startingDeadlineSeconds | default 300 | quote }}
+            - name: CRON_SUCCESS_HISTORY_LIMIT
+              value: {{ $.Values.knative.cron.successHistoryLimit | default 1 | quote }}
+            - name: CRON_FAILURE_HISTORY_LIMIT
+              value: {{ $.Values.knative.cron.failureHistoryLimit | default 3 | quote }}
+            - name: CRON_JOB_TTL_SECONDS
+              value: {{ $.Values.knative.cron.jobTtlSeconds | default 600 | quote }}
+            {{- if $.Values.knative.cron.serviceAccountName }}
+            - name: CRON_JOB_SERVICE_ACCOUNT
+              value: {{ $.Values.knative.cron.serviceAccountName | quote }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if $.Values.persistence.enabled }}
+            - name: data
+              mountPath: {{ $.Values.persistence.mountPath }}
+            {{- end }}
+            {{- with $.Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- if $.Values.opa.enabled }}
+        - name: opa
+          image: {{ $.Values.opa.image.repository }}:{{ $.Values.opa.image.tag }}
+          imagePullPolicy: {{ $.Values.opa.image.pullPolicy | default "IfNotPresent" }}
+          args:
+            - "run"
+            - "--server"
+            - "--addr=0.0.0.0:8181"
+            - "--log-level={{ $.Values.opa.logLevel | default "info" }}"
+            - "--set=decision_logs.console=true"
+            - "/policies"
+          ports:
+            - name: opa
+              containerPort: 8181
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8181
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml $.Values.opa.resources | nindent 12 }}
+          volumeMounts:
+            - name: opa-policies
+              mountPath: /policies/data.json
+              subPath: data.json
+              readOnly: true
+            - name: opa-policies
+              mountPath: /policies/authz.rego
+              subPath: authz.rego
+              readOnly: true
+            - name: opa-policies
+              mountPath: /policies/api_keys.rego
+              subPath: api_keys.rego
+              readOnly: true
+            - name: opa-policies
+              mountPath: /policies/tenants.rego
+              subPath: tenants.rego
+              readOnly: true
+        {{- end }}
+      volumes:
+        {{- if $.Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ $.Values.persistence.existingClaim | default (printf "%s-data" (include "a2a-server.fullname" $)) }}
+        {{- end }}
+        {{- if $.Values.opa.enabled }}
+        - name: opa-policies
+          configMap:
+            name: {{ include "a2a-server.fullname" $ }}-opa-policies
+        {{- end }}
+        {{- with $.Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- if lt (add1 $i) (len $colors) }}
+---
+{{- end }}
+{{- end }}
+
+{{- end }}

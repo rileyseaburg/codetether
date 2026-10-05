@@ -1,0 +1,22 @@
+{
+  "old_task": "cancelled",
+  "new_task": {
+    "id": 623,
+    "status": "running",
+    "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/agent/tasks/623"
+  },
+  "stages": [
+    {
+      "id": "e2e85d38-5579-45f0-abc4-065d354570dc",
+      "title": "Prepare Forgejo task #5853",
+      "status": "running",
+      "error": null,
+      "created_at": "2026-09-17 00:42:48.440905+00:00",
+      "stage": "prepare",
+      "waiting": null,
+      "job": "ct-task-cd5bc145990865f6ea2c07203d725e5b"
+    }
+  ],
+  "comment_id": 20495,
+  "comment_url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/issues/5853#issuecomment-20495"
+}

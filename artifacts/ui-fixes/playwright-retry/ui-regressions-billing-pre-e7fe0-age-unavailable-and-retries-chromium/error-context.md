@@ -1,0 +1,238 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - link "CodeTether" [ref=e6] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e8]
+        - generic [ref=e10]: CodeTether
+      - navigation [ref=e11]:
+        - list [ref=e12]:
+          - listitem [ref=e13]:
+            - link "Get Started New" [ref=e14] [cursor=pointer]:
+              - /url: /dashboard/getting-started
+              - img [ref=e15]
+              - text: Get Started
+              - generic [ref=e17]: New
+          - listitem [ref=e18]:
+            - link "Workspaces" [ref=e19] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e20]
+              - text: Workspaces
+          - listitem [ref=e22]:
+            - link "Workers" [ref=e23] [cursor=pointer]:
+              - /url: /dashboard/workers
+              - img [ref=e24]
+              - text: Workers
+          - listitem [ref=e26]:
+            - link "OKR New" [ref=e27] [cursor=pointer]:
+              - /url: /dashboard/okr
+              - img [ref=e28]
+              - text: OKR
+              - generic [ref=e30]: New
+          - listitem [ref=e31]:
+            - link "Swarm New" [ref=e32] [cursor=pointer]:
+              - /url: /dashboard/swarm
+              - img [ref=e33]
+              - text: Swarm
+              - generic [ref=e35]: New
+          - listitem [ref=e36]:
+            - link "MCP Tools New" [ref=e37] [cursor=pointer]:
+              - /url: /dashboard/mcp
+              - img [ref=e38]
+              - text: MCP Tools
+              - generic [ref=e40]: New
+          - listitem [ref=e41]:
+            - link "Security New" [ref=e42] [cursor=pointer]:
+              - /url: /dashboard/security
+              - img [ref=e43]
+              - text: Security
+              - generic [ref=e45]: New
+          - listitem [ref=e46]:
+            - link "Ralph New" [ref=e47] [cursor=pointer]:
+              - /url: /dashboard/ralph
+              - img [ref=e48]
+              - text: Ralph
+              - generic [ref=e50]: New
+          - listitem [ref=e51]:
+            - link "Cognition" [ref=e52] [cursor=pointer]:
+              - /url: /dashboard/cognition
+              - img [ref=e53]
+              - text: Cognition
+          - listitem [ref=e55]:
+            - link "Avatar New" [ref=e56] [cursor=pointer]:
+              - /url: /dashboard/avatar
+              - img [ref=e57]
+              - text: Avatar
+              - generic [ref=e60]: New
+          - listitem [ref=e61]:
+            - link "Ads New" [ref=e62] [cursor=pointer]:
+              - /url: /dashboard/ads
+              - img [ref=e63]
+              - text: Ads
+              - generic [ref=e65]: New
+          - listitem [ref=e66]:
+            - link "Benchmarks" [ref=e67] [cursor=pointer]:
+              - /url: /dashboard/benchmarks
+              - img [ref=e68]
+              - text: Benchmarks
+          - listitem [ref=e70]:
+            - link "Analytics New" [ref=e71] [cursor=pointer]:
+              - /url: /dashboard/analytics
+              - img [ref=e72]
+              - text: Analytics
+              - generic [ref=e74]: New
+          - listitem [ref=e75]:
+            - link "Cronjobs" [ref=e76] [cursor=pointer]:
+              - /url: /cronjobs
+              - img [ref=e77]
+              - text: Cronjobs
+          - listitem [ref=e79]:
+            - link "Tasks" [ref=e80] [cursor=pointer]:
+              - /url: /dashboard/tasks
+              - img [ref=e81]
+              - text: Tasks
+          - listitem [ref=e83]:
+            - link "Sessions" [ref=e84] [cursor=pointer]:
+              - /url: /dashboard/sessions
+              - img [ref=e85]
+              - text: Sessions
+          - listitem [ref=e87]:
+            - link "Output" [ref=e88] [cursor=pointer]:
+              - /url: /dashboard/output
+              - img [ref=e89]
+              - text: Output
+          - listitem [ref=e91]:
+            - link "Activity" [ref=e92] [cursor=pointer]:
+              - /url: /dashboard/activity
+              - img [ref=e93]
+              - text: Activity
+          - listitem [ref=e95]:
+            - link "GitHub Actions New" [ref=e96] [cursor=pointer]:
+              - /url: /dashboard/integrations/github-actions
+              - img [ref=e97]
+              - text: GitHub Actions
+              - generic [ref=e99]: New
+          - listitem [ref=e100]:
+            - link "GitHub App New" [ref=e101] [cursor=pointer]:
+              - /url: /dashboard/workflows/github-app
+              - img [ref=e102]
+              - text: GitHub App
+              - generic [ref=e104]: New
+          - listitem [ref=e105]:
+            - link "Automations" [ref=e106] [cursor=pointer]:
+              - /url: /dashboard/automations
+              - img [ref=e107]
+              - text: Automations
+          - listitem [ref=e110]:
+            - link "Billing" [ref=e111] [cursor=pointer]:
+              - /url: /dashboard/billing
+              - img [ref=e112]
+              - text: Billing
+          - listitem [ref=e114]:
+            - link "Settings" [ref=e115] [cursor=pointer]:
+              - /url: /dashboard/settings
+              - img [ref=e116]
+              - text: Settings
+        - generic [ref=e120]:
+          - generic [ref=e121]:
+            - generic [ref=e122]: "0"
+            - generic [ref=e123]: Workspaces
+          - generic [ref=e124]:
+            - generic [ref=e125]: "0"
+            - generic [ref=e126]: Tasks
+    - generic [ref=e127]:
+      - generic [ref=e129]:
+        - generic [ref=e133]: Connected
+        - generic [ref=e134]:
+          - button "Switch to light mode" [ref=e135]:
+            - img [ref=e136]
+          - link "Settings" [ref=e138] [cursor=pointer]:
+            - /url: /dashboard/settings
+            - img [ref=e139]
+          - button "Open user menu" [ref=e143]:
+            - generic [ref=e144]: A
+            - generic [ref=e145]: Audit User
+          - link "← Back to Site" [ref=e146] [cursor=pointer]:
+            - /url: /
+      - main [ref=e147]:
+        - generic [ref=e148]:
+          - generic [ref=e149]:
+            - heading "Billing" [level=1] [ref=e150]
+            - paragraph [ref=e151]: Manage your subscription and usage
+          - generic [ref=e152]:
+            - heading "Current Plan" [level=2] [ref=e154]
+            - generic [ref=e157]:
+              - generic [ref=e158]:
+                - generic [ref=e159]: Pro
+                - generic [ref=e160]: Active
+              - paragraph [ref=e161]: For builders who need serious throughput
+              - paragraph [ref=e162]: $49/mo
+          - generic [ref=e163]:
+            - heading "This Month's Usage" [level=2] [ref=e165]
+            - generic [ref=e166]:
+              - generic [ref=e168]:
+                - generic [ref=e169]: Tasks used
+                - generic [ref=e170]: Unavailable / 1,000
+              - alert [ref=e171]:
+                - paragraph [ref=e172]: Task usage is unavailable. Your subscription limits are still shown.
+                - button "Retry task usage" [ref=e173]
+              - generic [ref=e174]:
+                - generic [ref=e175]:
+                  - generic [ref=e176]: "5"
+                  - generic [ref=e177]: concurrent tasks
+                - generic [ref=e178]:
+                  - generic [ref=e179]: 10 min
+                  - generic [ref=e180]: max runtime
+                - generic [ref=e181]:
+                  - generic [ref=e182]: Unavailable
+                  - generic [ref=e183]: tasks remaining
+          - generic [ref=e184]:
+            - generic [ref=e185]:
+              - heading "Token Usage" [level=2] [ref=e186]
+              - alert [ref=e187]:
+                - paragraph [ref=e188]: Some token usage or budget data is unavailable. Please retry.
+                - button "Retry token usage" [ref=e189]
+              - paragraph [ref=e190]: AI model token consumption this billing period
+            - paragraph [ref=e192]: Usage could not be loaded. Retry to retrieve the current totals.
+          - generic [ref=e193]:
+            - heading "Upgrade Your Plan" [level=2] [ref=e195]
+            - generic [ref=e198]:
+              - generic [ref=e199]: Next tier
+              - heading "Enterprise" [level=3] [ref=e200]
+              - paragraph [ref=e201]: Unlimited tasks, workers, and workspaces
+              - paragraph [ref=e202]: $199/mo
+              - list [ref=e203]:
+                - listitem [ref=e204]: Unlimited tasks / month
+                - listitem [ref=e205]: Unlimited workers
+                - listitem [ref=e206]: Unlimited workspaces
+              - button "Upgrade to Enterprise" [ref=e207]
+          - generic [ref=e208]:
+            - heading "Billing FAQ" [level=2] [ref=e210]
+            - generic [ref=e211]:
+              - generic [ref=e212]:
+                - heading "When does my usage reset?" [level=4] [ref=e213]
+                - paragraph [ref=e214]: Usage resets on your billing anniversary date each month.
+              - generic [ref=e215]:
+                - heading "What happens if I hit my limit?" [level=4] [ref=e216]
+                - paragraph [ref=e217]: New tasks will be blocked until your limit resets or you upgrade. Running tasks won't be interrupted.
+              - generic [ref=e218]:
+                - heading "Can I downgrade?" [level=4] [ref=e219]
+                - paragraph [ref=e220]: Yes, use "Manage billing" to change or cancel your plan. Changes take effect at your next billing date.
+              - generic [ref=e221]:
+                - heading "Do I use my own API keys or yours?" [level=4] [ref=e222]
+                - paragraph [ref=e223]: Bring Your Own Model (BYOM). You add your own API keys (Anthropic, OpenAI, Google, etc.) in Settings. Keys are stored securely in HashiCorp Vault. The platform tracks your token usage and applies billing based on your plan's billing model (subscription, prepaid, or metered).
+              - generic [ref=e224]:
+                - heading "How does token billing work?" [level=4] [ref=e225]
+                - paragraph [ref=e226]: Every AI request consumes tokens. We track input, output, reasoning, and cache tokens per request and deduct from your prepaid credit balance. Each model has transparent per-million-token pricing. You can set monthly spending limits and add credits anytime.
+              - generic [ref=e227]:
+                - heading "What happens if my token credit runs out?" [level=4] [ref=e228]
+                - paragraph [ref=e229]: New AI requests will be paused until you add more credits. Running tasks won't be interrupted mid-stream. You can add credits at any time from this page.
+  - button "Open chat" [ref=e231]:
+    - img [ref=e233]
+  - button "Open Next.js Dev Tools" [ref=e240] [cursor=pointer]:
+    - img [ref=e241]
+  - alert [ref=e244]
+```

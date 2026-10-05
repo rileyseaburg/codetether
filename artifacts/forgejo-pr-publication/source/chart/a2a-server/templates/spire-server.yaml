@@ -1,0 +1,116 @@
+{{- if and .Values.spiffe.enabled .Values.spiffe.server.enabled }}
+{{- /*
+  Minimal in-cluster SPIRE server for dev/test clusters ONLY.
+
+  Production deployments should install the upstream spiffe/spire-server and
+  spiffe/spire-agent charts, which provide node attestation, persistent
+  storage, the OIDC Discovery Provider, and proper registration tooling.
+
+  This template renders just enough to validate the SPIFFE -> OPA wiring in a
+  throwaway environment: a single SPIRE server pod with a ConfigMap-backed
+  config and a k8s ServiceAccount join-token style trust domain. It is gated
+  behind both spiffe.enabled AND spiffe.server.enabled so it never ships by
+  default.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-spire-server
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: spire-server
+data:
+  server.conf: |
+    server {
+      bind_address = "0.0.0.0"
+      bind_port = "8081"
+      trust_domain = {{ .Values.spiffe.trustDomain | quote }}
+      data_dir = "/run/spire/data"
+      log_level = {{ .Values.spiffe.server.logLevel | quote }}
+      ca_ttl = "24h"
+      default_x509_svid_ttl = "1h"
+      default_jwt_svid_ttl = "5m"
+    }
+    plugins {
+      DataStore "sql" {
+        plugin_data {
+          database_type = "sqlite3"
+          connection_string = "/run/spire/data/datastore.sqlite3"
+        }
+      }
+      KeyManager "memory" {
+        plugin_data {}
+      }
+      NodeAttestor "k8s_psat" {
+        plugin_data {
+          clusters = {
+            "dev-cluster" = {
+              service_account_allow_list = ["{{ .Release.Namespace }}:{{ include "a2a-server.serviceAccountName" . }}"]
+            }
+          }
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-spire-server
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: spire-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "a2a-server.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: spire-server
+  template:
+    metadata:
+      labels:
+        {{- include "a2a-server.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: spire-server
+    spec:
+      serviceAccountName: {{ include "a2a-server.serviceAccountName" . }}
+      containers:
+        - name: spire-server
+          image: "{{ .Values.spiffe.server.image.repository }}:{{ .Values.spiffe.server.image.tag }}"
+          imagePullPolicy: {{ .Values.spiffe.server.image.pullPolicy }}
+          args:
+            - "-config"
+            - "/run/spire/config/server.conf"
+          ports:
+            - name: grpc
+              containerPort: 8081
+          volumeMounts:
+            - name: spire-config
+              mountPath: /run/spire/config
+              readOnly: true
+            - name: spire-data
+              mountPath: /run/spire/data
+          resources:
+            {{- toYaml .Values.spiffe.server.resources | nindent 12 }}
+      volumes:
+        - name: spire-config
+          configMap:
+            name: {{ include "a2a-server.fullname" . }}-spire-server
+        - name: spire-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-spire-server
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+    app.kubernetes.io/component: spire-server
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "a2a-server.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: spire-server
+  ports:
+    - name: grpc
+      port: 8081
+      targetPort: 8081
+{{- end }}

@@ -1,0 +1,75 @@
+{
+  "at": "2026-09-23T16:49:00.452202+00:00",
+  "sampled_runs": 120,
+  "by_status": {
+    "waiting": 13,
+    "running": 5,
+    "success": 39,
+    "failure": 42,
+    "cancelled": 19,
+    "skipped": 2
+  },
+  "active_by_workflow": [
+    [
+      "waiting",
+      "None",
+      13
+    ],
+    [
+      "running",
+      "None",
+      5
+    ]
+  ],
+  "oldest_waiting": [
+    "None",
+    "None",
+    "None"
+  ],
+  "sample": [
+    {
+      "id": 11211,
+      "status": "waiting",
+      "event": "push",
+      "path": null,
+      "branch": null,
+      "sha": "",
+      "created": null,
+      "queried": null
+    },
+    {
+      "id": 11210,
+      "status": "waiting",
+      "event": "push",
+      "path": null,
+      "branch": null,
+      "sha": "",
+      "created": null,
+      "queried": null
+    },
+    {
+      "id": 11207,
+      "status": "waiting",
+      "event": "pull_request",
+      "path": null,
+      "branch": null,
+      "sha": "",
+      "created": null,
+      "queried": null
+    }
+  ],
+  "heads_with_any_run": {
+    "a7a3d2a2e1e1e8f17c9ab3bf5c912cf7343ddf43": false,
+    "a5193370639b6a1917a3b9eebdee3995a52a1841": false,
+    "88809ef4df3a136d15a3e1dfc40f97f159b751b6": false,
+    "1bc5c9a69e": false,
+    "29d01830fd": false
+  },
+  "errors": [
+    [
+      "queued",
+      1,
+      400
+    ]
+  ]
+}

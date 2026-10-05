@@ -1,0 +1,726 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="19" skipped="0" tests="366" time="6.312" timestamp="2026-10-05T02:37:48.359818+00:00" hostname="ubuntu-dev"><testcase classname="tests.test_zero_trust_auth.TestKeycloakAudience" name="test_aud_string_match_allowed" time="0.001" /><testcase classname="tests.test_zero_trust_auth.TestKeycloakAudience" name="test_aud_list_match_allowed" time="0.000" /><testcase classname="tests.test_zero_trust_auth.TestKeycloakAudience" name="test_azp_match_allowed" time="0.000" /><testcase classname="tests.test_zero_trust_auth.TestKeycloakAudience" name="test_token_for_other_client_rejected" time="0.001" /><testcase classname="tests.test_zero_trust_auth.TestKeycloakAudience" name="test_token_without_audience_rejected" time="0.001" /><testcase classname="tests.test_zero_trust_auth.TestKeycloakAudience" name="test_empty_allow_list_fails_closed" time="0.001" /><testcase classname="tests.test_zero_trust_auth.TestKeycloakAudience" name="test_env_overrides_default_client" time="0.001" /><testcase classname="tests.test_zero_trust_auth.TestKeycloakAudience" name="test_default_is_client_id" time="0.001" /><testcase classname="tests.test_zero_trust_auth.TestKeycloakAudience" name="test_collects_aud_and_azp" time="0.000" /><testcase classname="tests.test_zero_trust_auth" name="test_no_credentials_fails_closed" time="0.001" /><testcase classname="tests.test_zero_trust_auth" name="test_spiffe_legacy_without_tokens_fails_closed" time="0.001" /><testcase classname="tests.test_zero_trust_auth" name="test_explicit_dev_opt_out_allows" time="0.001" /><testcase classname="tests.test_worker_path_zero_trust" name="test_worker_regex_covers_listing_paths[/v1/agent/workers]" time="0.001" /><testcase classname="tests.test_worker_path_zero_trust" name="test_worker_regex_covers_listing_paths[/v1/agent/workers/]" time="0.001" /><testcase classname="tests.test_worker_path_zero_trust" name="test_worker_regex_covers_listing_paths[/v1/agent/workers/w1]" time="0.001" /><testcase classname="tests.test_worker_path_zero_trust" name="test_worker_regex_covers_listing_paths[/v1/agent/tasks]" time="0.001" /><testcase classname="tests.test_worker_path_zero_trust" name="test_worker_regex_covers_listing_paths[/v1/agent/tasks/]" time="0.001" /><testcase classname="tests.test_worker_path_zero_trust" name="test_anonymous_worker_routes_rejected[GET-/v1/agent/workers]" time="0.006" /><testcase classname="tests.test_worker_path_zero_trust" name="test_anonymous_worker_routes_rejected[GET-/v1/agent/workers/w1]" time="0.005" /><testcase classname="tests.test_worker_path_zero_trust" name="test_anonymous_worker_routes_rejected[POST-/v1/agent/workers/w1/heartbeat]" time="0.003" /><testcase classname="tests.test_worker_path_zero_trust" name="test_anonymous_worker_routes_rejected[GET-/v1/agent/tasks]" time="0.004" /><testcase classname="tests.test_worker_path_zero_trust" name="test_public_chat_task_post_still_open" time="0.006" /><testcase classname="tests.test_worker_path_zero_trust" name="test_worker_token_accepted" time="0.006" /><testcase classname="tests.test_worker_path_zero_trust" name="test_wrong_worker_token_rejected" time="0.004" /><testcase classname="tests.test_worker_path_zero_trust" name="test_signed_in_user_accepted" time="0.006" /><testcase classname="tests.test_worker_path_zero_trust" name="test_dev_opt_out_allows_anonymous" time="0.005" /><testcase classname="tests.test_task_metadata_trust" name="test_trusted_source_is_stripped" time="0.001" /><testcase classname="tests.test_task_metadata_trust" name="test_reserved_keys_are_stripped" time="0.001" /><testcase classname="tests.test_task_metadata_trust" name="test_ordinary_keys_are_kept" time="0.001" /><testcase classname="tests.test_task_metadata_trust" name="test_untrusted_source_is_kept" time="0.000" /><testcase classname="tests.test_task_metadata_trust" name="test_input_is_not_mutated" time="0.001" /><testcase classname="tests.test_task_metadata_trust" name="test_none_metadata_is_empty" time="0.001" /><testcase classname="tests.test_task_metadata_trust" name="test_mcp_tool_metadata_is_sanitized" time="0.001" /><testcase classname="tests.test_task_metadata_trust" name="test_public_task_route_cannot_forge_github_app" time="0.002" /><testcase classname="tests.test_spire_native_workers" name="test_valid_worker_svid" time="0.004" /><testcase classname="tests.test_spire_native_workers" name="test_wrong_issuer_rejected" time="0.001" /><testcase classname="tests.test_spire_native_workers" name="test_missing_audience_config_fails_closed" time="0.001" /><testcase classname="tests.test_spire_native_workers" name="test_missing_trust_domain_config_fails_closed" time="0.001" /><testcase classname="tests.test_spire_native_workers" name="test_legacy_trust_domain_rejected" time="0.002" /><testcase classname="tests.test_spire_native_workers" name="test_allow_list_exact" time="0.001" /><testcase classname="tests.test_spire_native_workers" name="test_allow_list_prefix" time="0.001" /><testcase classname="tests.test_spire_native_workers" name="test_empty_allow_list_denies_spiffe" time="0.000" /><testcase classname="tests.test_spire_native_workers" name="test_keycloak_user_unaffected" time="0.000" /><testcase classname="tests.test_spire_native_workers" name="test_allow_listed_worker_svid_accepted" time="0.006" /><testcase classname="tests.test_spire_native_workers" name="test_other_workload_svid_forbidden" time="0.005" /><testcase classname="tests.test_spire_native_workers" name="test_shared_token_rejected_in_spire_native_mode" time="0.004" /><testcase classname="tests.test_spire_native_workers" name="test_shared_token_accepted_during_migration" time="0.004" /><testcase classname="tests.test_spire_native_workers" name="test_worker_sse_allow_listed_svid" time="0.002" /><testcase classname="tests.test_spire_native_workers" name="test_worker_sse_other_workload_forbidden" time="0.001" /><testcase classname="tests.test_spire_native_workers" name="test_worker_or_user_path_rejects_spiffe" time="0.002" /><testcase classname="tests.test_policy_middleware.TestPublicRoutes" name="test_health" time="0.001" /><testcase classname="tests.test_policy_middleware.TestPublicRoutes" name="test_well_known_agent_card" time="0.000" /><testcase classname="tests.test_policy_middleware.TestPublicRoutes" name="test_docs" time="0.000" /><testcase classname="tests.test_policy_middleware.TestPublicRoutes" name="test_openapi" time="0.001" /><testcase classname="tests.test_policy_middleware.TestPublicRoutes" name="test_auth_login" time="0.000" /><testcase classname="tests.test_policy_middleware.TestPublicRoutes" name="test_auth_refresh" time="0.001" /><testcase classname="tests.test_policy_middleware.TestPublicRoutes" name="test_nextauth" time="0.000" /><testcase classname="tests.test_policy_middleware.TestPublicRoutes" name="test_user_register" time="0.001" /><testcase classname="tests.test_policy_middleware.TestPublicRoutes" name="test_user_login" time="0.000" /><testcase classname="tests.test_policy_middleware.TestPublicRoutes" name="test_password_reset" time="0.000" /><testcase classname="tests.test_policy_middleware.TestPublicRoutes" name="test_tenant_signup" time="0.001" /><testcase classname="tests.test_policy_middleware.TestPublicRoutes" name="test_stripe_webhook" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAlreadyProtectedRoutes" name="test_billing" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAlreadyProtectedRoutes" name="test_admin" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAlreadyProtectedRoutes" name="test_tenant_management" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAlreadyProtectedRoutes" name="test_user_auth" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAlreadyProtectedRoutes" name="test_cronjobs" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAlreadyProtectedRoutes" name="test_queue" time="0.001" /><testcase classname="tests.test_policy_middleware.TestMonitorRouter" name="test_monitor_root_read" time="0.001" /><testcase classname="tests.test_policy_middleware.TestMonitorRouter" name="test_monitor_agents" time="0.001" /><testcase classname="tests.test_policy_middleware.TestMonitorRouter" name="test_monitor_messages" time="0.000" /><testcase classname="tests.test_policy_middleware.TestMonitorRouter" name="test_monitor_stream" time="0.000" /><testcase classname="tests.test_policy_middleware.TestMonitorRouter" name="test_monitor_intervene_write" time="0.000" /><testcase classname="tests.test_policy_middleware.TestMonitorRouter" name="test_monitor_export" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterDashboardCompatibility" name="test_worker_dashboard_reads_skip_opa" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterDashboardCompatibility" name="test_workspace_list_requires_codebases_read" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterDashboardCompatibility" name="test_github_app_workflow_pane_requires_task_read" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterAdmin" name="test_database_endpoints" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterAdmin" name="test_deduplicate" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterAdmin" name="test_stuck_tasks" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterAdmin" name="test_reaper" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterAdmin" name="test_vault" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterCodebases" name="test_create" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterCodebases" name="test_list" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterCodebases" name="test_get_one" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterCodebases" name="test_delete" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterCodebases" name="test_trigger" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterCodebases" name="test_message" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterCodebases" name="test_upload" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterCodebases" name="test_download" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterTasks" name="test_create" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterTasks" name="test_list" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterTasks" name="test_get_one" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterTasks" name="test_cancel" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterTasks" name="test_update_status" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterTasks" name="test_output_write" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterTasks" name="test_output_read" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterTasks" name="test_requeue" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterWorkers" name="test_register" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterWorkers" name="test_unregister" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterWorkers" name="test_list" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterWorkers" name="test_get_one" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterWorkers" name="test_heartbeat" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterSessions" name="test_list" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterSessions" name="test_ingest" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterSessions" name="test_sync" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterSessions" name="test_resume" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterApiKeys" name="test_list" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterApiKeys" name="test_create" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAgentRouterApiKeys" name="test_delete" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAgentRouterApiKeys" name="test_sync" time="0.000" /><testcase classname="tests.test_policy_middleware.TestVoiceRouter" name="test_list_voices" time="0.000" /><testcase classname="tests.test_policy_middleware.TestVoiceRouter" name="test_create_session" time="0.000" /><testcase classname="tests.test_policy_middleware.TestVoiceRouter" name="test_delete_session" time="0.001" /><testcase classname="tests.test_policy_middleware.TestVoiceRouter" name="test_get_session" time="0.000" /><testcase classname="tests.test_policy_middleware.TestRalphRouter" name="test_create_run" time="0.001" /><testcase classname="tests.test_policy_middleware.TestRalphRouter" name="test_list_runs" time="0.001" /><testcase classname="tests.test_policy_middleware.TestRalphRouter" name="test_cancel_run" time="0.001" /><testcase classname="tests.test_policy_middleware.TestRalphRouter" name="test_delete_run" time="0.001" /><testcase classname="tests.test_policy_middleware.TestRalphRouter" name="test_chat" time="0.001" /><testcase classname="tests.test_policy_middleware.TestEmailRouter" name="test_inbound_webhook" time="0.001" /><testcase classname="tests.test_policy_middleware.TestEmailRouter" name="test_admin_endpoints" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAnalyticsRouter" name="test_tracking" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAnalyticsRouter" name="test_admin_views" time="0.001" /><testcase classname="tests.test_policy_middleware.TestMCPRouter" name="test_rpc_write" time="0.000" /><testcase classname="tests.test_policy_middleware.TestMCPRouter" name="test_message_write" time="0.000" /><testcase classname="tests.test_policy_middleware.TestMCPRouter" name="test_tasks_write" time="0.001" /><testcase classname="tests.test_policy_middleware.TestMCPRouter" name="test_tasks_read" time="0.000" /><testcase classname="tests.test_policy_middleware.TestMCPRouter" name="test_root_discovery_public" time="0.001" /><testcase classname="tests.test_policy_middleware.TestMCPRouter" name="test_root_rpc_requires_write" time="0.000" /><testcase classname="tests.test_policy_middleware.TestMCPRouter" name="test_sse" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAuthRouterProtectedEndpoints" name="test_session" time="0.001" /><testcase classname="tests.test_policy_middleware.TestAuthRouterProtectedEndpoints" name="test_sync" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAuthRouterProtectedEndpoints" name="test_user_codebases_read" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAuthRouterProtectedEndpoints" name="test_user_codebases_write" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAuthRouterProtectedEndpoints" name="test_user_codebases_delete" time="0.000" /><testcase classname="tests.test_policy_middleware.TestAuthRouterProtectedEndpoints" name="test_user_sessions" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_create_rule" time="0.001" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_list_rules" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_get_rule" time="0.001" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_update_rule" time="0.001" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_delete_rule" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_rule_runs" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_create_health_check" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_list_health_checks" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_get_health_check" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_update_health_check" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_delete_health_check" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_create_loop" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_list_loops" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_get_loop" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_update_loop" time="0.001" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_delete_loop" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_loop_iterations" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_decisions" time="0.000" /><testcase classname="tests.test_policy_middleware.TestProactiveRouter" name="test_status" time="0.001" /><testcase classname="tests.test_policy_middleware.TestTokenBillingRouter" name="test_budget_write" time="0.000" /><testcase classname="tests.test_policy_middleware.TestTokenBillingRouter" name="test_budget_update" time="0.000" /><testcase classname="tests.test_policy_middleware.TestTokenBillingRouter" name="test_budget_delete" time="0.001" /><testcase classname="tests.test_policy_middleware.TestTokenBillingRouter" name="test_pricing_write" time="0.000" /><testcase classname="tests.test_policy_middleware.TestTokenBillingRouter" name="test_usage_read" time="0.000" /><testcase classname="tests.test_policy_middleware.TestTokenBillingRouter" name="test_summary_read" time="0.001" /><testcase classname="tests.test_policy_middleware.TestOpaEnabledToggle" name="test_middleware_bypasses_when_disabled" time="0.001" /><testcase classname="tests.test_policy_middleware" name="test_github_app_workflow_pane_requires_task_read" time="0.000" /><testcase classname="tests.test_policy_middleware.TestA2AProtocolZeroTrust" name="test_jsonrpc_root_requires_execute" time="0.000" /><testcase classname="tests.test_policy_middleware.TestA2AProtocolZeroTrust" name="test_v1_a2a_requires_execute" time="0.000" /><testcase classname="tests.test_policy_middleware.TestA2AProtocolZeroTrust" name="test_a2a_jsonrpc_requires_execute" time="0.000" /><testcase classname="tests.test_policy_middleware.TestA2AProtocolZeroTrust" name="test_a2a_rest_send_requires_execute" time="0.000" /><testcase classname="tests.test_policy_middleware.TestA2AProtocolZeroTrust" name="test_a2a_rest_task_read" time="0.000" /><testcase classname="tests.test_policy_middleware.TestA2AProtocolZeroTrust" name="test_a2a_discovery_public" time="0.001" /><testcase classname="tests.test_policy.TestAuthSourceDetection" name="test_api_key_detected" time="0.000" /><testcase classname="tests.test_policy.TestAuthSourceDetection" name="test_keycloak_detected" time="0.000" /><testcase classname="tests.test_policy.TestAuthSourceDetection" name="test_self_service_default" time="0.000" /><testcase classname="tests.test_policy.TestRoleBasedAccess" name="test_admin_full_access" time="0.090"><failure message="assert False">self = &lt;test_policy.TestRoleBasedAccess object at 0x703e136e5d00&gt;
+
+    @pytest.mark.asyncio
+    async def test_admin_full_access(self):
+&gt;       assert await check_policy(admin_user(), "admin:access")
+E       assert False
+
+tests/test_policy.py:171: AssertionError</failure></testcase><testcase classname="tests.test_policy.TestRoleBasedAccess" name="test_a2a_admin_inherits_admin" time="0.003"><failure message="RuntimeError: Event loop is closed">self = &lt;test_policy.TestRoleBasedAccess object at 0x703e136e4950&gt;
+
+    @pytest.mark.asyncio
+    async def test_a2a_admin_inherits_admin(self):
+&gt;       assert await check_policy(a2a_admin_user(), "admin:access")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_policy.py:177: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/policy.py:464: in check_policy
+    resp = await client.post(f'/{OPA_AUTHZ_PATH}', json=opa_input)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_transports/default.py:394: in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
+    raise exc from None
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
+    response = await connection.handle_async_request(
+.venv/lib/python3.12/site-packages/httpcore/_async/connection.py:103: in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:135: in handle_async_request
+    await self._response_closed()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:250: in _response_closed
+    await self.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:258: in aclose
+    await self._network_stream.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py:53: in aclose
+    await self._stream.aclose()
+.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1352: in aclose
+    self._transport.close()
+/usr/lib/python3.12/asyncio/selector_events.py:1211: in close
+    super().close()
+/usr/lib/python3.12/asyncio/selector_events.py:875: in close
+    self._loop.call_soon(self._call_connection_lost, None)
+/usr/lib/python3.12/asyncio/base_events.py:795: in call_soon
+    self._check_closed()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;_UnixSelectorEventLoop running=False closed=True debug=False&gt;
+
+    def _check_closed(self):
+        if self._closed:
+&gt;           raise RuntimeError('Event loop is closed')
+E           RuntimeError: Event loop is closed
+
+/usr/lib/python3.12/asyncio/base_events.py:541: RuntimeError</failure></testcase><testcase classname="tests.test_policy.TestRoleBasedAccess" name="test_operator_permissions" time="0.007"><failure message="assert False">self = &lt;test_policy.TestRoleBasedAccess object at 0x703e136e5370&gt;
+
+    @pytest.mark.asyncio
+    async def test_operator_permissions(self):
+&gt;       assert await check_policy(operator_user(), "tasks:read")
+E       assert False
+
+tests/test_policy.py:182: AssertionError</failure></testcase><testcase classname="tests.test_policy.TestRoleBasedAccess" name="test_editor_permissions" time="0.002"><failure message="RuntimeError: Event loop is closed">self = &lt;test_policy.TestRoleBasedAccess object at 0x703e136e5e20&gt;
+
+    @pytest.mark.asyncio
+    async def test_editor_permissions(self):
+&gt;       assert await check_policy(editor_user(), "tasks:write")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_policy.py:189: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/policy.py:464: in check_policy
+    resp = await client.post(f'/{OPA_AUTHZ_PATH}', json=opa_input)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_transports/default.py:394: in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
+    raise exc from None
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
+    response = await connection.handle_async_request(
+.venv/lib/python3.12/site-packages/httpcore/_async/connection.py:103: in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:135: in handle_async_request
+    await self._response_closed()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:250: in _response_closed
+    await self.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:258: in aclose
+    await self._network_stream.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py:53: in aclose
+    await self._stream.aclose()
+.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1352: in aclose
+    self._transport.close()
+/usr/lib/python3.12/asyncio/selector_events.py:1211: in close
+    super().close()
+/usr/lib/python3.12/asyncio/selector_events.py:875: in close
+    self._loop.call_soon(self._call_connection_lost, None)
+/usr/lib/python3.12/asyncio/base_events.py:795: in call_soon
+    self._check_closed()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;_UnixSelectorEventLoop running=False closed=True debug=False&gt;
+
+    def _check_closed(self):
+        if self._closed:
+&gt;           raise RuntimeError('Event loop is closed')
+E           RuntimeError: Event loop is closed
+
+/usr/lib/python3.12/asyncio/base_events.py:541: RuntimeError</failure></testcase><testcase classname="tests.test_policy.TestRoleBasedAccess" name="test_viewer_read_only" time="0.007"><failure message="assert False">self = &lt;test_policy.TestRoleBasedAccess object at 0x703e136e6300&gt;
+
+    @pytest.mark.asyncio
+    async def test_viewer_read_only(self):
+&gt;       assert await check_policy(viewer_user(), "tasks:read")
+E       assert False
+
+tests/test_policy.py:196: AssertionError</failure></testcase><testcase classname="tests.test_policy.TestRoleBasedAccess" name="test_no_roles_denied" time="0.003"><failure message="RuntimeError: Event loop is closed">self = &lt;test_policy.TestRoleBasedAccess object at 0x703e136e6810&gt;
+
+    @pytest.mark.asyncio
+    async def test_no_roles_denied(self):
+&gt;       assert not await check_policy(no_role_user(), "tasks:read")
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_policy.py:203: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/policy.py:464: in check_policy
+    resp = await client.post(f'/{OPA_AUTHZ_PATH}', json=opa_input)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_transports/default.py:394: in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
+    raise exc from None
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
+    response = await connection.handle_async_request(
+.venv/lib/python3.12/site-packages/httpcore/_async/connection.py:103: in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:135: in handle_async_request
+    await self._response_closed()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:250: in _response_closed
+    await self.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:258: in aclose
+    await self._network_stream.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py:53: in aclose
+    await self._stream.aclose()
+.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1352: in aclose
+    self._transport.close()
+/usr/lib/python3.12/asyncio/selector_events.py:1211: in close
+    super().close()
+/usr/lib/python3.12/asyncio/selector_events.py:875: in close
+    self._loop.call_soon(self._call_connection_lost, None)
+/usr/lib/python3.12/asyncio/base_events.py:795: in call_soon
+    self._check_closed()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;_UnixSelectorEventLoop running=False closed=True debug=False&gt;
+
+    def _check_closed(self):
+        if self._closed:
+&gt;           raise RuntimeError('Event loop is closed')
+E           RuntimeError: Event loop is closed
+
+/usr/lib/python3.12/asyncio/base_events.py:541: RuntimeError</failure></testcase><testcase classname="tests.test_policy.TestRoleBasedAccess" name="test_self_service_user_gets_default_editor_role" time="0.008"><failure message="assert False">self = &lt;test_policy.TestRoleBasedAccess object at 0x703e136e6c00&gt;
+
+    @pytest.mark.asyncio
+    async def test_self_service_user_gets_default_editor_role(self):
+        """Self-service users (no keycloak_sub) get default editor role."""
+        self_service = {
+            "id": "user-selfserv",
+            "user_id": "user-selfserv",
+            "email": "self@test.com",
+            "roles": [],
+            "tenant_id": "tenant-1",
+        }
+&gt;       assert await check_policy(self_service, "tasks:read")
+E       assert False
+
+tests/test_policy.py:215: AssertionError</failure></testcase><testcase classname="tests.test_policy.TestRoleBasedAccess" name="test_tenant_keycloak_default_roles_get_default_editor_role" time="0.004"><failure message="RuntimeError: Event loop is closed">self = &lt;test_policy.TestRoleBasedAccess object at 0x703e136e6f90&gt;
+
+    @pytest.mark.asyncio
+    async def test_tenant_keycloak_default_roles_get_default_editor_role(self):
+        """Tenant Keycloak users with only built-ins can read DB workflow panes."""
+        user = tenant_keycloak_default_roles_user()
+        assert _effective_roles(user) == ["editor"]
+&gt;       assert await check_policy(user, "tasks:read")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_policy.py:224: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/policy.py:464: in check_policy
+    resp = await client.post(f'/{OPA_AUTHZ_PATH}', json=opa_input)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_transports/default.py:394: in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
+    raise exc from None
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
+    response = await connection.handle_async_request(
+.venv/lib/python3.12/site-packages/httpcore/_async/connection.py:103: in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:135: in handle_async_request
+    await self._response_closed()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:250: in _response_closed
+    await self.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:258: in aclose
+    await self._network_stream.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py:53: in aclose
+    await self._stream.aclose()
+.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1352: in aclose
+    self._transport.close()
+/usr/lib/python3.12/asyncio/selector_events.py:1211: in close
+    super().close()
+/usr/lib/python3.12/asyncio/selector_events.py:875: in close
+    self._loop.call_soon(self._call_connection_lost, None)
+/usr/lib/python3.12/asyncio/base_events.py:795: in call_soon
+    self._check_closed()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;_UnixSelectorEventLoop running=False closed=True debug=False&gt;
+
+    def _check_closed(self):
+        if self._closed:
+&gt;           raise RuntimeError('Event loop is closed')
+E           RuntimeError: Event loop is closed
+
+/usr/lib/python3.12/asyncio/base_events.py:541: RuntimeError</failure></testcase><testcase classname="tests.test_policy.TestRoleBasedAccess" name="test_tenant_keycloak_app_roles_are_preserved" time="0.006"><failure message="assert False">self = &lt;test_policy.TestRoleBasedAccess object at 0x703e136663f0&gt;
+
+    @pytest.mark.asyncio
+    async def test_tenant_keycloak_app_roles_are_preserved(self):
+        user = tenant_keycloak_app_roles_user()
+        assert _effective_roles(user) == ["viewer"]
+&gt;       assert await check_policy(user, "tasks:read")
+E       assert False
+
+tests/test_policy.py:232: AssertionError</failure></testcase><testcase classname="tests.test_policy.TestRoleBasedAccess" name="test_public_endpoints_always_allowed" time="0.002"><failure message="RuntimeError: Event loop is closed">self = &lt;test_policy.TestRoleBasedAccess object at 0x703e13675700&gt;
+
+    @pytest.mark.asyncio
+    async def test_public_endpoints_always_allowed(self):
+&gt;       assert await check_policy(no_role_user(), "health")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_policy.py:237: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/policy.py:464: in check_policy
+    resp = await client.post(f'/{OPA_AUTHZ_PATH}', json=opa_input)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_transports/default.py:394: in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
+    raise exc from None
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
+    response = await connection.handle_async_request(
+.venv/lib/python3.12/site-packages/httpcore/_async/connection.py:103: in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:135: in handle_async_request
+    await self._response_closed()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:250: in _response_closed
+    await self.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:258: in aclose
+    await self._network_stream.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py:53: in aclose
+    await self._stream.aclose()
+.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1352: in aclose
+    self._transport.close()
+/usr/lib/python3.12/asyncio/selector_events.py:1211: in close
+    super().close()
+/usr/lib/python3.12/asyncio/selector_events.py:875: in close
+    self._loop.call_soon(self._call_connection_lost, None)
+/usr/lib/python3.12/asyncio/base_events.py:795: in call_soon
+    self._check_closed()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;_UnixSelectorEventLoop running=False closed=True debug=False&gt;
+
+    def _check_closed(self):
+        if self._closed:
+&gt;           raise RuntimeError('Event loop is closed')
+E           RuntimeError: Event loop is closed
+
+/usr/lib/python3.12/asyncio/base_events.py:541: RuntimeError</failure></testcase><testcase classname="tests.test_policy.TestApiKeyScopes" name="test_in_scope_allowed" time="0.007"><failure message="assert False">self = &lt;test_policy.TestApiKeyScopes object at 0x703e136e6ff0&gt;
+
+    @pytest.mark.asyncio
+    async def test_in_scope_allowed(self):
+&gt;       assert await check_policy(api_key_user_read_write(), "tasks:read")
+E       assert False
+
+tests/test_policy.py:248: AssertionError</failure></testcase><testcase classname="tests.test_policy.TestApiKeyScopes" name="test_out_of_scope_denied" time="0.003"><failure message="RuntimeError: Event loop is closed">self = &lt;test_policy.TestApiKeyScopes object at 0x703e136e69f0&gt;
+
+    @pytest.mark.asyncio
+    async def test_out_of_scope_denied(self):
+        # editor role grants codebases:read, but api key scopes don't
+&gt;       assert not await check_policy(api_key_user_read_write(), "codebases:read")
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_policy.py:254: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/policy.py:464: in check_policy
+    resp = await client.post(f'/{OPA_AUTHZ_PATH}', json=opa_input)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_transports/default.py:394: in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
+    raise exc from None
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
+    response = await connection.handle_async_request(
+.venv/lib/python3.12/site-packages/httpcore/_async/connection.py:103: in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:135: in handle_async_request
+    await self._response_closed()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:250: in _response_closed
+    await self.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:258: in aclose
+    await self._network_stream.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py:53: in aclose
+    await self._stream.aclose()
+.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1352: in aclose
+    self._transport.close()
+/usr/lib/python3.12/asyncio/selector_events.py:1211: in close
+    super().close()
+/usr/lib/python3.12/asyncio/selector_events.py:875: in close
+    self._loop.call_soon(self._call_connection_lost, None)
+/usr/lib/python3.12/asyncio/base_events.py:795: in call_soon
+    self._check_closed()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;_UnixSelectorEventLoop running=False closed=True debug=False&gt;
+
+    def _check_closed(self):
+        if self._closed:
+&gt;           raise RuntimeError('Event loop is closed')
+E           RuntimeError: Event loop is closed
+
+/usr/lib/python3.12/asyncio/base_events.py:541: RuntimeError</failure></testcase><testcase classname="tests.test_policy.TestApiKeyScopes" name="test_readonly_key_denied_write" time="0.006" /><testcase classname="tests.test_policy.TestApiKeyScopes" name="test_readonly_key_allowed_read" time="0.002"><failure message="RuntimeError: Event loop is closed">self = &lt;test_policy.TestApiKeyScopes object at 0x703e136e51c0&gt;
+
+    @pytest.mark.asyncio
+    async def test_readonly_key_allowed_read(self):
+&gt;       assert await check_policy(api_key_user_readonly(), "tasks:read")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_policy.py:262: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/policy.py:464: in check_policy
+    resp = await client.post(f'/{OPA_AUTHZ_PATH}', json=opa_input)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_transports/default.py:394: in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
+    raise exc from None
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
+    response = await connection.handle_async_request(
+.venv/lib/python3.12/site-packages/httpcore/_async/connection.py:103: in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:135: in handle_async_request
+    await self._response_closed()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:250: in _response_closed
+    await self.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:258: in aclose
+    await self._network_stream.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py:53: in aclose
+    await self._stream.aclose()
+.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1352: in aclose
+    self._transport.close()
+/usr/lib/python3.12/asyncio/selector_events.py:1211: in close
+    super().close()
+/usr/lib/python3.12/asyncio/selector_events.py:875: in close
+    self._loop.call_soon(self._call_connection_lost, None)
+/usr/lib/python3.12/asyncio/base_events.py:795: in call_soon
+    self._check_closed()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;_UnixSelectorEventLoop running=False closed=True debug=False&gt;
+
+    def _check_closed(self):
+        if self._closed:
+&gt;           raise RuntimeError('Event loop is closed')
+E           RuntimeError: Event loop is closed
+
+/usr/lib/python3.12/asyncio/base_events.py:541: RuntimeError</failure></testcase><testcase classname="tests.test_policy.TestTenantIsolation" name="test_same_tenant_allowed" time="0.006"><failure message="assert False">self = &lt;test_policy.TestTenantIsolation object at 0x703e136e4f50&gt;
+
+    @pytest.mark.asyncio
+    async def test_same_tenant_allowed(self):
+        resource = {"type": "task", "id": "t1", "tenant_id": "tenant-1"}
+&gt;       assert await check_policy(editor_user(), "tasks:read", resource)
+E       assert False
+
+tests/test_policy.py:272: AssertionError</failure></testcase><testcase classname="tests.test_policy.TestTenantIsolation" name="test_cross_tenant_denied" time="0.002"><failure message="RuntimeError: Event loop is closed">self = &lt;test_policy.TestTenantIsolation object at 0x703e136e4aa0&gt;
+
+    @pytest.mark.asyncio
+    async def test_cross_tenant_denied(self):
+        resource = {"type": "task", "id": "t1", "tenant_id": "tenant-2"}
+&gt;       assert not await check_policy(editor_user(), "tasks:read", resource)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_policy.py:277: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/policy.py:464: in check_policy
+    resp = await client.post(f'/{OPA_AUTHZ_PATH}', json=opa_input)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_transports/default.py:394: in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
+    raise exc from None
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
+    response = await connection.handle_async_request(
+.venv/lib/python3.12/site-packages/httpcore/_async/connection.py:103: in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:135: in handle_async_request
+    await self._response_closed()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:250: in _response_closed
+    await self.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:258: in aclose
+    await self._network_stream.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py:53: in aclose
+    await self._stream.aclose()
+.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1352: in aclose
+    self._transport.close()
+/usr/lib/python3.12/asyncio/selector_events.py:1211: in close
+    super().close()
+/usr/lib/python3.12/asyncio/selector_events.py:875: in close
+    self._loop.call_soon(self._call_connection_lost, None)
+/usr/lib/python3.12/asyncio/base_events.py:795: in call_soon
+    self._check_closed()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;_UnixSelectorEventLoop running=False closed=True debug=False&gt;
+
+    def _check_closed(self):
+        if self._closed:
+&gt;           raise RuntimeError('Event loop is closed')
+E           RuntimeError: Event loop is closed
+
+/usr/lib/python3.12/asyncio/base_events.py:541: RuntimeError</failure></testcase><testcase classname="tests.test_policy.TestTenantIsolation" name="test_admin_cross_tenant_allowed" time="0.007"><failure message="assert False">self = &lt;test_policy.TestTenantIsolation object at 0x703e136e58b0&gt;
+
+    @pytest.mark.asyncio
+    async def test_admin_cross_tenant_allowed(self):
+        resource = {"type": "task", "id": "t1", "tenant_id": "tenant-2"}
+&gt;       assert await check_policy(admin_user(), "tasks:read", resource)
+E       assert False
+
+tests/test_policy.py:282: AssertionError</failure></testcase><testcase classname="tests.test_policy.TestTenantIsolation" name="test_no_resource_tenant_defers" time="0.003"><failure message="RuntimeError: Event loop is closed">self = &lt;test_policy.TestTenantIsolation object at 0x703e136e7710&gt;
+
+    @pytest.mark.asyncio
+    async def test_no_resource_tenant_defers(self):
+        resource = {"type": "task", "id": "t1"}
+&gt;       assert await check_policy(editor_user(), "tasks:read", resource)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_policy.py:287: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/policy.py:464: in check_policy
+    resp = await client.post(f'/{OPA_AUTHZ_PATH}', json=opa_input)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_transports/default.py:394: in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
+    raise exc from None
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
+    response = await connection.handle_async_request(
+.venv/lib/python3.12/site-packages/httpcore/_async/connection.py:103: in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:135: in handle_async_request
+    await self._response_closed()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:250: in _response_closed
+    await self.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:258: in aclose
+    await self._network_stream.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py:53: in aclose
+    await self._stream.aclose()
+.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1352: in aclose
+    self._transport.close()
+/usr/lib/python3.12/asyncio/selector_events.py:1211: in close
+    super().close()
+/usr/lib/python3.12/asyncio/selector_events.py:875: in close
+    self._loop.call_soon(self._call_connection_lost, None)
+/usr/lib/python3.12/asyncio/base_events.py:795: in call_soon
+    self._check_closed()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;_UnixSelectorEventLoop running=False closed=True debug=False&gt;
+
+    def _check_closed(self):
+        if self._closed:
+&gt;           raise RuntimeError('Event loop is closed')
+E           RuntimeError: Event loop is closed
+
+/usr/lib/python3.12/asyncio/base_events.py:541: RuntimeError</failure></testcase><testcase classname="tests.test_policy.TestEnforcePolicy" name="test_enforce_allows_admin" time="0.001"><failure message="fastapi.exceptions.HTTPException: 403: Access denied: insufficient permissions for 'admin:access'">self = &lt;test_policy.TestEnforcePolicy object at 0x703e136e7b00&gt;
+
+    @pytest.mark.asyncio
+    async def test_enforce_allows_admin(self):
+&gt;       await enforce_policy(admin_user(), "admin:access")  # should not raise
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_policy.py:296: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+user = {'email': 'admin@test.com', 'id': 'user-admin', 'roles': ['admin'], 'tenant_id': 'tenant-1', ...}
+action = 'admin:access', resource = None
+
+    async def enforce_policy(
+        user: dict[str, Any],
+        action: str,
+        resource: dict[str, Any] | None = None,
+    ) -&gt; None:
+        """Enforce policy — raises HTTPException 403 if denied."""
+        allowed = await check_policy(user, action, resource)
+        if not allowed:
+&gt;           raise HTTPException(
+                status_code=403,
+                detail=f"Access denied: insufficient permissions for '{action}'",
+            )
+E           fastapi.exceptions.HTTPException: 403: Access denied: insufficient permissions for 'admin:access'
+
+a2a_server/policy.py:532: HTTPException</failure></testcase><testcase classname="tests.test_policy.TestEnforcePolicy" name="test_enforce_denies_viewer_write" time="0.006" /><testcase classname="tests.test_policy.TestEnforcePolicy" name="test_enforce_denies_cross_tenant" time="0.003"><failure message="RuntimeError: Event loop is closed">self = &lt;test_policy.TestEnforcePolicy object at 0x703e136bc260&gt;
+
+    @pytest.mark.asyncio
+    async def test_enforce_denies_cross_tenant(self):
+        resource = {"type": "task", "id": "t1", "tenant_id": "tenant-2"}
+        with pytest.raises(HTTPException) as exc_info:
+&gt;           await enforce_policy(editor_user(), "tasks:read", resource)
+
+tests/test_policy.py:308: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+a2a_server/policy.py:530: in enforce_policy
+    allowed = await check_policy(user, action, resource)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+a2a_server/policy.py:464: in check_policy
+    resp = await client.post(f'/{OPA_AUTHZ_PATH}', json=opa_input)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+.venv/lib/python3.12/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpx/_transports/default.py:394: in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
+    raise exc from None
+.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
+    response = await connection.handle_async_request(
+.venv/lib/python3.12/site-packages/httpcore/_async/connection.py:103: in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:135: in handle_async_request
+    await self._response_closed()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:250: in _response_closed
+    await self.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_async/http11.py:258: in aclose
+    await self._network_stream.aclose()
+.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py:53: in aclose
+    await self._stream.aclose()
+.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1352: in aclose
+    self._transport.close()
+/usr/lib/python3.12/asyncio/selector_events.py:1211: in close
+    super().close()
+/usr/lib/python3.12/asyncio/selector_events.py:875: in close
+    self._loop.call_soon(self._call_connection_lost, None)
+/usr/lib/python3.12/asyncio/base_events.py:795: in call_soon
+    self._check_closed()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = &lt;_UnixSelectorEventLoop running=False closed=True debug=False&gt;
+
+    def _check_closed(self):
+        if self._closed:
+&gt;           raise RuntimeError('Event loop is closed')
+E           RuntimeError: Event loop is closed
+
+/usr/lib/python3.12/asyncio/base_events.py:541: RuntimeError</failure></testcase><testcase classname="tests.test_policy.TestInputBuilding" name="test_build_input_admin" time="0.001" /><testcase classname="tests.test_policy.TestInputBuilding" name="test_build_input_api_key" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_issue_pr_provenance_allows_review" time="0.002" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_issue_pr_provenance_denies_wrong_action" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_issue_final_comment_queues_review_task" time="0.002" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_review_completion_publishes_review_before_merge_task" time="0.005" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_review_task_records_allow_decision_without_builder_target" time="0.004" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_review_task_records_deny_decision" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_review_task_requests_triggering_human_review" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_merge_task_requires_explicit_approval[CHANGES_REQUESTED: tests failed]" time="0.002" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_merge_task_requires_explicit_approval[BLOCKED: provenance mismatch]" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_merge_task_requires_explicit_approval[completed without verdict]" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_change_request_followup_skips_duplicate_tag" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_reviewer_approval_ignores_blocked_prose" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_merge_task_records_sha_mismatch" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_merge_task_blocks_unresolved_review_feedback" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_merge_task_auto_merges_when_feedback_addressed" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_merge_task_enables_github_auto_merge_when_direct_merge_blocked" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_merge_task_blocks_failed_status_checks" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_merge_provenance_uses_merge_steward_actor" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_fix_followup_creates_task_on_changes_requested" time="0.003" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_change_request_action_line_tags_protocol_and_mention_paths" time="0.000" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_fix_followup_creates_task_on_blocked" time="0.002" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_fix_followup_skips_approved" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_fix_followup_skips_no_verdict" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_fix_followup_skips_closed_pr" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_fix_followup_skips_sha_mismatch" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_fix_followup_skips_forked_pr" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_fix_followup_skips_missing_metadata" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_fix_followup_enforces_max_attempts" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_fix_followup_includes_review_context_in_prompt" time="0.003" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_merge_task_uses_protocol_native_fix_as_primary" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_merge_task_falls_back_to_mention_on_fix_failure" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_create_merge_task_does_not_call_fix_on_approval" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_fix_followup_prompt_includes_attempt_counter" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_fix_followup_prompt_no_attempt_on_first" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_branch_verification_uses_git_ref_endpoint" time="0.001" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_issue_final_comment_reports_missing_branch_as_infra_failure" time="0.004" /><testcase classname="tests.test_github_app_issue_review_flow" name="test_issue_terminal_normalization_fails_missing_branch_before_check" time="0.008" /><testcase classname="tests.test_github_app_mentions" name="test_mentions_bot_is_case_insensitive" time="0.001" /><testcase classname="tests.test_github_app_mentions" name="test_handle_this_bug_is_actionable_issue_request" time="0.001" /><testcase classname="tests.test_github_app_mentions" name="test_plain_mention_without_action_still_not_fix_request" time="0.001" /><testcase classname="tests.test_github_app_mentions" name="test_assignment_language_is_a_fix_request" time="0.001" /><testcase classname="tests.test_github_app_mentions" name="test_issue_opened_body_mention_extracts_context" time="0.001" /><testcase classname="tests.test_github_app_mentions" name="test_issue_edit_only_triggers_when_mention_is_new" time="0.001" /><testcase classname="tests.test_github_app_mentions" name="test_edited_issue_attributes_trigger_to_sender" time="0.001" /><testcase classname="tests.test_github_app_mentions" name="test_edited_pull_request_attributes_trigger_to_sender" time="0.000" /><testcase classname="tests.test_github_app_provenance_session" name="test_merge_matching_session_allowed" time="0.001" /><testcase classname="tests.test_github_app_provenance_session" name="test_merge_for_different_pr_denied" time="0.001" /><testcase classname="tests.test_github_app_provenance_session" name="test_taint_stripping_detected" time="0.001" /><testcase classname="tests.test_github_app_provenance_session" name="test_missing_session_denied_when_required" time="0.001" /><testcase classname="tests.test_github_app_provenance_session" name="test_first_stage_without_session_allowed" time="0.000" /><testcase classname="tests.test_github_app_provenance_session" name="test_session_state_absent_without_recorded_provenance" time="0.001" /><testcase classname="tests.test_github_app_provenance_session" name="test_origin_is_stable_across_stages" time="0.001" /><testcase classname="tests.test_job_worker_supervisor.ConfigAndHttpTests" name="test_authenticated_exact_task_get" time="0.001" /><testcase classname="tests.test_job_worker_supervisor.ConfigAndHttpTests" name="test_bad_response_cannot_supply_success" time="0.004" /><testcase classname="tests.test_job_worker_supervisor.ConfigAndHttpTests" name="test_environment_validation_does_not_reflect_secrets" time="0.002" /><testcase classname="tests.test_job_worker_supervisor.ConfigAndHttpTests" name="test_errors_and_redirects_never_echo_credentials" time="0.001" /><testcase classname="tests.test_job_worker_supervisor.ConfigAndHttpTests" name="test_spire_native_reads_rotating_svid_file" time="0.005" /><testcase classname="tests.test_job_worker_supervisor.ConfigAndHttpTests" name="test_svid_mode_requires_absolute_path" time="0.001" /><testcase classname="tests.test_job_worker_supervisor.ConfigAndHttpTests" name="test_token_mode_still_requires_token" time="0.001" /><testcase classname="tests.test_job_worker_supervisor.LifecycleTests" name="test_branch_metadata_is_saved_only_after_owned_child_shutdown" time="0.004" /><testcase classname="tests.test_job_worker_supervisor.LifecycleTests" name="test_completed_after_deadline_is_rejected" time="0.004" /><testcase classname="tests.test_job_worker_supervisor.LifecycleTests" name="test_failed_and_cancelled_tasks_exit_nonzero" time="0.008" /><testcase classname="tests.test_job_worker_supervisor.LifecycleTests" name="test_lost_child_ownership_does_not_signal_any_group" time="0.003" /><testcase classname="tests.test_job_worker_supervisor.LifecycleTests" name="test_only_confirmed_completed_succeeds_and_audits_after_stop" time="0.097" /><testcase classname="tests.test_job_worker_supervisor.LifecycleTests" name="test_poll_errors_are_bounded_and_never_success" time="0.007" /><testcase classname="tests.test_job_worker_supervisor.LifecycleTests" name="test_readonly_success_never_audits_git" time="0.003" /><testcase classname="tests.test_job_worker_supervisor.LifecycleTests" name="test_start_and_result_write_failures_are_private" time="0.005" /><testcase classname="tests.test_job_worker_supervisor.LifecycleTests" name="test_termination_is_forwarded_to_owned_group" time="0.003" /><testcase classname="tests.test_job_worker_supervisor.LifecycleTests" name="test_worker_exit_is_not_task_success" time="0.004" /><testcase classname="tests.test_job_worker_supervisor.AuditTests" name="test_branch_map_accepts_full_sha256_ids" time="0.002" /><testcase classname="tests.test_job_worker_supervisor.AuditTests" name="test_branch_map_is_available_when_cached_refs_say_unpushed" time="0.002" /><testcase classname="tests.test_job_worker_supervisor.AuditTests" name="test_clean_evidence_checks_only_local_branches" time="0.002" /><testcase classname="tests.test_job_worker_supervisor.AuditTests" name="test_committed_gitmodules_file_is_ordinary_content" time="0.002" /><testcase classname="tests.test_job_worker_supervisor.AuditTests" name="test_dirty_stash_unpushed_and_errors_retain_workspace" time="0.007" /><testcase classname="tests.test_job_worker_supervisor.AuditTests" name="test_git_ref_format_rejection_keeps_audit_unknown" time="0.002" /><testcase classname="tests.test_job_worker_supervisor.AuditTests" name="test_initialised_submodules_shallow_or_alternates_are_unsupported" time="0.003" /><testcase classname="tests.test_job_worker_supervisor.AuditTests" name="test_invalid_branch_map_never_exposes_a_partial_map" time="0.013" /><testcase classname="tests.test_job_worker_supervisor.AuditTests" name="test_missing_workspace_is_unknown_not_clean" time="0.001" /><testcase classname="tests.test_job_worker_supervisor.LocalGitTests" name="test_pushed_branch_is_reported_with_single_branch_fetch_refspec" time="0.093" /><testcase classname="tests.test_worker_claim_polling" name="test_normalize_capabilities_expands_persistent_aliases" time="0.001" /><testcase classname="tests.test_worker_claim_polling" name="test_pending_task_polling_hides_claimed_tasks" time="0.004" /><testcase classname="tests.test_worker_claim_polling" name="test_pending_polling_hides_targeted_tasks_from_unknown_workers" time="0.001" /><testcase classname="tests.test_worker_claim_polling" name="test_pending_polling_includes_tasks_targeted_to_requester" time="0.001" /><testcase classname="tests.test_worker_claim_polling" name="test_claim_task_falls_back_to_db_when_bridge_update_misses" time="0.022" /><testcase classname="tests.test_worker_claim_polling" name="test_claim_task_returns_attached_task_run_metadata" time="0.016" /><testcase classname="tests.test_worker_claim_polling" name="test_claim_task_uses_db_worker_name_when_registry_misses" time="0.004" /><testcase classname="tests.test_worker_claim_polling" name="test_claim_task_rejects_worker_missing_required_capability" time="0.001" /><testcase classname="tests.test_worker_claim_polling" name="test_notify_uses_metadata_required_capabilities" time="0.001" /><testcase classname="tests.test_worker_claim_polling" name="test_release_task_accepts_db_claim_when_local_registry_misses" time="0.020" /><testcase classname="tests.test_worker_claim_polling" name="test_claim_task_run_helper_matches_deployed_schema" time="0.002" /><testcase classname="tests.test_worker_claim_polling" name="test_pending_task_query_keeps_fire_and_forget_tasks_visible" time="0.001" /><testcase classname="tests.test_worker_claim_polling" name="test_unfiltered_task_listing_is_newest_first" time="0.001" /><testcase classname="tests.test_worker_claim_polling" name="test_worker_stream_headers_disable_proxy_transforms" time="0.001" /><testcase classname="tests.test_stream_live_acceptance" name="test_live_reconnect_replays_gap_over_real_socket" time="0.486" /><testcase classname="tests.test_forgejo_webhooks" name="test_signed_pr_sync_uses_single_owner_even_for_bot_push" time="0.011" /><testcase classname="tests.test_forgejo_webhooks" name="test_bad_signature_cannot_start_single_owner" time="0.005" /><testcase classname="tests.test_forgejo_webhooks" name="test_failed_status_webhook_queues_matching_pr_remediation" time="0.004" /><testcase classname="tests.test_forgejo_webhooks" name="test_status_webhook_ignores_success_and_self_status[payload0-non-failed-or-self-status]" time="0.005" /><testcase classname="tests.test_forgejo_webhooks" name="test_status_webhook_ignores_success_and_self_status[payload1-non-failed-or-self-status]" time="0.005" /><testcase classname="tests.test_forgejo_webhooks" name="test_status_webhook_paginates_open_pr_heads" time="0.005" /><testcase classname="tests.test_forgejo_webhooks" name="test_status_webhook_ignores_unmatched_sha" time="0.005" /><testcase classname="tests.test_forgejo_webhooks" name="test_status_webhook_rejects_non_list_pulls" time="0.004" /><testcase classname="tests.test_forgejo_webhooks" name="test_rejects_invalid_signature" time="0.004" /><testcase classname="tests.test_forgejo_webhooks" name="test_ignores_bot_authored_comment" time="0.004" /><testcase classname="tests.test_forgejo_webhooks" name="test_non_fix_mention_is_durable_before_guidance" time="0.004" /><testcase classname="tests.test_forgejo_webhooks" name="test_actionable_issue_is_acknowledged_only_after_receipt" time="0.004" /><testcase classname="tests.test_forgejo_webhooks" name="test_opened_issue_body_is_normalized_as_actionable_context" time="0.000" /><testcase classname="tests.test_forgejo_webhooks" name="test_issue_dispatch_isolates_workspace_by_work_branch" time="0.004" /><testcase classname="tests.test_forgejo_webhooks" name="test_pr_comment_is_normalized_as_pr" time="0.004" /><testcase classname="tests.test_forgejo_webhooks" name="test_edited_existing_mention_does_not_retrigger" time="0.005" /><testcase classname="tests.test_forgejo_webhooks" name="test_active_task_uses_database_pool[row0-True]" time="0.002" /><testcase classname="tests.test_forgejo_webhooks" name="test_active_task_uses_database_pool[None-False]" time="0.001" /><testcase classname="tests.test_forgejo_webhooks" name="test_configured_forgejo_host_is_allowed_without_credential_injection" time="0.001" /><testcase classname="tests.test_forgejo_webhooks" name="test_signed_agent_control_signals_temporal" time="0.004" /><testcase classname="tests.test_forgejo_webhooks" name="test_agent_control_rejects_bad_signature_and_expiry" time="0.004" /><testcase classname="tests.test_forgejo_webhooks" name="test_agent_control_rejects_unknown_action" time="0.003" /><testcase classname="tests.test_forgejo_task_completion" name="test_posts_completed_forgejo_terminal_comment" time="0.001" /><testcase classname="tests.test_forgejo_task_completion" name="test_skips_duplicate_forgejo_terminal_comment" time="0.001" /><testcase classname="tests.test_forgejo_task_completion" name="test_terminal_hook_routes_forgejo_task" time="0.001" /><testcase classname="tests.test_forgejo_task_completion" name="test_review_terminal_signal_without_verdict_sends_empty_string" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_non_fix_mention_posts_actionable_issue_and_pr_guidance" time="0.002" /><testcase classname="tests.test_github_app_router" name="test_build_failed_mention_routes_to_fix_handler" time="0.003" /><testcase classname="tests.test_github_app_router" name="test_bot_authored_issue_comment_is_ignored" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_issue_opened_mention_routes_to_fix_handler" time="0.002" /><testcase classname="tests.test_github_app_router" name="test_issue_edited_ignores_existing_mentions" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_self_authored_issue_comment_is_ignored" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_self_authored_review_comment_is_ignored" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_installation_repositories_event_posts_opt_in_guidance" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_self_authored_installation_repositories_event_is_not_backfilled" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_installation_created_event_posts_opt_in_guidance" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_checks_failed_mention_routes_to_fix_handler" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_changes_requested_review_without_mention_creates_fix_task" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_failed_check_event_dedupes_when_active_task_exists" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_non_changes_requested_review_without_mention_is_ignored" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_non_fix_guidance_suppressed_when_active_task_exists" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_install_event_with_non_dict_installation_payload_is_ignored" time="0.001" /><testcase classname="tests.test_github_app_router" name="test_install_event_skips_non_dict_repo_entries" time="0.001" /><testcase classname="tests.test_agent_bridge_task_reads" name="test_get_task_refreshes_stale_replica_cache_from_database" time="0.002" /></testsuite></testsuites>

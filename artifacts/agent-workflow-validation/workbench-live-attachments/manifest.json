@@ -1,0 +1,26 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "C2DB3AC5-293F-4CAD-95DF-13221ECD0509",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "8EF7499C-83F5-4E51-9609-37EB189C7019.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "live-work-conversation_0_33DDC9D3-31EB-47AB-88FF-F3A307718E97.png",
+        "timestamp" : 1791226912.277
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "C2DB3AC5-293F-4CAD-95DF-13221ECD0509",
+        "deviceName" : "iPhone 16 Pro Max",
+        "exportedFileName" : "D0F99EE4-04CB-45A6-8557-AB212A3FD3B8.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "live-work-session-proof_0_EEE2986D-6D06-4901-8048-748E610EB0B1.json",
+        "timestamp" : 1791226911.704
+      }
+    ],
+    "testIdentifier" : "LiveWorkSessionTests/testLiveLocalAndHarvesterConversations()",
+    "testIdentifierURL" : "test://com.apple.xcode/A2AMonitor/A2AMonitorTests/LiveWorkSessionTests/testLiveLocalAndHarvesterConversations"
+  }
+]

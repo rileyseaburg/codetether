@@ -1,0 +1,67 @@
+# Core web framework and ASGI server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# JSON-RPC implementation
+openai-agents>=0.3.0
+jsonrpcserver>=5.0.0
+
+# Message broker support
+redis>=5.0.0
+async-timeout>=4.0.3
+
+# HTTP client for agent communication
+httpx>=0.25.0
+aiohttp>=3.9.0
+
+# Data validation and serialization
+pydantic>=2.5.0
+
+# Authentication and security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.0
+
+# Logging and monitoring
+structlog>=23.2.0
+
+# Object storage (optional - for MinIO/S3 persistence)
+minio>=7.2.0
+
+# Configuration management
+python-dotenv>=1.0.0
+
+# Utility libraries
+python-multipart>=0.0.6
+
+# MCP (Model Context Protocol) support
+mcp>=1.13.0
+
+# LiveKit integration for real-time media
+livekit>=0.15.0
+livekit-api>=1.0.0
+PyJWT>=2.8.0
+
+# Keycloak OIDC authentication
+python-keycloak>=3.0.0
+
+# PostgreSQL support (async)
+asyncpg>=0.29.0
+sqlalchemy[asyncio]>=2.0.0
+
+# Kubernetes async client (for Knative spawner)
+kubernetes_asyncio>=30.0.0
+
+# Stripe billing
+stripe>=7.0.0
+email-validator>=2.0.0
+
+# A2A Protocol SDK
+a2a-sdk[http-server,postgresql]>=0.3.22
+
+# Cron scheduling support
+croniter>=2.0.0
+pytz>=2024.1
+
+# Durable Forgejo agent orchestration
+temporalio>=1.30.0,<2.0.0

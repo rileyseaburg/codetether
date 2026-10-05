@@ -1,0 +1,256 @@
+[
+  {
+    "file": "marketing-site/src/app/(auth)/login/login-form.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(auth)/register/page.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/billing/page.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "message": "React Hook useEffect has missing dependencies: 'loadBillingStatus', 'loadFinOpsData', and 'loadTokenUsage'. Either include them or remove the dependency array.",
+        "line": 203,
+        "column": 6,
+        "nodeType": "ArrayExpression",
+        "endLine": 203,
+        "endColumn": 29,
+        "suggestions": [
+          {
+            "desc": "Update the dependencies array to be: [authStatus, authToken, loadBillingStatus, loadFinOpsData, loadTokenUsage]",
+            "fix": {
+              "range": [
+                5197,
+                5220
+              ],
+              "text": "[authStatus, authToken, loadBillingStatus, loadFinOpsData, loadTokenUsage]"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/sessions/components/ChatInput.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/settings/page.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "message": "React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array.",
+        "line": 104,
+        "column": 6,
+        "nodeType": "ArrayExpression",
+        "endLine": 104,
+        "endColumn": 25,
+        "suggestions": [
+          {
+            "desc": "Update the dependencies array to be: [status, authToken, loadData]",
+            "fix": {
+              "range": [
+                2791,
+                2810
+              ],
+              "text": "[status, authToken, loadData]"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/tasks/page.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "message": "React Hook useEffect has a missing dependency: 'session.accessToken'. Either include it or remove the dependency array.",
+        "line": 492,
+        "column": 8,
+        "nodeType": "ArrayExpression",
+        "endLine": 492,
+        "endColumn": 124,
+        "suggestions": [
+          {
+            "desc": "Update the dependencies array to be: [apiUrl, ingestTaskOutputPayload, selectedTaskAgentType, selectedTaskId, selectedTaskStatus, session.accessToken, updateTaskSwarmMonitor]",
+            "fix": {
+              "range": [
+                17701,
+                17817
+              ],
+              "text": "[apiUrl, ingestTaskOutputPayload, selectedTaskAgentType, selectedTaskId, selectedTaskStatus, session.accessToken, updateTaskSwarmMonitor]"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/layout.tsx",
+    "errorCount": 2,
+    "baselineErrorCount": 2,
+    "introduced": [],
+    "messages": [
+      {
+        "ruleId": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/home/riley/A2A-Server-MCP/marketing-site/src/app/(dashboard)/layout.tsx:34:9\n  32 |       try {\n  33 |         const user = JSON.parse(userStr)\n> 34 |         setCustomUser(user)\n     |         ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect\n  35 |       } catch {\n  36 |         // Invalid user data\n  37 |         localStorage.removeItem('a2a_token')",
+        "line": 34,
+        "column": 9,
+        "nodeType": null,
+        "endLine": 34,
+        "endColumn": 22
+      },
+      {
+        "ruleId": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/home/riley/A2A-Server-MCP/marketing-site/src/app/(dashboard)/layout.tsx:518:5\n  516 |\n  517 |   useEffect(() => {\n> 518 |     setDarkMode(true)\n      |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect\n  519 |     document.documentElement.classList.add('dark')\n  520 |   }, [])\n  521 |",
+        "line": 518,
+        "column": 5,
+        "nodeType": null,
+        "endLine": 518,
+        "endColumn": 16
+      },
+      {
+        "ruleId": "@next/next/no-img-element",
+        "severity": 1,
+        "message": "Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element",
+        "line": 760,
+        "column": 23,
+        "nodeType": "JSXOpeningElement",
+        "endLine": 764,
+        "endColumn": 25
+      }
+    ]
+  },
+  {
+    "file": "marketing-site/src/auth.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/ApiAuthSync.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/Button.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/Header.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/Pricing.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/middleware.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/e2e/ui-regressions.spec.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/jest.dashboard-shell.config.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(auth)/actions.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/lib/auth-token.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/lib/auth-ui.test.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/lib/billing-display.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/lib/tenant-auth.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/tests/dashboard-shell.test.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/tests/settings-billing.test.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  }
+]

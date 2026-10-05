@@ -1,0 +1,9 @@
+# Keep the working Astra client and toolchains; replace only the Forgejo wrapper.
+FROM registry.quantum-forge.net/cluster-ci-cache/codetether-worker@sha256:c7997d52c0dfc994a25f7019df9e067fadbde3531fac33416480fdb64ae80dc2
+COPY scripts/harvester/forgejo_auth.py /usr/local/lib/codetether/forgejo_auth.py
+COPY scripts/harvester/forgejo-cli /usr/local/bin/forgejo-cli
+RUN chmod 0755 /usr/local/bin/forgejo-cli \
+    && /usr/local/bin/forgejo-cli --help >/dev/null \
+    && /usr/local/bin/codetether --version \
+    && command -v rustyroad && command -v git
+LABEL org.opencontainers.image.description="Astra harvester with opaque repo-scoped Forgejo review access"

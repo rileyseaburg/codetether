@@ -1,0 +1,21 @@
+{
+  "level": "live deployment/Argo",
+  "namespace": "a2a-system",
+  "pod": "a2a-server-deployment-green-c49c45b56-gnxn9",
+  "uid": "50012152-6454-47a5-8526-08ca3a19b500",
+  "images": [
+    "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-4e0fe718d799"
+  ],
+  "containers": [
+    {
+      "name": "a2a-server",
+      "ready": true,
+      "restartCount": 0,
+      "state": {
+        "running": {
+          "startedAt": "2026-09-04T21:03:22Z"
+        }
+      }
+    }
+  ]
+}

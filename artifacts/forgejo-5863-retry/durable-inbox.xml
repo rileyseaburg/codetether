@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="16" time="2.398" timestamp="2026-09-07T05:08:29.009620+00:00" hostname="ubuntu-dev"><testcase classname="tests.test_forgejo_inbox" name="test_concurrent_receipts_commit_one_immutable_payload" time="0.125" /><testcase classname="tests.test_forgejo_inbox" name="test_independent_comment_is_not_silenced_by_old_claim" time="0.085" /><testcase classname="tests.test_forgejo_inbox" name="test_failure_retries_without_any_new_webhook_and_reuses_plan" time="0.121" /><testcase classname="tests.test_forgejo_inbox" name="test_ack_failure_keeps_handoff_checkpoint_and_never_redispatches" time="0.104" /><testcase classname="tests.test_forgejo_inbox" name="test_concurrent_workers_serialize_distinct_comments_for_same_issue" time="0.090" /><testcase classname="tests.test_forgejo_inbox" name="test_prior_native_workflow_blocks_next_mention_until_terminal" time="0.140" /><testcase classname="tests.test_forgejo_inbox" name="test_connection_death_releases_lock_without_releasing_receipt" time="0.070"><failure message="asyncpg.exceptions._base.InternalClientError: cannot switch to state 15; another operation (2) is in progress">db = &lt;asyncpg.pool.Pool object at 0x7d535de10580&gt;
+
+    async def test_connection_death_releases_lock_without_releasing_receipt(db):
+        identity = (await inbox.accept('issues', CONTEXT, BASE))['delivery_id']
+        # A killed PostgreSQL backend models process/socket death, not graceful
+        # exception cleanup: no release_delivery or advisory unlock is executed.
+        conn = await db.acquire()
+        lock = f'forgejo-inbox:{BASE}:owner/repo:5863'
+        await conn.execute('SELECT pg_advisory_lock(hashtextextended($1,0))', lock)
+        pid = conn.get_server_pid()
+        async with db.acquire() as other:
+            assert await other.fetchval('SELECT pg_terminate_backend($1)', pid)
+&gt;       await db.release(conn)
+
+tests/test_forgejo_inbox.py:211: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.12/site-packages/asyncpg/pool.py:937: in release
+    return await asyncio.shield(ch.release(timeout))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.12/site-packages/asyncpg/pool.py:249: in release
+    raise ex
+.venv/lib/python3.12/site-packages/asyncpg/pool.py:239: in release
+    await self._con.reset(timeout=budget)
+.venv/lib/python3.12/site-packages/asyncpg/connection.py:1571: in reset
+    await self.execute(reset_query)
+.venv/lib/python3.12/site-packages/asyncpg/connection.py:354: in execute
+    result = await self._protocol.query(query, timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+asyncpg/protocol/protocol.pyx:369: in query
+    ???
+asyncpg/protocol/protocol.pyx:362: in asyncpg.protocol.protocol.BaseProtocol.query
+    ???
+asyncpg/protocol/coreproto.pyx:1170: in asyncpg.protocol.protocol.CoreProtocol._simple_query
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+&gt;   ???
+E   asyncpg.exceptions._base.InternalClientError: cannot switch to state 15; another operation (2) is in progress
+
+asyncpg/protocol/coreproto.pyx:869: InternalClientError</failure></testcase><testcase classname="tests.test_forgejo_inbox" name="test_cancelled_dispatch_stays_retryable" time="0.090" /><testcase classname="tests.test_forgejo_inbox" name="test_ack_marker_reconciles_response_loss_and_pagination" time="0.002" /><testcase classname="tests.test_forgejo_delivery_retry" name="test_cleanup_failure_retains_owned_claim" time="0.003" /><testcase classname="tests.test_forgejo_delivery_retry" name="test_storage_failure_does_not_own_another_claim" time="0.001" /><testcase classname="tests.test_forgejo_delivery_retry" name="test_storage_failure_is_not_acknowledged[failure0]" time="0.003" /><testcase classname="tests.test_forgejo_delivery_retry" name="test_storage_failure_is_not_acknowledged[failure1]" time="0.003" /><testcase classname="tests.test_forgejo_delivery_retry" name="test_receipt_precedes_all_external_effects" time="0.003" /><testcase classname="tests.test_forgejo_delivery_retry" name="test_fail_open_has_no_claim_ownership" time="0.001" /><testcase classname="tests.test_forgejo_delivery_retry" name="test_release_failure_preserves_dispatch_error" time="0.003" /></testsuite></testsuites>

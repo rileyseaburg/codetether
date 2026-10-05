@@ -1,0 +1,13 @@
+{
+  "tunnelId": "d2074245-2a6b-472a-9391-741d672e0544",
+  "rule": {
+    "hostname": "server.codetether.run",
+    "path": "^/downloads/a2amonitor/20261005(?:/.*)?$",
+    "service": "http://127.0.0.1:18772"
+  },
+  "nasDirectory": "/mnt/nas/A2AMonitor/20261005/download",
+  "ipaSha256": "4679f356dde97dbbfd82c5b64c68cd3911ad4431e497d7e2253767d449319109",
+  "url": "https://server.codetether.run/downloads/a2amonitor/20261005/",
+  "publishedAt": "2026-10-05T14:41:15.873Z",
+  "simulatorTaskId": "b009806e-6184-4d5f-a5cb-2ca7ccf93214"
+}

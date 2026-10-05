@@ -1,0 +1,17 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "00008110-001879C23E0A401E",
+        "deviceName" : "riley",
+        "exportedFileName" : "7F420E8D-5F1C-4BE2-B8F3-54478774A56B.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "a2a-monitor-phone-screen_0_B71EEDE7-507D-48BC-8F8B-72706FC7E8B5.png",
+        "timestamp" : 1791201291.795
+      }
+    ],
+    "testIdentifier" : "LoginUITests/testInspectPhoneWithoutEnteringCredentials()",
+    "testIdentifierURL" : "test://com.apple.xcode/A2AMonitor/A2AMonitorUITests/LoginUITests/testInspectPhoneWithoutEnteringCredentials"
+  }
+]

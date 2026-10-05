@@ -1,0 +1,11 @@
+{
+  "chat": {
+    "id": "ba84c696-4cbf-4848-af75-c606a6d12d59",
+    "requestedModel": "openai-codex:gpt-5.5-fast",
+    "worker": "wrk_1788615130_9a92d44ce732eae5"
+  },
+  "dispatch": {
+    "id": "task-c6c758cfaf3d",
+    "recoveredAfterError": true
+  }
+}

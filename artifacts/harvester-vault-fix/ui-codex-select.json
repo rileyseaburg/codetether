@@ -1,0 +1,16 @@
+{
+  "providerPillOptions": [
+    "gpt-5.5",
+    "Other",
+    "gpt-5.5-fast",
+    "Other",
+    "gpt-5.6-luna",
+    "Other",
+    "gpt-5.6-sol",
+    "Other",
+    "gpt-5.6-terra",
+    "Other"
+  ],
+  "inputValue": "openai-codex/gpt-5.6-luna",
+  "selectedInfo": "openai-codex/gpt-5.6-luna"
+}

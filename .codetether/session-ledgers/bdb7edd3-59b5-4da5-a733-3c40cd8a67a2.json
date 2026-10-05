@@ -1,0 +1,66 @@
+{
+  "session_id": "bdb7edd3-59b5-4da5-a733-3c40cd8a67a2",
+  "items": [],
+  "evidence": [
+    {
+      "kind": "argo",
+      "level": "live deployment/Argo",
+      "value": "healthy-synced"
+    },
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "https://github.com/livekit/livekit-uniffi-xcframework/releases/download/0.0.6/RustLiveKitUniFFI.xcframework.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "https://github.com/livekit/webrtc-xcframework/releases/download/144.7559.10/LiveKitWebRTC.xcframework.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "https://github.com/livekit/livekit-uniffi-xcframework/releases/download/0.0.6/RustLiveKitUniFFI.xcframework.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "https://github.com/livekit/livekit-uniffi-xcframework/releases/download/0.0.6/RustLiveKitUniFFI.xcframework.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "https://github.com/livekit/webrtc-xcframework/releases/download/144.7559.10/LiveKitWebRTC.xcframework.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "https://github.com/livekit/livekit-uniffi-xcframework/releases/download/0.0.6/RustLiveKitUniFFI.xcframework.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "https://github.com/livekit/webrtc-xcframework/releases/download/144.7559.10/LiveKitWebRTC.xcframework.zip"
+    },
+    {
+      "kind": "db-migration",
+      "level": "live DB",
+      "value": "applied"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

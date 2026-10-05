@@ -1,0 +1,15 @@
+{{- if .Values.knative.enabled }}
+apiVersion: eventing.knative.dev/v1
+kind: Broker
+metadata:
+  name: {{ .Values.knative.broker | default "task-broker" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+  annotations:
+    # Use cluster-wide default channel configuration
+    eventing.knative.dev/broker.class: MTChannelBasedBroker
+spec:
+  # Empty spec uses cluster defaults from knative-eventing/config-br-defaults
+  {}
+{{- end }}

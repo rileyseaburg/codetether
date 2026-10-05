@@ -1,0 +1,52 @@
+{
+  "origin": "api-smoke",
+  "workerId": "ubuntu-dev-sessions",
+  "targets": [
+    {
+      "id": "ios-f964ae42-e759-4130-8d51-e3cbcf669c9e",
+      "marker": "c7c29c2d913e9528be54a01d",
+      "tasks": [
+        {
+          "id": "d56d82cb-d1b9-44bb-bdd4-81ce8450d6ef",
+          "stage": "remember",
+          "status": "completed",
+          "sessionId": "ios-f964ae42-e759-4130-8d51-e3cbcf669c9e",
+          "result": "READY",
+          "error": null
+        },
+        {
+          "id": "1cd4ea56-6037-488a-8b97-503328faa6b2",
+          "stage": "recall",
+          "status": "completed",
+          "sessionId": "ios-f964ae42-e759-4130-8d51-e3cbcf669c9e",
+          "result": "c7c29c2d913e9528be54a01d",
+          "error": null
+        }
+      ]
+    },
+    {
+      "id": "ios-56360842-2abb-461c-b019-d8055ddcde78",
+      "marker": "10f57a9fe6463b8a93b7f74e",
+      "tasks": [
+        {
+          "id": "48e6b295-32a3-4b80-bacc-b4e962a23ca3",
+          "stage": "remember",
+          "status": "completed",
+          "sessionId": "ios-56360842-2abb-461c-b019-d8055ddcde78",
+          "result": "READY",
+          "error": null
+        },
+        {
+          "id": "e9c1a6c4-37b3-45bd-9e65-9f58e9d49542",
+          "stage": "recall",
+          "status": "completed",
+          "sessionId": "ios-56360842-2abb-461c-b019-d8055ddcde78",
+          "result": "10f57a9fe6463b8a93b7f74e",
+          "error": null
+        }
+      ]
+    }
+  ],
+  "completed": true,
+  "verifiedAt": "2026-10-05T20:59:46.056Z"
+}

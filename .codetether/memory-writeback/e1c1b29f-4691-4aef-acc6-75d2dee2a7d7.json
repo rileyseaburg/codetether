@@ -1,0 +1,7 @@
+[
+  {
+    "kind": "k8s",
+    "level": "live deployment/Argo",
+    "value": "pod-succeeded"
+  }
+]

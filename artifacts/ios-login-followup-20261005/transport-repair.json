@@ -1,0 +1,14 @@
+{
+  "application": "argocd/codetether-a2a-server",
+  "previous": {
+    "env.KEYCLOAK_URL": null,
+    "env.KEYCLOAK_ISSUER": null
+  },
+  "changes": {
+    "env.KEYCLOAK_URL": "https://auth.quantum-forge.io",
+    "env.KEYCLOAK_ISSUER": "https://auth.quantum-forge.io/realms/quantum-forge"
+  },
+  "reason": "Internal HTTP token endpoint minted a different issuer from the required public HTTPS issuer",
+  "changedAt": "2026-10-05T15:45:49.891Z",
+  "issuerValidationDisabled": false
+}

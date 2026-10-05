@@ -1,0 +1,3940 @@
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub responded_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
+ /// A row from the `automation_versions` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct AutomationVersions {
+@@ -8530,6 +11923,97 @@ pub struct PatchAutopilotDecisions {
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
++/// A row from the `bandit_campaign_traces` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct BanditCampaignTraces {
++    pub id: sqlx::types::Uuid,
++    pub trace_batch_id: sqlx::types::Uuid,
++    pub platform: String,
++    pub provider_campaign_id: String,
++    pub unified_campaign_id: Option<sqlx::types::Uuid>,
++    pub campaign_name: Option<String>,
++    pub owning_workflow: String,
++    pub metric_source: String,
++    pub provider_status: Option<String>,
++    pub provider_status_source: String,
++    pub delivery_state: String,
++    pub impressions: i64,
++    pub clicks: i64,
++    pub spend_cents: i64,
++    pub optimization_eligible: bool,
++    pub actuation_status: String,
++    pub recorded_at: chrono::DateTime<chrono::Utc>,
++}
++
++/// Values accepted when creating a `bandit_campaign_traces` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewBanditCampaignTraces {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub id: Option<sqlx::types::Uuid>,
++    pub trace_batch_id: sqlx::types::Uuid,
++    pub platform: String,
++    pub provider_campaign_id: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub unified_campaign_id: Option<sqlx::types::Uuid>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub campaign_name: Option<String>,
++    pub owning_workflow: String,
++    pub metric_source: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub provider_status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub provider_status_source: Option<String>,
++    pub delivery_state: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub impressions: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub clicks: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub spend_cents: Option<i64>,
++    pub optimization_eligible: bool,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub actuation_status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub recorded_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when partially updating a `bandit_campaign_traces` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchBanditCampaignTraces {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub trace_batch_id: Option<sqlx::types::Uuid>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub platform: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub provider_campaign_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub unified_campaign_id: Option<Option<sqlx::types::Uuid>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub campaign_name: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub owning_workflow: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metric_source: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub provider_status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub provider_status_source: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub delivery_state: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub impressions: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub clicks: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub spend_cents: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub optimization_eligible: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub actuation_status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub recorded_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
+ /// A row from the `bandit_conversion_signals` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct BanditConversionSignals {
+@@ -9111,49 +12595,6 @@ pub struct PatchBookingOperatingWindows {
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+-/// A row from the `brand_strategies` table.
+-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+-pub struct BrandStrategies {
+-    pub id: i64,
+-    pub name: String,
+-    pub palette: serde_json::Value,
+-    pub font_primary: String,
+-    pub font_secondary: String,
+-    pub created_at: chrono::DateTime<chrono::Utc>,
+-    pub updated_at: chrono::DateTime<chrono::Utc>,
+-}
+-
+-/// Values accepted when creating a `brand_strategies` row.
+-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+-pub struct NewBrandStrategies {
+-    pub name: String,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub palette: Option<serde_json::Value>,
+-    pub font_primary: String,
+-    pub font_secondary: String,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+-}
+-
+-/// Values accepted when partially updating a `brand_strategies` row.
+-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+-pub struct PatchBrandStrategies {
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub name: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub palette: Option<serde_json::Value>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub font_primary: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub font_secondary: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+-}
+-
+ /// A row from the `bridge_person_identity` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct BridgePersonIdentity {
+@@ -10648,7 +14089,9 @@ pub struct NewCampaignEmails {
+ 
+ /// Values accepted when partially updating a `campaign_emails` row.
+ #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+-pub struct PatchCampaignEmails {}
++pub struct PatchCampaignEmails {
++
++}
+ 
+ /// A row from the `campaign_messages` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+@@ -10868,7 +14311,9 @@ pub struct NewCampaignTriggers {
+ 
+ /// Values accepted when partially updating a `campaign_triggers` row.
+ #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+-pub struct PatchCampaignTriggers {}
++pub struct PatchCampaignTriggers {
++
++}
+ 
+ /// A row from the `campaign_workflow_drafts` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+@@ -11250,6 +14695,7 @@ pub struct CampaignWorkflowPlatformCatalog {
+     pub requires_account_connection: bool,
+     pub supports_paid_acquisition: bool,
+     pub supports_retargeting: bool,
++    pub supports_video: bool,
+     pub supports_offline_delivery: bool,
+     pub created_at: chrono::DateTime<chrono::Utc>,
+     pub updated_at: chrono::DateTime<chrono::Utc>,
+@@ -11260,7 +14706,6 @@ pub struct CampaignWorkflowPlatformCatalog {
+     pub supported_aspect_ratios: Vec<String>,
+     pub supports_offline: bool,
+     pub sort_order: i32,
+-    pub supports_video: bool,
+ }
+ 
+ /// Values accepted when creating a `campaign_workflow_platform_catalog` row.
+@@ -11276,6 +14721,8 @@ pub struct NewCampaignWorkflowPlatformCatalog {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub supports_retargeting: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub supports_video: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub supports_offline_delivery: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+@@ -11295,8 +14742,6 @@ pub struct NewCampaignWorkflowPlatformCatalog {
+     pub supports_offline: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub sort_order: Option<i32>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub supports_video: Option<bool>,
+ }
+ 
+ /// Values accepted when partially updating a `campaign_workflow_platform_catalog` row.
+@@ -11313,6 +14758,8 @@ pub struct PatchCampaignWorkflowPlatformCatalog {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub supports_retargeting: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub supports_video: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub supports_offline_delivery: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+@@ -11332,8 +14779,6 @@ pub struct PatchCampaignWorkflowPlatformCatalog {
+     pub supports_offline: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub sort_order: Option<i32>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub supports_video: Option<bool>,
+ }
+ 
+ /// A row from the `campaign_workflow_type_rules` table.
+@@ -11554,7 +14999,7 @@ pub struct CcadSubdivisions {
+     pub volume: Option<String>,
+     pub page: Option<String>,
+     pub instrument: Option<String>,
+-    pub global_id: Option<sqlx::types::Uuid>,
++    pub global_id: Option<String>,
+     pub geometry: serde_json::Value,
+     pub raw_properties: serde_json::Value,
+     pub shape_area: Option<f64>,
+@@ -11584,7 +15029,7 @@ pub struct NewCcadSubdivisions {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub instrument: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub global_id: Option<sqlx::types::Uuid>,
++    pub global_id: Option<String>,
+     pub geometry: serde_json::Value,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub raw_properties: Option<serde_json::Value>,
+@@ -11620,7 +15065,7 @@ pub struct PatchCcadSubdivisions {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub instrument: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub global_id: Option<Option<sqlx::types::Uuid>>,
++    pub global_id: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub geometry: Option<serde_json::Value>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -12289,6 +15734,363 @@ pub struct PatchChatThreads {
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
++/// A row from the `checkout_email_queue` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CheckoutEmailQueue {
++    pub id: i32,
++    pub order_id: Option<i32>,
++    pub customer_id: Option<i32>,
++    pub email_type: String,
++    pub status: Option<String>,
++    pub to_email: String,
++    pub subject: Option<String>,
++    pub template_name: Option<String>,
++    pub variables: Option<serde_json::Value>,
++    pub send_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub sent_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub failed_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub failure_reason: Option<String>,
++    pub sendgrid_message_id: Option<String>,
++    pub retry_count: Option<i32>,
++    pub max_retries: Option<i32>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when creating a `checkout_email_queue` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCheckoutEmailQueue {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub order_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    pub email_type: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    pub to_email: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subject: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub template_name: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub variables: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub send_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sent_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub failed_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub failure_reason: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sendgrid_message_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub retry_count: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub max_retries: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
++/// Values accepted when partially updating a `checkout_email_queue` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCheckoutEmailQueue {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub order_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub email_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub to_email: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subject: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub template_name: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub variables: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub send_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sent_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub failed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub failure_reason: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sendgrid_message_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub retry_count: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub max_retries: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
++/// A row from the `checkout_orders` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CheckoutOrders {
++    pub id: i32,
++    pub order_number: String,
++    pub customer_id: Option<i32>,
++    pub offer_id: Option<i32>,
++    pub stripe_session_id: Option<String>,
++    pub stripe_payment_intent_id: Option<String>,
++    pub stripe_subscription_id: Option<String>,
++    pub order_type: String,
++    pub status: Option<String>,
++    pub currency: Option<String>,
++    pub subtotal_cents: i32,
++    pub discount_cents: Option<i32>,
++    pub tax_cents: Option<i32>,
++    pub total_cents: i32,
++    pub billing_email: Option<String>,
++    pub billing_name: Option<String>,
++    pub source: Option<String>,
++    pub funnel_slug: Option<String>,
++    pub referrer_url: Option<String>,
++    pub utm_source: Option<String>,
++    pub utm_medium: Option<String>,
++    pub utm_campaign: Option<String>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub cancelled_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub metadata: Option<serde_json::Value>,
++}
++
++/// Values accepted when creating a `checkout_orders` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCheckoutOrders {
++    pub order_number: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub offer_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_session_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_payment_intent_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_subscription_id: Option<String>,
++    pub order_type: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub currency: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subtotal_cents: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub discount_cents: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub tax_cents: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_cents: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub billing_email: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub billing_name: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub source: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub funnel_slug: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub referrer_url: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_source: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_medium: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_campaign: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub cancelled_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metadata: Option<Option<serde_json::Value>>,
++}
++
++/// Values accepted when partially updating a `checkout_orders` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCheckoutOrders {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub order_number: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub offer_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_session_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_payment_intent_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_subscription_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub order_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub currency: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subtotal_cents: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub discount_cents: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub tax_cents: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_cents: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub billing_email: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub billing_name: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub source: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub funnel_slug: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub referrer_url: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_source: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_medium: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_campaign: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub cancelled_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metadata: Option<Option<serde_json::Value>>,
++}
++
++/// A row from the `checkout_sessions` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CheckoutSessions {
++    pub id: i32,
++    pub session_id: String,
++    pub customer_id: Option<i32>,
++    pub offer_id: Option<i32>,
++    pub checkout_type: String,
++    pub status: Option<String>,
++    pub success_url: Option<String>,
++    pub cancel_url: Option<String>,
++    pub source: Option<String>,
++    pub funnel_slug: Option<String>,
++    pub referrer_url: Option<String>,
++    pub utm_source: Option<String>,
++    pub utm_medium: Option<String>,
++    pub utm_campaign: Option<String>,
++    pub customer_email: Option<String>,
++    pub customer_name: Option<String>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub journey_person_key: Option<String>,
++    pub journey_session_key: Option<String>,
++}
++
++/// Values accepted when creating a `checkout_sessions` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCheckoutSessions {
++    pub session_id: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub offer_id: Option<i32>,
++    pub checkout_type: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub success_url: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub cancel_url: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub source: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub funnel_slug: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub referrer_url: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_source: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_medium: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_campaign: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_email: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_name: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_person_key: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_session_key: Option<String>,
++}
++
++/// Values accepted when partially updating a `checkout_sessions` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCheckoutSessions {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub session_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub offer_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub checkout_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub success_url: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub cancel_url: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub source: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub funnel_slug: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub referrer_url: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_source: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_medium: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_campaign: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_email: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_name: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub expires_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_person_key: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_session_key: Option<Option<String>>,
++}
++
+ /// A row from the `churn_analysis` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct ChurnAnalysis {
+@@ -12837,6 +16639,488 @@ pub struct PatchClusterDensityMetrics {
+     pub dense_route_percentage: Option<Option<sqlx::types::Decimal>>,
+ }
+ 
++/// A row from the `clustering_metrics` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct ClusteringMetrics {
++    pub id: i32,
++    pub zone_id: i32,
++    pub zone_name: String,
++    pub route_date: chrono::NaiveDate,
++    pub clustering_algorithm: String,
++    pub max_diameter_miles: sqlx::types::Decimal,
++    pub max_stops_per_route: i32,
++    pub total_customers: i32,
++    pub num_clusters: i32,
++    pub avg_cluster_size: sqlx::types::Decimal,
++    pub min_cluster_size: i32,
++    pub max_cluster_size: i32,
++    pub avg_density: Option<sqlx::types::Decimal>,
++    pub max_density: Option<sqlx::types::Decimal>,
++    pub min_density: Option<sqlx::types::Decimal>,
++    pub total_route_cost: sqlx::types::Decimal,
++    pub avg_cost_per_customer: sqlx::types::Decimal,
++    pub avg_cost_per_route: sqlx::types::Decimal,
++    pub clusters_using_sublinear: i32,
++    pub sublinear_threshold: i32,
++    pub savings_vs_linear: sqlx::types::Decimal,
++    pub savings_percent: sqlx::types::Decimal,
++    pub total_area_sq_miles: Option<sqlx::types::Decimal>,
++    pub avg_cluster_diameter: Option<sqlx::types::Decimal>,
++    pub created_at: chrono::DateTime<chrono::Utc>,
++}
++
++/// Values accepted when creating a `clustering_metrics` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewClusteringMetrics {
++    pub zone_id: i32,
++    pub zone_name: String,
++    pub route_date: chrono::NaiveDate,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub clustering_algorithm: Option<String>,
++    pub max_diameter_miles: sqlx::types::Decimal,
++    pub max_stops_per_route: i32,
++    pub total_customers: i32,
++    pub num_clusters: i32,
++    pub avg_cluster_size: sqlx::types::Decimal,
++    pub min_cluster_size: i32,
++    pub max_cluster_size: i32,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub avg_density: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub max_density: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub min_density: Option<sqlx::types::Decimal>,
++    pub total_route_cost: sqlx::types::Decimal,
++    pub avg_cost_per_customer: sqlx::types::Decimal,
++    pub avg_cost_per_route: sqlx::types::Decimal,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub clusters_using_sublinear: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sublinear_threshold: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub savings_vs_linear: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub savings_percent: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_area_sq_miles: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub avg_cluster_diameter: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when partially updating a `clustering_metrics` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchClusteringMetrics {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub zone_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub zone_name: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub route_date: Option<chrono::NaiveDate>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub clustering_algorithm: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub max_diameter_miles: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub max_stops_per_route: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_customers: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub num_clusters: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub avg_cluster_size: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub min_cluster_size: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub max_cluster_size: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub avg_density: Option<Option<sqlx::types::Decimal>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub max_density: Option<Option<sqlx::types::Decimal>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub min_density: Option<Option<sqlx::types::Decimal>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_route_cost: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub avg_cost_per_customer: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub avg_cost_per_route: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub clusters_using_sublinear: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sublinear_threshold: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub savings_vs_linear: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub savings_percent: Option<sqlx::types::Decimal>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_area_sq_miles: Option<Option<sqlx::types::Decimal>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub avg_cluster_diameter: Option<Option<sqlx::types::Decimal>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// A row from the `codetether_automation_run_events` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CodetetherAutomationRunEvents {
++    pub id: i64,
++    pub run_id: sqlx::types::Uuid,
++    pub sequence_number: i32,
++    pub event_type: String,
++    pub actor_type: String,
++    pub actor_id: Option<String>,
++    pub payload: serde_json::Value,
++    pub created_at: chrono::DateTime<chrono::Utc>,
++}
++
++/// Values accepted when creating a `codetether_automation_run_events` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCodetetherAutomationRunEvents {
++    pub run_id: sqlx::types::Uuid,
++    pub sequence_number: i32,
++    pub event_type: String,
++    pub actor_type: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub actor_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub payload: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when partially updating a `codetether_automation_run_events` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCodetetherAutomationRunEvents {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub run_id: Option<sqlx::types::Uuid>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sequence_number: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub event_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub actor_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub actor_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub payload: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// A row from the `codetether_automation_runs` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CodetetherAutomationRuns {
++    pub id: sqlx::types::Uuid,
++    pub schedule_id: sqlx::types::Uuid,
++    pub schedule_version: i32,
++    pub trigger_source: String,
++    pub idempotency_key: String,
++    pub status: String,
++    pub attempt_count: i32,
++    pub max_attempts: i32,
++    pub next_attempt_at: chrono::DateTime<chrono::Utc>,
++    pub claimed_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub claimed_by: Option<String>,
++    pub started_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub a2a_task_id: Option<String>,
++    pub a2a_context_id: Option<String>,
++    pub codetether_session_id: Option<String>,
++    pub request_payload: Option<serde_json::Value>,
++    pub response_payload: Option<serde_json::Value>,
++    pub result_summary: Option<String>,
++    pub last_error: Option<String>,
++    pub created_at: chrono::DateTime<chrono::Utc>,
++    pub updated_at: chrono::DateTime<chrono::Utc>,
++}
++
++/// Values accepted when creating a `codetether_automation_runs` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCodetetherAutomationRuns {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub id: Option<sqlx::types::Uuid>,
++    pub schedule_id: sqlx::types::Uuid,
++    pub schedule_version: i32,
++    pub trigger_source: String,
++    pub idempotency_key: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub attempt_count: Option<i32>,
++    pub max_attempts: i32,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub next_attempt_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub claimed_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub claimed_by: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub started_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub a2a_task_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub a2a_context_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub codetether_session_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub request_payload: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub response_payload: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub result_summary: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_error: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when partially updating a `codetether_automation_runs` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCodetetherAutomationRuns {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub schedule_id: Option<sqlx::types::Uuid>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub schedule_version: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub trigger_source: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub idempotency_key: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub attempt_count: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub max_attempts: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub next_attempt_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub claimed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub claimed_by: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub started_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub a2a_task_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub a2a_context_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub codetether_session_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub request_payload: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub response_payload: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub result_summary: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_error: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// A row from the `codetether_automation_schedule_events` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CodetetherAutomationScheduleEvents {
++    pub id: i64,
++    pub schedule_id: sqlx::types::Uuid,
++    pub sequence_number: i32,
++    pub event_type: String,
++    pub actor_id: String,
++    pub payload: serde_json::Value,
++    pub created_at: chrono::DateTime<chrono::Utc>,
++}
++
++/// Values accepted when creating a `codetether_automation_schedule_events` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCodetetherAutomationScheduleEvents {
++    pub schedule_id: sqlx::types::Uuid,
++    pub sequence_number: i32,
++    pub event_type: String,
++    pub actor_id: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub payload: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when partially updating a `codetether_automation_schedule_events` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCodetetherAutomationScheduleEvents {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub schedule_id: Option<sqlx::types::Uuid>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sequence_number: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub event_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub actor_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub payload: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// A row from the `codetether_automation_schedules` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CodetetherAutomationSchedules {
++    pub id: sqlx::types::Uuid,
++    pub name: String,
++    pub description: String,
++    pub business_goal: String,
++    pub instructions: String,
++    pub context: serde_json::Value,
++    pub execution_mode: String,
++    pub worker_profile: String,
++    pub target_agent_name: String,
++    pub workspace_id: String,
++    pub mcp_servers: serde_json::Value,
++    pub allowed_tools: serde_json::Value,
++    pub require_mcp_evidence: bool,
++    pub interval_minutes: i32,
++    pub timezone: String,
++    pub next_run_at: chrono::DateTime<chrono::Utc>,
++    pub enabled: bool,
++    pub max_runtime_seconds: i32,
++    pub max_attempts: i32,
++    pub retry_delay_seconds: i32,
++    pub version: i32,
++    pub approved_version: Option<i32>,
++    pub approved_by: Option<String>,
++    pub approved_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub created_by: String,
++    pub updated_by: String,
++    pub created_at: chrono::DateTime<chrono::Utc>,
++    pub updated_at: chrono::DateTime<chrono::Utc>,
++    pub last_run_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when creating a `codetether_automation_schedules` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCodetetherAutomationSchedules {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub id: Option<sqlx::types::Uuid>,
++    pub name: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub description: Option<String>,
++    pub business_goal: String,
++    pub instructions: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub context: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub execution_mode: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub worker_profile: Option<String>,
++    pub target_agent_name: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub workspace_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub mcp_servers: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub allowed_tools: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub require_mcp_evidence: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub interval_minutes: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub timezone: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub next_run_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub enabled: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub max_runtime_seconds: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub max_attempts: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub retry_delay_seconds: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub version: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub approved_version: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub approved_by: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub approved_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub created_by: String,
++    pub updated_by: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_run_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when partially updating a `codetether_automation_schedules` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCodetetherAutomationSchedules {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub name: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub description: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub business_goal: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub instructions: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub context: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub execution_mode: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub worker_profile: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub target_agent_name: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub workspace_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub mcp_servers: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub allowed_tools: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub require_mcp_evidence: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub interval_minutes: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub timezone: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub next_run_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub enabled: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub max_runtime_seconds: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub max_attempts: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub retry_delay_seconds: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub version: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub approved_version: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub approved_by: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub approved_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_by: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_by: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_run_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
+ /// A row from the `codetether_insights` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct CodetetherInsights {
+@@ -13459,6 +17743,86 @@ pub struct PatchCollinTrashZoneGoldReadiness {
+     pub ad_targeting_ready: Option<Option<bool>>,
+ }
+ 
++/// A row from the `commercial_outreach_leads` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CommercialOutreachLeads {
++    pub id: i32,
++    pub business_name: String,
++    pub contact_name: Option<String>,
++    pub email: Option<String>,
++    pub phone: Option<String>,
++    pub category: String,
++    pub address: Option<String>,
++    pub quote_amount: Option<String>,
++    pub pain_points: Option<String>,
++    pub tier: Option<i32>,
++    pub status: Option<String>,
++    pub last_contacted_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when creating a `commercial_outreach_leads` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCommercialOutreachLeads {
++    pub business_name: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub contact_name: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub email: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub phone: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub category: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub address: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub quote_amount: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub pain_points: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub tier: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_contacted_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
++/// Values accepted when partially updating a `commercial_outreach_leads` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCommercialOutreachLeads {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub business_name: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub contact_name: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub email: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub phone: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub category: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub address: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub quote_amount: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub pain_points: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub tier: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_contacted_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
+ /// A row from the `competitor_ad_spend` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct CompetitorAdSpend {
+@@ -14468,6 +18832,56 @@ pub struct PatchComponentConfigLegacyAliases {
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
++/// A row from the `component_config_legacy_component_alias_join` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct ComponentConfigLegacyComponentAliasJoin {
++    pub legacy_component_key: Option<String>,
++    pub canonical_component_type: Option<String>,
++    pub component_id: Option<i32>,
++    pub component_kind: Option<ComponentKind>,
++    pub legacy_path: Option<String>,
++    pub canonical_path: Option<String>,
++    pub coerce_to: Option<String>,
++}
++
++/// Values accepted when creating a `component_config_legacy_component_alias_join` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewComponentConfigLegacyComponentAliasJoin {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub legacy_component_key: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub canonical_component_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub component_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub component_kind: Option<ComponentKind>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub legacy_path: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub canonical_path: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub coerce_to: Option<String>,
++}
++
++/// Values accepted when partially updating a `component_config_legacy_component_alias_join` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchComponentConfigLegacyComponentAliasJoin {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub legacy_component_key: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub canonical_component_type: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub component_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub component_kind: Option<Option<ComponentKind>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub legacy_path: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub canonical_path: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub coerce_to: Option<Option<String>>,
++}
++
+ /// A row from the `component_container_child_rules` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct ComponentContainerChildRules {
+@@ -14535,96 +18949,6 @@ pub struct PatchComponentCrossFieldRules {
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+-/// A row from the `component_definitions` table.
+-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+-pub struct ComponentDefinitions {
+-    pub type_key: String,
+-    pub label: String,
+-    pub category: String,
+-    pub icon: String,
+-    pub template: String,
+-    pub default_config: serde_json::Value,
+-    pub required_fields: serde_json::Value,
+-    pub config_schema: Option<serde_json::Value>,
+-    pub editor_block: Option<serde_json::Value>,
+-    pub macro_namespace: Option<String>,
+-    pub macro_name: Option<String>,
+-    pub requires_db: bool,
+-    pub is_active: bool,
+-    pub version: i32,
+-    pub created_at: chrono::DateTime<chrono::Utc>,
+-    pub updated_at: chrono::DateTime<chrono::Utc>,
+-}
+-
+-/// Values accepted when creating a `component_definitions` row.
+-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+-pub struct NewComponentDefinitions {
+-    pub type_key: String,
+-    pub label: String,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub category: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub icon: Option<String>,
+-    pub template: String,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub default_config: Option<serde_json::Value>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub required_fields: Option<serde_json::Value>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub config_schema: Option<serde_json::Value>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub editor_block: Option<serde_json::Value>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub macro_namespace: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub macro_name: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub requires_db: Option<bool>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub is_active: Option<bool>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub version: Option<i32>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+-}
+-
+-/// Values accepted when partially updating a `component_definitions` row.
+-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+-pub struct PatchComponentDefinitions {
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub label: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub category: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub icon: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub template: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub default_config: Option<serde_json::Value>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub required_fields: Option<serde_json::Value>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub config_schema: Option<Option<serde_json::Value>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub editor_block: Option<Option<serde_json::Value>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub macro_namespace: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub macro_name: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub requires_db: Option<bool>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub is_active: Option<bool>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub version: Option<i32>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+-}
+-
+ /// A row from the `component_examples` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct ComponentExamples {
+@@ -14672,14 +18996,56 @@ pub struct PatchComponentExamples {
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
++/// A row from the `component_field_data_dependencies` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct ComponentFieldDataDependencies {
++    pub id: i64,
++    pub component_field_metadata_id: i64,
++    pub data_source: ComponentDataDependencySource,
++    pub lookup_procedure: Option<String>,
++    pub required: bool,
++    pub selection_label: String,
++    pub created_at: chrono::DateTime<chrono::Utc>,
++}
++
++/// Values accepted when creating a `component_field_data_dependencies` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewComponentFieldDataDependencies {
++    pub component_field_metadata_id: i64,
++    pub data_source: ComponentDataDependencySource,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub lookup_procedure: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub required: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub selection_label: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when partially updating a `component_field_data_dependencies` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchComponentFieldDataDependencies {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub component_field_metadata_id: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub data_source: Option<ComponentDataDependencySource>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub lookup_procedure: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub required: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub selection_label: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
+ /// A row from the `component_json_schema_keywords` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct ComponentJsonSchemaKeywords {
+     pub keyword: String,
+     pub applies_to: String,
+     pub value_kind: String,
+-    pub purpose: String,
+-    pub created_at: chrono::DateTime<chrono::Utc>,
+ }
+ 
+ /// Values accepted when creating a `component_json_schema_keywords` row.
+@@ -14688,9 +19054,6 @@ pub struct NewComponentJsonSchemaKeywords {
+     pub keyword: String,
+     pub applies_to: String,
+     pub value_kind: String,
+-    pub purpose: String,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+ /// Values accepted when partially updating a `component_json_schema_keywords` row.
+@@ -14700,10 +19063,6 @@ pub struct PatchComponentJsonSchemaKeywords {
+     pub applies_to: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub value_kind: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub purpose: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+ /// A row from the `component_legacy_definition_archive` table.
+@@ -14784,56 +19143,6 @@ pub struct PatchComponentPersonalizationTokens {
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+-/// A row from the `component_purchase_option_catalog` table.
+-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+-pub struct ComponentPurchaseOptionCatalog {
+-    pub component_id: Option<i32>,
+-    pub component_version_id: Option<i32>,
+-    pub option_id: Option<String>,
+-    pub offer_id: Option<i32>,
+-    pub label: Option<String>,
+-    pub amount_cents: Option<i64>,
+-    pub sort_order: Option<i32>,
+-}
+-
+-/// Values accepted when creating a `component_purchase_option_catalog` row.
+-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+-pub struct NewComponentPurchaseOptionCatalog {
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub component_id: Option<i32>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub component_version_id: Option<i32>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub option_id: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub offer_id: Option<i32>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub label: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub amount_cents: Option<i64>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub sort_order: Option<i32>,
+-}
+-
+-/// Values accepted when partially updating a `component_purchase_option_catalog` row.
+-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+-pub struct PatchComponentPurchaseOptionCatalog {
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub component_id: Option<Option<i32>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub component_version_id: Option<Option<i32>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub option_id: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub offer_id: Option<Option<i32>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub label: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub amount_cents: Option<Option<i64>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub sort_order: Option<Option<i32>>,
+-}
+-
+ /// A row from the `component_renderer_versions` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct ComponentRendererVersions {
+@@ -14987,7 +19296,7 @@ pub struct ComponentThemePresets {
+     pub category: String,
+     pub tokens: serde_json::Value,
+     pub preview_template_id: Option<sqlx::types::Uuid>,
+-    pub status: ComponentThemePresetStatus,
++    pub status: String,
+     pub created_at: chrono::DateTime<chrono::Utc>,
+     pub updated_at: chrono::DateTime<chrono::Utc>,
+ }
+@@ -15007,7 +19316,7 @@ pub struct NewComponentThemePresets {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub preview_template_id: Option<sqlx::types::Uuid>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub status: Option<ComponentThemePresetStatus>,
++    pub status: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -15030,44 +19339,13 @@ pub struct PatchComponentThemePresets {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub preview_template_id: Option<Option<sqlx::types::Uuid>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub status: Option<ComponentThemePresetStatus>,
++    pub status: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+-/// A row from the `component_theme_radius_values` table.
+-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+-pub struct ComponentThemeRadiusValues {
+-    pub radius: ComponentThemeRadius,
+-    pub css_length: String,
+-    pub is_default: bool,
+-    pub created_at: chrono::DateTime<chrono::Utc>,
+-}
+-
+-/// Values accepted when creating a `component_theme_radius_values` row.
+-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+-pub struct NewComponentThemeRadiusValues {
+-    pub radius: ComponentThemeRadius,
+-    pub css_length: String,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub is_default: Option<bool>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+-}
+-
+-/// Values accepted when partially updating a `component_theme_radius_values` row.
+-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+-pub struct PatchComponentThemeRadiusValues {
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub css_length: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub is_default: Option<bool>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+-}
+-
+ /// A row from the `component_theme_token_variables` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct ComponentThemeTokenVariables {
+@@ -15382,20 +19660,23 @@ pub struct PatchComponentVersionEditorContracts {
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct ComponentVersionFieldDependencies {
+     pub id: i64,
++    pub component_version_field_id: i64,
+     pub data_source: ComponentDataDependencySource,
++    pub source_path: Option<String>,
+     pub lookup_procedure: Option<String>,
+     pub required: bool,
+     pub selection_label: String,
+     pub created_at: chrono::DateTime<chrono::Utc>,
+-    pub component_version_field_id: i64,
+-    pub source_path: Option<String>,
+ }
+ 
+ /// Values accepted when creating a `component_version_field_dependencies` row.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+ pub struct NewComponentVersionFieldDependencies {
++    pub component_version_field_id: i64,
+     pub data_source: ComponentDataDependencySource,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub source_path: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub lookup_procedure: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub required: Option<bool>,
+@@ -15403,17 +19684,18 @@ pub struct NewComponentVersionFieldDependencies {
+     pub selection_label: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+-    pub component_version_field_id: i64,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub source_path: Option<String>,
+ }
+ 
+ /// Values accepted when partially updating a `component_version_field_dependencies` row.
+ #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+ pub struct PatchComponentVersionFieldDependencies {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub component_version_field_id: Option<i64>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub data_source: Option<ComponentDataDependencySource>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub source_path: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub lookup_procedure: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub required: Option<bool>,
+@@ -15421,130 +19703,91 @@ pub struct PatchComponentVersionFieldDependencies {
+     pub selection_label: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub component_version_field_id: Option<i64>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub source_path: Option<Option<String>>,
+ }
+ 
+-/// A row from the `component_version_field_lineage` table.
++/// A row from the `component_version_field_metadata` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+-pub struct ComponentVersionFieldLineage {
+-    pub component_id: Option<i32>,
+-    pub component_key: Option<String>,
+-    pub component_version_id: Option<i32>,
+-    pub version: Option<i32>,
+-    pub field_id: Option<i64>,
+-    pub field_path: Option<String>,
+-    pub field_name: Option<String>,
+-    pub field_type: Option<String>,
+-    pub required_for_render: Option<bool>,
+-    pub data_source: Option<ComponentDataDependencySource>,
+-    pub source_path: Option<String>,
+-    pub lookup_procedure: Option<String>,
+-    pub relation_kind: Option<ComponentFieldRelationKind>,
+-    pub target_kind: Option<ComponentFieldRelationTarget>,
+-    pub target_component_id: Option<i32>,
+-    pub target_component_key: Option<String>,
+-    pub target_data_source: Option<ComponentDataDependencySource>,
+-    pub target_resource: Option<String>,
+-    pub target_field: Option<String>,
+-    pub mapped_by: Option<String>,
+-    pub inversed_by: Option<String>,
++pub struct ComponentVersionFieldMetadata {
++    pub id: i64,
++    pub component_id: i32,
++    pub field_path: String,
++    pub label: String,
++    pub purpose: String,
++    pub edit_intent: ComponentFieldEditIntent,
++    pub risk_level: ComponentFieldRiskLevel,
++    pub user_editable: bool,
++    pub agent_editable: bool,
++    pub required_for_render: bool,
++    pub requires_real_data: bool,
++    pub example_values: serde_json::Value,
++    pub created_at: chrono::DateTime<chrono::Utc>,
++    pub updated_at: chrono::DateTime<chrono::Utc>,
++    pub component_version_id: i32,
++    pub metadata_origin: String,
+ }
+ 
+-/// Values accepted when creating a `component_version_field_lineage` row.
++/// Values accepted when creating a `component_version_field_metadata` row.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+-pub struct NewComponentVersionFieldLineage {
++pub struct NewComponentVersionFieldMetadata {
++    pub component_id: i32,
++    pub field_path: String,
++    pub label: String,
++    pub purpose: String,
++    pub edit_intent: ComponentFieldEditIntent,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub component_id: Option<i32>,
++    pub risk_level: Option<ComponentFieldRiskLevel>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub component_key: Option<String>,
++    pub user_editable: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub component_version_id: Option<i32>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub version: Option<i32>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub field_id: Option<i64>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub field_path: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub field_name: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub field_type: Option<String>,
++    pub agent_editable: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub required_for_render: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub data_source: Option<ComponentDataDependencySource>,
++    pub requires_real_data: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub source_path: Option<String>,
++    pub example_values: Option<serde_json::Value>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub lookup_procedure: Option<String>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub relation_kind: Option<ComponentFieldRelationKind>,
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub component_version_id: i32,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub target_kind: Option<ComponentFieldRelationTarget>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub target_component_id: Option<i32>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub target_component_key: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub target_data_source: Option<ComponentDataDependencySource>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub target_resource: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub target_field: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub mapped_by: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub inversed_by: Option<String>,
++    pub metadata_origin: Option<String>,
+ }
+ 
+-/// Values accepted when partially updating a `component_version_field_lineage` row.
++/// Values accepted when partially updating a `component_version_field_metadata` row.
+ #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+-pub struct PatchComponentVersionFieldLineage {
++pub struct PatchComponentVersionFieldMetadata {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub component_id: Option<Option<i32>>,
++    pub component_id: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub component_key: Option<Option<String>>,
++    pub field_path: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub component_version_id: Option<Option<i32>>,
++    pub label: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub version: Option<Option<i32>>,
++    pub purpose: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub field_id: Option<Option<i64>>,
++    pub edit_intent: Option<ComponentFieldEditIntent>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub field_path: Option<Option<String>>,
++    pub risk_level: Option<ComponentFieldRiskLevel>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub field_name: Option<Option<String>>,
++    pub user_editable: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub field_type: Option<Option<String>>,
++    pub agent_editable: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub required_for_render: Option<Option<bool>>,
++    pub required_for_render: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub data_source: Option<Option<ComponentDataDependencySource>>,
++    pub requires_real_data: Option<bool>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub source_path: Option<Option<String>>,
++    pub example_values: Option<serde_json::Value>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub lookup_procedure: Option<Option<String>>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub relation_kind: Option<Option<ComponentFieldRelationKind>>,
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub target_kind: Option<Option<ComponentFieldRelationTarget>>,
++    pub component_version_id: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub target_component_id: Option<Option<i32>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub target_component_key: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub target_data_source: Option<Option<ComponentDataDependencySource>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub target_resource: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub target_field: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub mapped_by: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub inversed_by: Option<Option<String>>,
++    pub metadata_origin: Option<String>,
+ }
+ 
+ /// A row from the `component_version_field_relations` table.
+@@ -15615,7 +19858,12 @@ pub struct PatchComponentVersionFieldRelations {
+ pub struct ComponentVersionFields {
+     pub id: i64,
+     pub component_id: i32,
++    pub component_version_id: i32,
+     pub field_path: String,
++    pub field_name: String,
++    pub field_type: String,
++    pub schema_fragment: serde_json::Value,
++    pub display_order: i32,
+     pub label: String,
+     pub purpose: String,
+     pub edit_intent: ComponentFieldEditIntent,
+@@ -15625,21 +19873,21 @@ pub struct ComponentVersionFields {
+     pub required_for_render: bool,
+     pub requires_real_data: bool,
+     pub example_values: serde_json::Value,
++    pub metadata_origin: String,
+     pub created_at: chrono::DateTime<chrono::Utc>,
+     pub updated_at: chrono::DateTime<chrono::Utc>,
+-    pub component_version_id: i32,
+-    pub metadata_origin: String,
+-    pub field_name: String,
+-    pub field_type: String,
+-    pub schema_fragment: serde_json::Value,
+-    pub display_order: i32,
+ }
+ 
+ /// Values accepted when creating a `component_version_fields` row.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+ pub struct NewComponentVersionFields {
+     pub component_id: i32,
++    pub component_version_id: i32,
+     pub field_path: String,
++    pub field_name: String,
++    pub field_type: String,
++    pub schema_fragment: serde_json::Value,
++    pub display_order: i32,
+     pub label: String,
+     pub purpose: String,
+     pub edit_intent: ComponentFieldEditIntent,
+@@ -15656,16 +19904,11 @@ pub struct NewComponentVersionFields {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub example_values: Option<serde_json::Value>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metadata_origin: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+-    pub component_version_id: i32,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub metadata_origin: Option<String>,
+-    pub field_name: String,
+-    pub field_type: String,
+-    pub schema_fragment: serde_json::Value,
+-    pub display_order: i32,
+ }
+ 
+ /// Values accepted when partially updating a `component_version_fields` row.
+@@ -15674,8 +19917,18 @@ pub struct PatchComponentVersionFields {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub component_id: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub component_version_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub field_path: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub field_name: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub field_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub schema_fragment: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub display_order: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub label: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub purpose: Option<String>,
+@@ -15694,21 +19947,11 @@ pub struct PatchComponentVersionFields {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub example_values: Option<serde_json::Value>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metadata_origin: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub component_version_id: Option<i32>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub metadata_origin: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub field_name: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub field_type: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub schema_fragment: Option<serde_json::Value>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub display_order: Option<i32>,
+ }
+ 
+ /// A row from the `component_version_purchase_options` table.
+@@ -16187,9 +20430,9 @@ pub struct ConversionAttribution {
+     pub google_event_sent: Option<bool>,
+     pub converted_at: chrono::DateTime<chrono::Utc>,
+     pub created_at: chrono::DateTime<chrono::Utc>,
++    pub crm_lead_id: Option<i64>,
+     pub journey_person_key: Option<String>,
+     pub journey_session_key: Option<String>,
+-    pub crm_lead_id: Option<i64>,
+ }
+ 
+ /// Values accepted when creating a `conversion_attribution` row.
+@@ -16226,11 +20469,11 @@ pub struct NewConversionAttribution {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub crm_lead_id: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub journey_person_key: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub journey_session_key: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub crm_lead_id: Option<i64>,
+ }
+ 
+ /// Values accepted when partially updating a `conversion_attribution` row.
+@@ -16271,11 +20514,11 @@ pub struct PatchConversionAttribution {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub crm_lead_id: Option<Option<i64>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub journey_person_key: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub journey_session_key: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub crm_lead_id: Option<Option<i64>>,
+ }
+ 
+ /// A row from the `conversion_events` table.
+@@ -16287,8 +20530,6 @@ pub struct ConversionEvents {
+     pub event_type: String,
+     pub event_data: Option<serde_json::Value>,
+     pub created_at: chrono::DateTime<chrono::Utc>,
+-    pub journey_person_key: Option<String>,
+-    pub journey_session_key: Option<String>,
+     pub crm_lead_id: Option<i64>,
+     pub crm_contact_id: Option<i64>,
+     pub customer_email_hash: Option<String>,
+@@ -16296,6 +20537,8 @@ pub struct ConversionEvents {
+     pub checkout_session_id: Option<String>,
+     pub stripe_payment_intent_id: Option<String>,
+     pub funnel_session_token: Option<String>,
++    pub journey_person_key: Option<String>,
++    pub journey_session_key: Option<String>,
+ }
+ 
+ /// Values accepted when creating a `conversion_events` row.
+@@ -16311,10 +20554,6 @@ pub struct NewConversionEvents {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub journey_person_key: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub journey_session_key: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub crm_lead_id: Option<i64>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub crm_contact_id: Option<i64>,
+@@ -16328,6 +20567,10 @@ pub struct NewConversionEvents {
+     pub stripe_payment_intent_id: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub funnel_session_token: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_person_key: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_session_key: Option<String>,
+ }
+ 
+ /// Values accepted when partially updating a `conversion_events` row.
+@@ -16344,10 +20587,6 @@ pub struct PatchConversionEvents {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub journey_person_key: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub journey_session_key: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub crm_lead_id: Option<Option<i64>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub crm_contact_id: Option<Option<i64>>,
+@@ -16361,6 +20600,10 @@ pub struct PatchConversionEvents {
+     pub stripe_payment_intent_id: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub funnel_session_token: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_person_key: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_session_key: Option<Option<String>>,
+ }
+ 
+ /// A row from the `correlation` table.
+@@ -16750,96 +20993,6 @@ pub struct PatchCreateLeadIpAddresses {
+     pub created_at: Option<Option<chrono::NaiveDateTime>>,
+ }
+ 
+-/// A row from the `create_media_library` table.
+-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+-pub struct CreateMediaLibrary {
+-    pub id: i32,
+-    pub url: String,
+-    pub title: Option<String>,
+-    pub description: Option<String>,
+-    pub tags: Option<Vec<String>>,
+-    pub uploaded_by: Option<String>,
+-    pub uploaded_at: Option<chrono::NaiveDateTime>,
+-    pub tiktok_asset_id: Option<String>,
+-    pub facebook_asset_id: Option<String>,
+-    pub google_asset_id: Option<String>,
+-    pub duration_seconds: Option<i32>,
+-    pub file_size_bytes: Option<i64>,
+-    pub mime_type: Option<String>,
+-    pub thumbnail_url: Option<String>,
+-    pub latitude: Option<sqlx::types::Decimal>,
+-    pub longitude: Option<sqlx::types::Decimal>,
+-}
+-
+-/// Values accepted when creating a `create_media_library` row.
+-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+-pub struct NewCreateMediaLibrary {
+-    pub url: String,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub title: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub description: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub tags: Option<Vec<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub uploaded_by: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub uploaded_at: Option<Option<chrono::NaiveDateTime>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub tiktok_asset_id: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub facebook_asset_id: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub google_asset_id: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub duration_seconds: Option<i32>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub file_size_bytes: Option<i64>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub mime_type: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub thumbnail_url: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub latitude: Option<sqlx::types::Decimal>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub longitude: Option<sqlx::types::Decimal>,
+-}
+-
+-/// Values accepted when partially updating a `create_media_library` row.
+-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+-pub struct PatchCreateMediaLibrary {
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub url: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub title: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub description: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub tags: Option<Option<Vec<String>>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub uploaded_by: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub uploaded_at: Option<Option<chrono::NaiveDateTime>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub tiktok_asset_id: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub facebook_asset_id: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub google_asset_id: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub duration_seconds: Option<Option<i32>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub file_size_bytes: Option<Option<i64>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub mime_type: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub thumbnail_url: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub latitude: Option<Option<sqlx::types::Decimal>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub longitude: Option<Option<sqlx::types::Decimal>>,
+-}
+-
+ /// A row from the `create_personalization_contexts_table` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct CreatePersonalizationContextsTable {
+@@ -17094,11 +21247,15 @@ pub struct CreateUrlShortenerTables {
+ 
+ /// Values accepted when creating a `create_url_shortener_tables` row.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+-pub struct NewCreateUrlShortenerTables {}
++pub struct NewCreateUrlShortenerTables {
++
++}
+ 
+ /// Values accepted when partially updating a `create_url_shortener_tables` row.
+ #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+-pub struct PatchCreateUrlShortenerTables {}
++pub struct PatchCreateUrlShortenerTables {
++
++}
+ 
+ /// A row from the `creative_artifacts` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+@@ -18433,6 +22590,64 @@ pub struct PatchCrmTasks {
+     pub archived: Option<bool>,
+ }
+ 
++/// A row from the `cross_sell_offers` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CrossSellOffers {
++    pub id: i32,
++    pub customer_id: Option<i32>,
++    pub offer_type: String,
++    pub offer_value: i32,
++    pub offer_description: Option<String>,
++    pub status: Option<String>,
++    pub expires_at: chrono::DateTime<chrono::Utc>,
++    pub accepted_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub decline_reason: Option<String>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when creating a `cross_sell_offers` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCrossSellOffers {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    pub offer_type: String,
++    pub offer_value: i32,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub offer_description: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    pub expires_at: chrono::DateTime<chrono::Utc>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub accepted_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub decline_reason: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
++/// Values accepted when partially updating a `cross_sell_offers` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCrossSellOffers {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub offer_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub offer_value: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub offer_description: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub accepted_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub decline_reason: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
+ /// A row from the `customer` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct Customer {
+@@ -18456,14 +22671,29 @@ pub struct Customer {
+     pub quickbooks_customer_id: Option<String>,
+     pub active_local_offer_id: Option<i64>,
+     pub trash_zone_id: Option<sqlx::types::Uuid>,
+-    pub email_verified: Option<bool>,
++    pub status: String,
++    pub onboarding_status: Option<String>,
++    pub onboarding_started_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub onboarding_completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub customer_tier: Option<String>,
++    pub referral_dashboard_viewed_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub referral_program_notified_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub customer_segment: Option<String>,
++    pub lifetime_value_cents: Option<i64>,
++    pub first_purchase_at: Option<chrono::DateTime<chrono::Utc>>,
+     pub acquisition_source: Option<String>,
+     pub acquisition_source_detail: Option<String>,
+     pub acquisition_qr_unique_id: Option<String>,
+     pub acquisition_campaign_id: Option<String>,
+     pub acquired_at: Option<chrono::DateTime<chrono::Utc>>,
+-    pub service_notes: Option<String>,
+     pub routing_override_service_date: Option<chrono::NaiveDate>,
++    pub service_notes: Option<String>,
++    pub purchase_type: Option<String>,
++    pub features: Option<serde_json::Value>,
++    pub last_payment_date: Option<chrono::DateTime<chrono::Utc>>,
++    pub payment_failed: Option<bool>,
++    pub stripe_subscription_id: Option<String>,
++    pub subscription_status: Option<String>,
+ }
+ 
+ /// Values accepted when creating a `customer` row.
+@@ -18505,7 +22735,25 @@ pub struct NewCustomer {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub trash_zone_id: Option<sqlx::types::Uuid>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub email_verified: Option<Option<bool>>,
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub onboarding_status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub onboarding_started_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub onboarding_completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_tier: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub referral_dashboard_viewed_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub referral_program_notified_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_segment: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub lifetime_value_cents: Option<Option<i64>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub first_purchase_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub acquisition_source: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -18517,9 +22765,21 @@ pub struct NewCustomer {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub acquired_at: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub routing_override_service_date: Option<chrono::NaiveDate>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub service_notes: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub routing_override_service_date: Option<chrono::NaiveDate>,
++    pub purchase_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub features: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_payment_date: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub payment_failed: Option<Option<bool>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_subscription_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subscription_status: Option<String>,
+ }
+ 
+ /// Values accepted when partially updating a `customer` row.
+@@ -18564,7 +22824,25 @@ pub struct PatchCustomer {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub trash_zone_id: Option<Option<sqlx::types::Uuid>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub email_verified: Option<Option<bool>>,
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub onboarding_status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub onboarding_started_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub onboarding_completed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_tier: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub referral_dashboard_viewed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub referral_program_notified_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_segment: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub lifetime_value_cents: Option<Option<i64>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub first_purchase_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub acquisition_source: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -18576,9 +22854,21 @@ pub struct PatchCustomer {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub acquired_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub routing_override_service_date: Option<Option<chrono::NaiveDate>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub service_notes: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub routing_override_service_date: Option<Option<chrono::NaiveDate>>,
++    pub purchase_type: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub features: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_payment_date: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub payment_failed: Option<Option<bool>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_subscription_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subscription_status: Option<Option<String>>,
+ }
+ 
+ /// A row from the `customer_automation_source_outbox` table.
+@@ -18791,6 +23081,60 @@ pub struct PatchCustomerContactLists {
+     pub crm_lead_id: Option<Option<i64>>,
+ }
+ 
++/// A row from the `customer_features` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CustomerFeatures {
++    pub id: i32,
++    pub customer_id: Option<i32>,
++    pub feature_key: String,
++    pub feature_name: String,
++    pub activated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub metadata: Option<serde_json::Value>,
++    pub deactivated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub active: bool,
++}
++
++/// Values accepted when creating a `customer_features` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCustomerFeatures {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    pub feature_key: String,
++    pub feature_name: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub activated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metadata: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub deactivated_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub active: Option<bool>,
++}
++
++/// Values accepted when partially updating a `customer_features` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCustomerFeatures {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub feature_key: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub feature_name: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub activated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub expires_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metadata: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub deactivated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub active: Option<bool>,
++}
++
+ /// A row from the `customer_funnel_states` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct CustomerFunnelStates {
+@@ -18803,6 +23147,17 @@ pub struct CustomerFunnelStates {
+     pub created_at: chrono::NaiveDateTime,
+     pub updated_at: Option<chrono::NaiveDateTime>,
+     pub metadata: Option<serde_json::Value>,
++    pub ad_source: Option<String>,
++    pub utm_source: Option<String>,
++    pub utm_medium: Option<String>,
++    pub utm_campaign: Option<String>,
++    pub fbp: Option<String>,
++    pub fbc: Option<String>,
++    pub tripwire_order_id: Option<i32>,
++    pub subscription_id: Option<i32>,
++    pub conversion_value: Option<i32>,
++    pub previous_stage: Option<String>,
++    pub stage_changed_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+ /// Values accepted when creating a `customer_funnel_states` row.
+@@ -18823,6 +23178,28 @@ pub struct NewCustomerFunnelStates {
+     pub updated_at: Option<chrono::NaiveDateTime>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub metadata: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub ad_source: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_source: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_medium: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_campaign: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub fbp: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub fbc: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub tripwire_order_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subscription_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub conversion_value: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub previous_stage: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stage_changed_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+ /// Values accepted when partially updating a `customer_funnel_states` row.
+@@ -18844,6 +23221,28 @@ pub struct PatchCustomerFunnelStates {
+     pub updated_at: Option<Option<chrono::NaiveDateTime>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub metadata: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub ad_source: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_source: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_medium: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub utm_campaign: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub fbp: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub fbc: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub tripwire_order_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subscription_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub conversion_value: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub previous_stage: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stage_changed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+ 
+ /// A row from the `customer_marketing_tags` table.
+@@ -18939,6 +23338,100 @@ pub struct PatchCustomerNeighborhoods {
+     pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+ 
++/// A row from the `customer_onboarding` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CustomerOnboarding {
++    pub id: i32,
++    pub customer_id: i32,
++    pub sequence_id: Option<i32>,
++    pub status: String,
++    pub current_step: i32,
++    pub started_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when creating a `customer_onboarding` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCustomerOnboarding {
++    pub customer_id: i32,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sequence_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub current_step: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub started_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
++/// Values accepted when partially updating a `customer_onboarding` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCustomerOnboarding {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sequence_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub current_step: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub started_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
++/// A row from the `customer_onboarding_progress` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CustomerOnboardingProgress {
++    pub id: i32,
++    pub customer_id: i32,
++    pub checklist_item: String,
++    pub is_completed: bool,
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when creating a `customer_onboarding_progress` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCustomerOnboardingProgress {
++    pub customer_id: i32,
++    pub checklist_item: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub is_completed: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
++/// Values accepted when partially updating a `customer_onboarding_progress` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCustomerOnboardingProgress {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub checklist_item: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub is_completed: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
+ /// A row from the `customer_plan_preferences` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct CustomerPlanPreferences {
+@@ -19014,6 +23507,38 @@ pub struct PatchCustomerPlanPreferences {
+     pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+ 
++/// A row from the `customer_preferences` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CustomerPreferences {
++    pub customer_id: i32,
++    pub unsubscribed_from_upsells: bool,
++    pub created_at: chrono::DateTime<chrono::Utc>,
++    pub updated_at: chrono::DateTime<chrono::Utc>,
++}
++
++/// Values accepted when creating a `customer_preferences` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCustomerPreferences {
++    pub customer_id: i32,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub unsubscribed_from_upsells: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when partially updating a `customer_preferences` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCustomerPreferences {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub unsubscribed_from_upsells: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
+ /// A row from the `customer_route_dashboard` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct CustomerRouteDashboard {
+@@ -19199,6 +23724,49 @@ pub struct PatchCustomerRoutes {
+     pub show_on_leaderboard: Option<Option<bool>>,
+ }
+ 
++/// A row from the `customer_service_dates` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CustomerServiceDates {
++    pub id: i32,
++    pub customer_id: i32,
++    pub subscription_id: i32,
++    pub service_date: chrono::NaiveDate,
++    pub status: String,
++    pub notes: Option<String>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when creating a `customer_service_dates` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCustomerServiceDates {
++    pub customer_id: i32,
++    pub subscription_id: i32,
++    pub service_date: chrono::NaiveDate,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub notes: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
++/// Values accepted when partially updating a `customer_service_dates` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCustomerServiceDates {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subscription_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub service_date: Option<chrono::NaiveDate>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub notes: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
+ /// A row from the `customer_streets` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct CustomerStreets {
+@@ -19257,7 +23825,7 @@ pub struct CustomerSubscriptions {
+     pub available_for_routing: Option<bool>,
+     pub stripe_subscription_id: Option<String>,
+     pub stripe_customer_id: Option<String>,
+-    pub trial_end: Option<chrono::NaiveDateTime>,
++    pub trial_end: Option<chrono::DateTime<chrono::Utc>>,
+     pub active: Option<bool>,
+     pub bins_included: Option<i32>,
+     pub billing_interval: Option<String>,
+@@ -19265,8 +23833,8 @@ pub struct CustomerSubscriptions {
+     pub next_billing_date: Option<chrono::NaiveDate>,
+     pub last_payment_status: Option<String>,
+     pub payment_failure_count: Option<i32>,
+-    pub updated_at: Option<chrono::NaiveDateTime>,
+-    pub monthly_amount: Option<sqlx::types::Decimal>,
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub monthly_amount: Option<i32>,
+ }
+ 
+ /// Values accepted when creating a `customer_subscriptions` row.
+@@ -19299,7 +23867,7 @@ pub struct NewCustomerSubscriptions {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub stripe_customer_id: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub trial_end: Option<chrono::NaiveDateTime>,
++    pub trial_end: Option<chrono::DateTime<chrono::Utc>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub active: Option<Option<bool>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -19315,9 +23883,9 @@ pub struct NewCustomerSubscriptions {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub payment_failure_count: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub updated_at: Option<Option<chrono::NaiveDateTime>>,
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub monthly_amount: Option<sqlx::types::Decimal>,
++    pub monthly_amount: Option<i32>,
+ }
+ 
+ /// Values accepted when partially updating a `customer_subscriptions` row.
+@@ -19352,7 +23920,7 @@ pub struct PatchCustomerSubscriptions {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub stripe_customer_id: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub trial_end: Option<Option<chrono::NaiveDateTime>>,
++    pub trial_end: Option<Option<chrono::DateTime<chrono::Utc>>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub active: Option<Option<bool>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -19368,9 +23936,190 @@ pub struct PatchCustomerSubscriptions {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub payment_failure_count: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub updated_at: Option<Option<chrono::NaiveDateTime>>,
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub monthly_amount: Option<Option<sqlx::types::Decimal>>,
++    pub monthly_amount: Option<Option<i32>>,
++}
++
++/// A row from the `customer_support_tickets` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CustomerSupportTickets {
++    pub id: i32,
++    pub customer_id: i32,
++    pub ticket_type: String,
++    pub subject: String,
++    pub description: String,
++    pub status: String,
++    pub priority: String,
++    pub resolution_notes: Option<String>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub resolved_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when creating a `customer_support_tickets` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCustomerSupportTickets {
++    pub customer_id: i32,
++    pub ticket_type: String,
++    pub subject: String,
++    pub description: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub priority: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub resolution_notes: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub resolved_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when partially updating a `customer_support_tickets` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCustomerSupportTickets {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub ticket_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subject: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub description: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub priority: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub resolution_notes: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub resolved_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
++/// A row from the `customer_upsell_events` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CustomerUpsellEvents {
++    pub id: i32,
++    pub customer_id: i32,
++    pub upsell_type: String,
++    pub offer_id: Option<i32>,
++    pub stripe_payment_intent_id: Option<String>,
++    pub stripe_subscription_id: Option<String>,
++    pub amount_cents: i32,
++    pub accepted_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub converted_to_subscription: Option<bool>,
++    pub subscription_id: Option<i32>,
++    pub converted_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub metadata: Option<serde_json::Value>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub status: Option<String>,
++    pub stripe_customer_id: Option<String>,
++    pub declined_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub trial_days_applied: Option<i32>,
++    pub original_stripe_price_id: Option<String>,
++    pub converted_stripe_price_id: Option<String>,
++    pub journey_person_key: Option<String>,
++    pub journey_session_key: Option<String>,
++}
++
++/// Values accepted when creating a `customer_upsell_events` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCustomerUpsellEvents {
++    pub customer_id: i32,
++    pub upsell_type: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub offer_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_payment_intent_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_subscription_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub amount_cents: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub accepted_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub converted_to_subscription: Option<Option<bool>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subscription_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub converted_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metadata: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_customer_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub declined_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub trial_days_applied: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub original_stripe_price_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub converted_stripe_price_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_person_key: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_session_key: Option<String>,
++}
++
++/// Values accepted when partially updating a `customer_upsell_events` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCustomerUpsellEvents {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub upsell_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub offer_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_payment_intent_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_subscription_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub amount_cents: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub accepted_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub converted_to_subscription: Option<Option<bool>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subscription_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub converted_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metadata: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_customer_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub declined_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub trial_days_applied: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub original_stripe_price_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub converted_stripe_price_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_person_key: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub journey_session_key: Option<Option<String>>,
+ }
+ 
+ /// A row from the `customer_upsell_history` table.
+@@ -19389,7 +24138,6 @@ pub struct CustomerUpsellHistory {
+     pub original_total_cents: Option<i32>,
+     pub upsell_total_cents: Option<i32>,
+     pub final_total_cents: Option<i32>,
+-    pub decline_reason: Option<String>,
+     pub offer_id: Option<i32>,
+     pub offer_name: Option<String>,
+     pub offer_description: Option<String>,
+@@ -19442,8 +24190,6 @@ pub struct NewCustomerUpsellHistory {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub final_total_cents: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub decline_reason: Option<String>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub offer_id: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub offer_name: Option<String>,
+@@ -19517,8 +24263,6 @@ pub struct PatchCustomerUpsellHistory {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub final_total_cents: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub decline_reason: Option<Option<String>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub offer_id: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub offer_name: Option<Option<String>>,
+@@ -19564,6 +24308,151 @@ pub struct PatchCustomerUpsellHistory {
+     pub payment_error_message: Option<Option<String>>,
+ }
+ 
++/// A row from the `customer_upsell_status` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct CustomerUpsellStatus {
++    pub id: i64,
++    pub customer_id: i64,
++    pub upsell_window_open: Option<bool>,
++    pub window_opened_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub window_closes_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub upsell_attempts: Option<i32>,
++    pub last_upsell_attempt_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub last_offer_id: Option<i64>,
++    pub last_offer_response: Option<String>,
++    pub cooldown_until: Option<chrono::DateTime<chrono::Utc>>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub total_sequences_started: Option<i32>,
++    pub total_sequences_completed: Option<i32>,
++    pub total_conversions: Option<i32>,
++    pub total_revenue_cents: Option<i32>,
++    pub last_conversion_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub opt_out: Option<bool>,
++    pub opt_out_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub sales_contact_locked: Option<bool>,
++    pub sales_locked_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub sales_lock_expires_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub sales_lock_override_by: Option<String>,
++    pub sales_lock_override_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub sales_lock_reason: Option<String>,
++    pub current_state: String,
++    pub metadata: Option<serde_json::Value>,
++}
++
++/// Values accepted when creating a `customer_upsell_status` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewCustomerUpsellStatus {
++    pub customer_id: i64,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub upsell_window_open: Option<Option<bool>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub window_opened_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub window_closes_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub upsell_attempts: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_upsell_attempt_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_offer_id: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_offer_response: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub cooldown_until: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_sequences_started: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_sequences_completed: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_conversions: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_revenue_cents: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_conversion_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub opt_out: Option<Option<bool>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub opt_out_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sales_contact_locked: Option<Option<bool>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sales_locked_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sales_lock_expires_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sales_lock_override_by: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sales_lock_override_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sales_lock_reason: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub current_state: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metadata: Option<Option<serde_json::Value>>,
++}
++
++/// Values accepted when partially updating a `customer_upsell_status` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchCustomerUpsellStatus {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub upsell_window_open: Option<Option<bool>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub window_opened_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub window_closes_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub upsell_attempts: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_upsell_attempt_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_offer_id: Option<Option<i64>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_offer_response: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub cooldown_until: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_sequences_started: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_sequences_completed: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_conversions: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub total_revenue_cents: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_conversion_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub opt_out: Option<Option<bool>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub opt_out_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sales_contact_locked: Option<Option<bool>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sales_locked_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sales_lock_expires_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sales_lock_override_by: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sales_lock_override_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sales_lock_reason: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub current_state: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metadata: Option<Option<serde_json::Value>>,
++}
++
+ /// A row from the `daily_revenue` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct DailyRevenue {
+@@ -20637,13 +25526,13 @@ pub struct DimSession {
+     pub session_id: String,
+     pub person_key: Option<String>,
+     pub visitor_id: Option<String>,
++    pub crm_lead_id: Option<i64>,
++    pub crm_contact_id: Option<i64>,
+     pub customer_id: Option<i32>,
+     pub started_at: chrono::DateTime<chrono::Utc>,
+     pub ended_at: chrono::DateTime<chrono::Utc>,
+     pub source: String,
+     pub updated_at: chrono::DateTime<chrono::Utc>,
+-    pub crm_lead_id: Option<i64>,
+-    pub crm_contact_id: Option<i64>,
+ }
+ 
+ /// Values accepted when creating a `dim_session` row.
+@@ -20656,16 +25545,16 @@ pub struct NewDimSession {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub visitor_id: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub crm_lead_id: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub crm_contact_id: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub customer_id: Option<i32>,
+     pub started_at: chrono::DateTime<chrono::Utc>,
+     pub ended_at: chrono::DateTime<chrono::Utc>,
+     pub source: String,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub crm_lead_id: Option<i64>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub crm_contact_id: Option<i64>,
+ }
+ 
+ /// Values accepted when partially updating a `dim_session` row.
+@@ -20678,6 +25567,10 @@ pub struct PatchDimSession {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub visitor_id: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub crm_lead_id: Option<Option<i64>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub crm_contact_id: Option<Option<i64>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub customer_id: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub started_at: Option<chrono::DateTime<chrono::Utc>>,
+@@ -20687,10 +25580,6 @@ pub struct PatchDimSession {
+     pub source: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub crm_lead_id: Option<Option<i64>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub crm_contact_id: Option<Option<i64>>,
+ }
+ 
+ /// A row from the `direct_mail_jobs` table.
+@@ -21448,6 +26337,67 @@ pub struct PatchDriverCapacityWindows {
+     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
++/// A row from the `driver_devices` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct DriverDevices {
++    pub id: sqlx::types::Uuid,
++    pub driver_id: i32,
++    pub device_token: String,
++    pub device_type: String,
++    pub platform: String,
++    pub is_active: bool,
++    pub last_seen: chrono::DateTime<chrono::Utc>,
++    pub created_at: chrono::DateTime<chrono::Utc>,
++    pub updated_at: chrono::DateTime<chrono::Utc>,
++    pub metadata: serde_json::Value,
++}
++
++/// Values accepted when creating a `driver_devices` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewDriverDevices {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub id: Option<sqlx::types::Uuid>,
++    pub driver_id: i32,
++    pub device_token: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub device_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub platform: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub is_active: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_seen: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metadata: Option<serde_json::Value>,
++}
++
++/// Values accepted when partially updating a `driver_devices` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchDriverDevices {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub driver_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub device_token: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub device_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub platform: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub is_active: Option<bool>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_seen: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub metadata: Option<serde_json::Value>,
++}
++
+ /// A row from the `driver_locations` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct DriverLocations {
+@@ -21498,31 +26448,31 @@ pub struct PatchDriverLocations {
+ /// A row from the `driver_performance_metrics` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct DriverPerformanceMetrics {
+-    pub id: i64,
+-    pub driver_id: i64,
++    pub id: i32,
++    pub driver_id: i32,
+     pub metric_date: chrono::NaiveDate,
+-    pub stops_completed: i32,
+-    pub stops_total: i32,
+-    pub on_time_stops: i32,
++    pub stops_completed: Option<i32>,
++    pub stops_total: Option<i32>,
++    pub on_time_stops: Option<i32>,
+     pub avg_stop_duration_minutes: Option<sqlx::types::Decimal>,
+     pub total_distance_km: Option<sqlx::types::Decimal>,
+     pub customer_rating: Option<sqlx::types::Decimal>,
+     pub notes: Option<String>,
+-    pub created_at: chrono::DateTime<chrono::Utc>,
+-    pub updated_at: chrono::DateTime<chrono::Utc>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+ /// Values accepted when creating a `driver_performance_metrics` row.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+ pub struct NewDriverPerformanceMetrics {
+-    pub driver_id: i64,
++    pub driver_id: i32,
+     pub metric_date: chrono::NaiveDate,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub stops_completed: Option<i32>,
++    pub stops_completed: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub stops_total: Option<i32>,
++    pub stops_total: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub on_time_stops: Option<i32>,
++    pub on_time_stops: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub avg_stop_duration_minutes: Option<sqlx::types::Decimal>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -21532,24 +26482,24 @@ pub struct NewDriverPerformanceMetrics {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub notes: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+ 
+ /// Values accepted when partially updating a `driver_performance_metrics` row.
+ #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+ pub struct PatchDriverPerformanceMetrics {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub driver_id: Option<i64>,
++    pub driver_id: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub metric_date: Option<chrono::NaiveDate>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub stops_completed: Option<i32>,
++    pub stops_completed: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub stops_total: Option<i32>,
++    pub stops_total: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub on_time_stops: Option<i32>,
++    pub on_time_stops: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub avg_stop_duration_minutes: Option<Option<sqlx::types::Decimal>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -21559,94 +26509,94 @@ pub struct PatchDriverPerformanceMetrics {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub notes: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+ 
+ /// A row from the `driver_performance_ratings` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct DriverPerformanceRatings {
+-    pub id: i64,
+-    pub driver_id: i64,
+-    pub route_stop_id: Option<i64>,
+-    pub customer_id: Option<i64>,
++    pub id: i32,
++    pub driver_id: i32,
++    pub route_stop_id: Option<i32>,
++    pub customer_id: Option<i32>,
+     pub rating: i32,
+     pub comment: Option<String>,
+-    pub rated_at: chrono::DateTime<chrono::Utc>,
+-    pub created_at: chrono::DateTime<chrono::Utc>,
++    pub rated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+ /// Values accepted when creating a `driver_performance_ratings` row.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+ pub struct NewDriverPerformanceRatings {
+-    pub driver_id: i64,
++    pub driver_id: i32,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub route_stop_id: Option<i64>,
++    pub route_stop_id: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub customer_id: Option<i64>,
++    pub customer_id: Option<i32>,
+     pub rating: i32,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub comment: Option<String>,
+-    pub rated_at: chrono::DateTime<chrono::Utc>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub rated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+ 
+ /// Values accepted when partially updating a `driver_performance_ratings` row.
+ #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+ pub struct PatchDriverPerformanceRatings {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub driver_id: Option<i64>,
++    pub driver_id: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub route_stop_id: Option<Option<i64>>,
++    pub route_stop_id: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub customer_id: Option<Option<i64>>,
++    pub customer_id: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub rating: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub comment: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub rated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub rated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+ 
+ /// A row from the `driver_performance_summary` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct DriverPerformanceSummary {
+-    pub driver_id: Option<i64>,
++    pub driver_id: Option<i32>,
+     pub driver_email: Option<String>,
+     pub driver_name: Option<String>,
+-    pub days_recorded: Option<i64>,
++    pub days_worked: Option<i64>,
+     pub total_stops_completed: Option<i64>,
+-    pub total_stops: Option<i64>,
++    pub total_stops_scheduled: Option<i64>,
+     pub completion_rate_percent: Option<sqlx::types::Decimal>,
+     pub total_on_time_stops: Option<i64>,
+     pub on_time_rate_percent: Option<sqlx::types::Decimal>,
+     pub avg_stop_duration_minutes: Option<sqlx::types::Decimal>,
+     pub total_distance_km: Option<sqlx::types::Decimal>,
+     pub avg_customer_rating: Option<sqlx::types::Decimal>,
+-    pub period_start: Option<chrono::NaiveDate>,
+-    pub period_end: Option<chrono::NaiveDate>,
+-    pub summary_period: Option<chrono::DateTime<chrono::Utc>>,
++    pub first_day: Option<chrono::NaiveDate>,
++    pub last_day: Option<chrono::NaiveDate>,
+ }
+ 
+ /// Values accepted when creating a `driver_performance_summary` row.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+ pub struct NewDriverPerformanceSummary {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub driver_id: Option<i64>,
++    pub driver_id: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub driver_email: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub driver_name: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub days_recorded: Option<i64>,
++    pub days_worked: Option<i64>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub total_stops_completed: Option<i64>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub total_stops: Option<i64>,
++    pub total_stops_scheduled: Option<i64>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub completion_rate_percent: Option<sqlx::types::Decimal>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -21660,28 +26610,26 @@ pub struct NewDriverPerformanceSummary {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub avg_customer_rating: Option<sqlx::types::Decimal>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub period_start: Option<chrono::NaiveDate>,
++    pub first_day: Option<chrono::NaiveDate>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub period_end: Option<chrono::NaiveDate>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub summary_period: Option<chrono::DateTime<chrono::Utc>>,
++    pub last_day: Option<chrono::NaiveDate>,
+ }
+ 
+ /// Values accepted when partially updating a `driver_performance_summary` row.
+ #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+ pub struct PatchDriverPerformanceSummary {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub driver_id: Option<Option<i64>>,
++    pub driver_id: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub driver_email: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub driver_name: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub days_recorded: Option<Option<i64>>,
++    pub days_worked: Option<Option<i64>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub total_stops_completed: Option<Option<i64>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub total_stops: Option<Option<i64>>,
++    pub total_stops_scheduled: Option<Option<i64>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub completion_rate_percent: Option<Option<sqlx::types::Decimal>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+@@ -21695,11 +26643,9 @@ pub struct PatchDriverPerformanceSummary {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub avg_customer_rating: Option<Option<sqlx::types::Decimal>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub period_start: Option<Option<chrono::NaiveDate>>,
++    pub first_day: Option<Option<chrono::NaiveDate>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub period_end: Option<Option<chrono::NaiveDate>>,
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub summary_period: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    pub last_day: Option<Option<chrono::NaiveDate>>,
+ }
+ 
+ /// A row from the `driver_shift_events` table.
+@@ -21761,6 +26707,8 @@ pub struct DriverShifts {
+     pub total_duration_seconds: Option<i32>,
+     pub quickbooks_time_activity_id: Option<String>,
+     pub quickbooks_synced_at: Option<chrono::NaiveDateTime>,
++    pub start_meta: Option<serde_json::Value>,
++    pub end_meta: Option<serde_json::Value>,
+ }
+ 
+ /// Values accepted when creating a `driver_shifts` row.
+@@ -21809,6 +26757,10 @@ pub struct NewDriverShifts {
+     pub quickbooks_time_activity_id: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub quickbooks_synced_at: Option<chrono::NaiveDateTime>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub start_meta: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub end_meta: Option<serde_json::Value>,
+ }
+ 
+ /// Values accepted when partially updating a `driver_shifts` row.
+@@ -21856,6 +26808,83 @@ pub struct PatchDriverShifts {
+     pub quickbooks_time_activity_id: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub quickbooks_synced_at: Option<Option<chrono::NaiveDateTime>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub start_meta: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub end_meta: Option<Option<serde_json::Value>>,
++}
++
++/// A row from the `driver_tasks` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct DriverTasks {
++    pub id: i32,
++    pub customer_id: i32,
++    pub route_stop_id: Option<i32>,
++    pub assigned_to: Option<i32>,
++    pub task_type: String,
++    pub due_date: chrono::NaiveDate,
++    pub notes: Option<String>,
++    pub priority: String,
++    pub status: String,
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub completed_notes: Option<String>,
++    pub created_at: chrono::DateTime<chrono::Utc>,
++    pub updated_at: chrono::DateTime<chrono::Utc>,
++}
++
++/// Values accepted when creating a `driver_tasks` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewDriverTasks {
++    pub customer_id: i32,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub route_stop_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub assigned_to: Option<i32>,
++    pub task_type: String,
++    pub due_date: chrono::NaiveDate,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub notes: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub priority: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_notes: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when partially updating a `driver_tasks` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchDriverTasks {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub route_stop_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub assigned_to: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub task_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub due_date: Option<chrono::NaiveDate>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub notes: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub priority: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_notes: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+ /// A row from the `driver_zone_assignments` table.
+@@ -21970,50 +26999,174 @@ pub struct PatchDunningEmailLog {
+     pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+ 
++/// A row from the `dunning_emails` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct DunningEmails {
++    pub id: i32,
++    pub dunning_id: i32,
++    pub customer_id: i32,
++    pub email_type: String,
++    pub subject: String,
++    pub status: Option<String>,
++    pub scheduled_for: chrono::DateTime<chrono::Utc>,
++    pub sent_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub opened_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub clicked_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub error_message: Option<String>,
++    pub stripe_subscription_id: Option<String>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when creating a `dunning_emails` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewDunningEmails {
++    pub dunning_id: i32,
++    pub customer_id: i32,
++    pub email_type: String,
++    pub subject: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    pub scheduled_for: chrono::DateTime<chrono::Utc>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sent_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub opened_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub clicked_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub error_message: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_subscription_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
++/// Values accepted when partially updating a `dunning_emails` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchDunningEmails {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub dunning_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub email_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub subject: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub scheduled_for: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sent_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub opened_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub clicked_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub error_message: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_subscription_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++}
++
+ /// A row from the `dunning_sequences` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct DunningSequences {
+     pub id: i32,
+-    pub customer_id: Option<i32>,
++    pub customer_id: i32,
+     pub subscription_id: Option<i32>,
+-    pub sequence_step: Option<i32>,
++    pub stripe_subscription_id: Option<String>,
++    pub stripe_invoice_id: Option<String>,
++    pub amount_cents: i32,
++    pub failure_reason: Option<String>,
+     pub status: Option<String>,
+-    pub created_at: Option<chrono::NaiveDateTime>,
+-    pub updated_at: Option<chrono::NaiveDateTime>,
++    pub current_step: Option<i32>,
++    pub max_attempts: Option<i32>,
++    pub attempts_made: Option<i32>,
++    pub started_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub resolved_with: Option<String>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub next_attempt_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub last_attempt_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+ /// Values accepted when creating a `dunning_sequences` row.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+ pub struct NewDunningSequences {
+-    #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub customer_id: Option<i32>,
++    pub customer_id: i32,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub subscription_id: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub sequence_step: Option<Option<i32>>,
++    pub stripe_subscription_id: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_invoice_id: Option<String>,
++    pub amount_cents: i32,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub failure_reason: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub status: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<Option<chrono::NaiveDateTime>>,
++    pub current_step: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub updated_at: Option<Option<chrono::NaiveDateTime>>,
++    pub max_attempts: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub attempts_made: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub started_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub resolved_with: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub next_attempt_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_attempt_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
+ /// Values accepted when partially updating a `dunning_sequences` row.
+ #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+ pub struct PatchDunningSequences {
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub customer_id: Option<Option<i32>>,
++    pub customer_id: Option<i32>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub subscription_id: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub sequence_step: Option<Option<i32>>,
++    pub stripe_subscription_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub stripe_invoice_id: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub amount_cents: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub failure_reason: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub status: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub created_at: Option<Option<chrono::NaiveDateTime>>,
++    pub current_step: Option<Option<i32>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+-    pub updated_at: Option<Option<chrono::NaiveDateTime>>,
++    pub max_attempts: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub attempts_made: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub started_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub completed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub resolved_with: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub next_attempt_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub last_attempt_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+ 
+ /// A row from the `dynamic_pricing_log` table.
+@@ -22256,6 +27409,7 @@ pub struct EmailSends {
+     pub crm_lead_id: Option<i64>,
+     pub journey_person_key: Option<String>,
+     pub journey_session_key: Option<String>,
++    pub template_name: Option<String>,
+ }
+ 
+ /// Values accepted when creating a `email_sends` row.
+@@ -22292,6 +27446,8 @@ pub struct NewEmailSends {
+     pub journey_person_key: Option<String>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub journey_session_key: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub template_name: Option<String>,
+ }
+ 
+ /// Values accepted when partially updating a `email_sends` row.
+@@ -22329,6 +27485,72 @@ pub struct PatchEmailSends {
+     pub journey_person_key: Option<Option<String>>,
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub journey_session_key: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub template_name: Option<Option<String>>,
++}
++
++/// A row from the `email_sequence_jobs` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct EmailSequenceJobs {
++    pub id: i32,
++    pub customer_id: Option<i32>,
++    pub sequence_name: String,
++    pub step_number: Option<i32>,
++    pub scheduled_for: chrono::DateTime<chrono::Utc>,
++    pub status: Option<String>,
++    pub email_subject: Option<String>,
++    pub sent_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub email: Option<String>,
++    pub lead_name: Option<String>,
++}
++
++/// Values accepted when creating a `email_sequence_jobs` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewEmailSequenceJobs {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<i32>,
++    pub sequence_name: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub step_number: Option<Option<i32>>,
++    pub scheduled_for: chrono::DateTime<chrono::Utc>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub email_subject: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sent_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub email: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub lead_name: Option<String>,
++}
++
++/// Values accepted when partially updating a `email_sequence_jobs` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchEmailSequenceJobs {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub customer_id: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sequence_name: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub step_number: Option<Option<i32>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub scheduled_for: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub email_subject: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub sent_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub email: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub lead_name: Option<Option<String>>,
+ }
+ 
+ /// A row from the `email_sequences` table.
+@@ -22587,6 +27809,71 @@ pub struct PatchEmailWorkflowEdges {
+     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+ }
+ 
++/// A row from the `email_workflow_event_waits` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct EmailWorkflowEventWaits {
++    pub id: sqlx::types::Uuid,
++    pub run_id: sqlx::types::Uuid,
++    pub node_id: sqlx::types::Uuid,
++    pub event_type: String,
++    pub event_config: Option<serde_json::Value>,
++    pub timeout_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub timeout_action: Option<String>,
++    pub status: String,
++    pub triggered_at: Option<chrono::DateTime<chrono::Utc>>,
++    pub trigger_data: Option<serde_json::Value>,
++    pub created_at: chrono::DateTime<chrono::Utc>,
++}
++
++/// Values accepted when creating a `email_workflow_event_waits` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewEmailWorkflowEventWaits {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub id: Option<sqlx::types::Uuid>,
++    pub run_id: sqlx::types::Uuid,
++    pub node_id: sqlx::types::Uuid,
++    pub event_type: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub event_config: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub timeout_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub timeout_action: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub triggered_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub trigger_data: Option<serde_json::Value>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when partially updating a `email_workflow_event_waits` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchEmailWorkflowEventWaits {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub run_id: Option<sqlx::types::Uuid>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub node_id: Option<sqlx::types::Uuid>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub event_type: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub event_config: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub timeout_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub timeout_action: Option<Option<String>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub status: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub triggered_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub trigger_data: Option<Option<serde_json::Value>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
+ /// A row from the `email_workflow_folders` table.
+ #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+ pub struct EmailWorkflowFolders {
+@@ -23126,6 +28413,71 @@ pub struct PatchEmailWorkflowScheduledSteps {
+     pub processed_at: Option<Option<chrono::DateTime<chrono::Utc>>>,
+ }
+ 
++/// A row from the `email_workflow_split_test_results` table.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
++pub struct EmailWorkflowSplitTestResults {
++    pub id: sqlx::types::Uuid,
++    pub workflow_id: sqlx::types::Uuid,
++    pub node_id: sqlx::types::Uuid,
++    pub variant_key: String,
++    pub impressions: i32,
++    pub conversions: i32,
++    pub revenue_cents: i64,
++    pub alpha_prior: f64,
++    pub beta_prior: f64,
++    pub created_at: chrono::DateTime<chrono::Utc>,
++    pub updated_at: chrono::DateTime<chrono::Utc>,
++}
++
++/// Values accepted when creating a `email_workflow_split_test_results` row.
++#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
++pub struct NewEmailWorkflowSplitTestResults {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub id: Option<sqlx::types::Uuid>,
++    pub workflow_id: sqlx::types::Uuid,
++    pub node_id: sqlx::types::Uuid,
++    pub variant_key: String,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub impressions: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub conversions: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub revenue_cents: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub alpha_prior: Option<f64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub beta_prior: Option<f64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
++/// Values accepted when partially updating a `email_workflow_split_test_results` row.
++#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
++pub struct PatchEmailWorkflowSplitTestResults {
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub workflow_id: Option<sqlx::types::Uuid>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub node_id: Option<sqlx::types::Uuid>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub variant_key: Option<String>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub impressions: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub conversions: Option<i32>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub revenue_cents: Option<i64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub alpha_prior: Option<f64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub beta_prior: Option<f64>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
++    #[serde(default, skip_serializing_if = "Option::is_none")]
++    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
++}
++
+ /// A row from the `email_workflows` table.

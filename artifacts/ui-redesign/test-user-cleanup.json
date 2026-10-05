@@ -1,0 +1,28 @@
+{
+  "level": "live deployment/Argo",
+  "service": "keycloak/keycloak",
+  "userId": "28d1d4f6-59a1-48b4-bbaa-ce5b839d90c9",
+  "operations": [
+    {
+      "method": "GET",
+      "suffix": "",
+      "status": 200
+    },
+    {
+      "method": "PUT",
+      "suffix": "",
+      "status": 204
+    },
+    {
+      "method": "POST",
+      "suffix": "/logout",
+      "status": 204
+    },
+    {
+      "method": "GET",
+      "suffix": "",
+      "status": 200
+    }
+  ],
+  "disabled": true
+}

@@ -1,0 +1,251 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - link "Skip to main content" [ref=e3] [cursor=pointer]:
+      - /url: "#dashboard-main"
+    - generic [ref=e5]:
+      - link "CodeTether" [ref=e7] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e9]
+        - generic [ref=e11]: CodeTether
+      - navigation [ref=e12]:
+        - list [ref=e13]:
+          - listitem [ref=e14]:
+            - link "Get Started New" [ref=e15] [cursor=pointer]:
+              - /url: /dashboard/getting-started
+              - img [ref=e16]
+              - text: Get Started
+              - generic [ref=e18]: New
+          - listitem [ref=e19]:
+            - link "Workspaces" [ref=e20] [cursor=pointer]:
+              - /url: /dashboard
+              - img [ref=e21]
+              - text: Workspaces
+          - listitem [ref=e23]:
+            - link "Workers" [ref=e24] [cursor=pointer]:
+              - /url: /dashboard/workers
+              - img [ref=e25]
+              - text: Workers
+          - listitem [ref=e27]:
+            - link "OKR New" [ref=e28] [cursor=pointer]:
+              - /url: /dashboard/okr
+              - img [ref=e29]
+              - text: OKR
+              - generic [ref=e31]: New
+          - listitem [ref=e32]:
+            - link "Swarm New" [ref=e33] [cursor=pointer]:
+              - /url: /dashboard/swarm
+              - img [ref=e34]
+              - text: Swarm
+              - generic [ref=e36]: New
+          - listitem [ref=e37]:
+            - link "MCP Tools New" [ref=e38] [cursor=pointer]:
+              - /url: /dashboard/mcp
+              - img [ref=e39]
+              - text: MCP Tools
+              - generic [ref=e41]: New
+          - listitem [ref=e42]:
+            - link "Security New" [ref=e43] [cursor=pointer]:
+              - /url: /dashboard/security
+              - img [ref=e44]
+              - text: Security
+              - generic [ref=e46]: New
+          - listitem [ref=e47]:
+            - link "Ralph New" [ref=e48] [cursor=pointer]:
+              - /url: /dashboard/ralph
+              - img [ref=e49]
+              - text: Ralph
+              - generic [ref=e51]: New
+          - listitem [ref=e52]:
+            - link "Cognition" [ref=e53] [cursor=pointer]:
+              - /url: /dashboard/cognition
+              - img [ref=e54]
+              - text: Cognition
+          - listitem [ref=e56]:
+            - link "Avatar New" [ref=e57] [cursor=pointer]:
+              - /url: /dashboard/avatar
+              - img [ref=e58]
+              - text: Avatar
+              - generic [ref=e61]: New
+          - listitem [ref=e62]:
+            - link "Ads New" [ref=e63] [cursor=pointer]:
+              - /url: /dashboard/ads
+              - img [ref=e64]
+              - text: Ads
+              - generic [ref=e66]: New
+          - listitem [ref=e67]:
+            - link "Benchmarks" [ref=e68] [cursor=pointer]:
+              - /url: /dashboard/benchmarks
+              - img [ref=e69]
+              - text: Benchmarks
+          - listitem [ref=e71]:
+            - link "Analytics New" [ref=e72] [cursor=pointer]:
+              - /url: /dashboard/analytics
+              - img [ref=e73]
+              - text: Analytics
+              - generic [ref=e75]: New
+          - listitem [ref=e76]:
+            - link "Cronjobs" [ref=e77] [cursor=pointer]:
+              - /url: /cronjobs
+              - img [ref=e78]
+              - text: Cronjobs
+          - listitem [ref=e80]:
+            - link "Tasks" [ref=e81] [cursor=pointer]:
+              - /url: /dashboard/tasks
+              - img [ref=e82]
+              - text: Tasks
+          - listitem [ref=e84]:
+            - link "Sessions" [ref=e85] [cursor=pointer]:
+              - /url: /dashboard/sessions
+              - img [ref=e86]
+              - text: Sessions
+          - listitem [ref=e88]:
+            - link "Output" [ref=e89] [cursor=pointer]:
+              - /url: /dashboard/output
+              - img [ref=e90]
+              - text: Output
+          - listitem [ref=e92]:
+            - link "Activity" [ref=e93] [cursor=pointer]:
+              - /url: /dashboard/activity
+              - img [ref=e94]
+              - text: Activity
+          - listitem [ref=e96]:
+            - link "GitHub Actions New" [ref=e97] [cursor=pointer]:
+              - /url: /dashboard/integrations/github-actions
+              - img [ref=e98]
+              - text: GitHub Actions
+              - generic [ref=e100]: New
+          - listitem [ref=e101]:
+            - link "GitHub App New" [ref=e102] [cursor=pointer]:
+              - /url: /dashboard/workflows/github-app
+              - img [ref=e103]
+              - text: GitHub App
+              - generic [ref=e105]: New
+          - listitem [ref=e106]:
+            - link "Automations" [ref=e107] [cursor=pointer]:
+              - /url: /dashboard/automations
+              - img [ref=e108]
+              - text: Automations
+          - listitem [ref=e111]:
+            - link "Billing" [ref=e112] [cursor=pointer]:
+              - /url: /dashboard/billing
+              - img [ref=e113]
+              - text: Billing
+          - listitem [ref=e115]:
+            - link "Settings" [ref=e116] [cursor=pointer]:
+              - /url: /dashboard/settings
+              - img [ref=e117]
+              - text: Settings
+    - generic [ref=e120]:
+      - generic [ref=e122]:
+        - navigation "Breadcrumb" [ref=e123]:
+          - link "Dashboard" [ref=e124] [cursor=pointer]:
+            - /url: /dashboard
+          - generic [ref=e125]: /
+          - generic [ref=e126]: Sessions
+        - generic [ref=e127]:
+          - button "Switch to light mode" [ref=e128]:
+            - img [ref=e129]
+          - link "Settings" [ref=e131] [cursor=pointer]:
+            - /url: /dashboard/settings
+            - img [ref=e132]
+          - button "Open user menu" [ref=e136]:
+            - generic [ref=e137]: A
+            - generic [ref=e138]: Audit User
+          - link "← Back to Site" [ref=e139] [cursor=pointer]:
+            - /url: /
+      - main [ref=e140]:
+        - generic "Chat sessions dashboard" [ref=e141]:
+          - link "Skip to message input" [ref=e142] [cursor=pointer]:
+            - /url: "#chat-message-input"
+          - generic [ref=e143]:
+            - complementary "Session list sidebar" [ref=e144]:
+              - navigation "Chat sessions" [ref=e145]:
+                - generic [ref=e146]:
+                  - generic [ref=e147]:
+                    - generic [ref=e148]:
+                      - heading "Sessions" [level=2] [ref=e149]
+                      - paragraph [ref=e150]: Fixture workspace - 1 total
+                    - generic [ref=e152]: "1"
+                  - generic [ref=e153]:
+                    - generic [ref=e154]:
+                      - generic [ref=e155]: Select workspace
+                      - combobox "Select workspace" [ref=e156]:
+                        - option "Select workspace..."
+                        - option "Fixture workspace" [selected]
+                      - generic [ref=e157]: Choose a workspace to filter sessions
+                    - generic [ref=e158]:
+                      - generic [ref=e159]: Search sessions
+                      - textbox "Search sessions" [ref=e160]:
+                        - /placeholder: Search sessions...
+                    - generic [ref=e161]:
+                      - generic [ref=e162]: Sort
+                      - combobox "Sort" [ref=e163]:
+                        - option "Most recent" [selected]
+                        - option "Oldest first"
+                - group "Sessions" [ref=e164]:
+                  - status [ref=e165]: 1 session available in Fixture workspace
+                  - button "Keyboard session 1/1/2026" [active] [pressed] [ref=e166]:
+                    - generic [ref=e167]:
+                      - generic [ref=e169]:
+                        - paragraph [ref=e170]: Keyboard session
+                        - time [ref=e171]: 1/1/2026
+                      - img [ref=e173]
+            - 'region "Chat: Keyboard session" [ref=e176]':
+              - generic "Chat session header" [ref=e177]:
+                - generic [ref=e178]:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - heading "Keyboard session" [level=2]
+                          - generic [ref=e179]: "#session-"
+                        - generic:
+                          - generic [ref=e180]:
+                            - generic [ref=e181]: Workspace
+                            - generic [ref=e182]: Fixture workspace
+                          - generic [ref=e183]: 0 messages
+                          - generic [ref=e184]: Updated 1/1/2026
+                  - toolbar "Chat controls" [ref=e185]:
+                    - 'status "Stream status: Unavailable. Not connected to live stream" [ref=e186]':
+                      - generic [ref=e188]: Unavailable
+                    - button "Settings" [ref=e189]:
+                      - text: Settings
+                      - img [ref=e190]
+                    - button "Toggle RLM execution view" [ref=e192]:
+                      - img [ref=e193]
+                      - text: RLM Inspector
+                    - group "Session actions" [ref=e195]:
+                      - button "Voice Chat" [ref=e196]:
+                        - img [ref=e197]
+                        - generic [ref=e199]: Voice Chat
+                      - button "Resume Keyboard session" [ref=e200]:
+                        - text: Resume
+                        - generic [ref=e201]: session
+                      - button "Refresh messages for Keyboard session" [ref=e202]:
+                        - text: Refresh
+                        - generic [ref=e203]: messages
+              - 'log "Chat: Keyboard session" [ref=e205]':
+                - alert [ref=e206]:
+                  - paragraph [ref=e207]: Failed to load messages
+                  - button "Retry messages" [ref=e208]
+              - generic "Message input" [ref=e210]:
+                - generic [ref=e211]:
+                  - generic [ref=e212]:
+                    - generic [ref=e213]:
+                      - generic [ref=e214]: Type your message to the agent
+                      - textbox "Type your message to the agent" [ref=e215]:
+                        - /placeholder: Message the agent...
+                      - generic [ref=e216]: Press Enter to send, Shift+Enter for new line. 0 characters typed.
+                    - button "Send message" [disabled] [ref=e217]:
+                      - img [ref=e218]
+                      - generic [ref=e220]: Send
+                  - generic [ref=e222]: Enter to send | Shift+Enter for new line.
+  - button "Open chat" [ref=e224]:
+    - img [ref=e226]
+  - button "Open Next.js Dev Tools" [ref=e233] [cursor=pointer]:
+    - img [ref=e234]
+  - alert [ref=e237]
+```

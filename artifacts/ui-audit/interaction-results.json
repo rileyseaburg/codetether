@@ -1,0 +1,14 @@
+{
+  "level": "mocked local",
+  "checks": [
+    {
+      "name": "testing unsaved provider produces no API request or feedback",
+      "observedCalls": 0
+    },
+    {
+      "name": "IME composition Enter submits message",
+      "sends": 1,
+      "prevents": 1
+    }
+  ]
+}

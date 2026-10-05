@@ -1,0 +1,46 @@
+{
+  "session_id": "96f4b0ef-3cb3-4f98-a6dd-c7ffb0791acb",
+  "items": [],
+  "evidence": [
+    {
+      "kind": "argo",
+      "level": "live deployment/Argo",
+      "value": "healthy-synced"
+    },
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/tmp/vault.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/tmp/vault.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/tmp/vault.zip"
+    },
+    {
+      "kind": "db-migration",
+      "level": "live DB",
+      "value": "applied"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "level": "live deployment/Argo",
+  "mode": "changed local UI with real services; no frontend deployment change",
+  "base": "http://localhost:3001",
+  "api": "http://localhost:3001/api/tenant",
+  "backend": {
+    "namespace": "a2a-system",
+    "service": "a2a-server"
+  },
+  "started": "2026-09-06T20:59:58.726Z",
+  "stage": "open-login",
+  "checks": [],
+  "requests": [
+    {
+      "origin": "http://localhost:3001",
+      "path": "/login",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/login",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/login",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/login",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/login",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/login",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/login",
+      "method": "GET",
+      "failure": "net::ERR_ABORTED"
+    }
+  ],
+  "error": {
+    "name": "TimeoutError",
+    "message": "locator.click: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Continue with Quantum Forge SSO' })\u001b[22m\n"
+  },
+  "page": "http://localhost:3001/login",
+  "alerts": []
+}

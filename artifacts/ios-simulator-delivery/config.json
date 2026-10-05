@@ -1,0 +1,11 @@
+{
+  "marker": "ios-simulator-1791210365956",
+  "workerId": "wrk_1791203157_35195f4f7b97da0a",
+  "workspaceId": "ios-e2e-ubuntu-dev",
+  "url": "http://192.168.50.101:8769/",
+  "site": "/home/riley/A2A-Server-MCP/artifacts/ios-e2e-web/simulator-live/site/index.html",
+  "unit": "codetether-ios-simulator-live.service",
+  "title": "[SIMULATOR LIVE] A2A Monitor task proof",
+  "model": "github-copilot/gpt-5-mini",
+  "prompt": "A real iOS Simulator integration test submitted this task. It did NOT test user login or a physical phone.\nYour workspace is /home/riley/A2A-Server-MCP/artifacts/ios-e2e-web. Use correct absolute paths.\nCreate /home/riley/A2A-Server-MCP/artifacts/ios-e2e-web/simulator-live/site/index.html with title A2A Simulator Live Proof, marker ios-simulator-1791210365956, UTC creation time, and a visible statement that this is simulator-originated, not physical-phone proof.\nCreate the sibling ../server.js using Node HTTP, serving only / and /index.html as text/html, other routes 404, on 192.168.50.101:8769.\nStart it as user unit codetether-ios-simulator-live.service using systemd-run --user --collect and an ABSOLUTE /usr/bin/node script path.\nUse XDG_RUNTIME_DIR=/run/user/1000 and DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus explicitly.\nDo not modify the earlier backend-rehearsal directory, port8768, or any unrelated service/file. Do not read credentials or histories; do not spawn subagents.\nIf a rehearsal-owned process is blocking8769, verify its exact script identity before replacing it. Do not report success until systemctl shows active with a positive MainPID and HTTP GET http://192.168.50.101:8769/ returns200 and the marker.\nReply with exact HTML path, URL, SHA-256, unit name, MainPID, and observed HTTP status. Preserve prior evidence."
+}

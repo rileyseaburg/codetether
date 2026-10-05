@@ -145,6 +145,9 @@ enum WorkerRuntime: String, Codable {
 /// Detailed worker record from `GET /v1/agent/workers`, including the
 /// server-inferred runtime classification and harvester annotations.
 struct AgentWorker: Codable, Identifiable, Hashable {
+    private struct ModelIdentifier: Decodable {
+        let id: String?
+    }
     let workerId: String
     let name: String?
     let capabilities: [String]
@@ -155,6 +158,7 @@ struct AgentWorker: Codable, Identifiable, Hashable {
     let models: [String]
     let workerRuntime: WorkerRuntime
     let workerRuntimeLabel: String?
+    let workspaces: [String]
 
     var id: String { workerId }
 
@@ -167,6 +171,7 @@ struct AgentWorker: Codable, Identifiable, Hashable {
         case lastSeen = "last_seen"
         case status
         case models
+        case workspaces
         case workerRuntime = "worker_runtime"
         case workerRuntimeLabel = "worker_runtime_label"
     }
@@ -180,7 +185,10 @@ struct AgentWorker: Codable, Identifiable, Hashable {
         registeredAt = try? c.decodeIfPresent(String.self, forKey: .registeredAt)
         lastSeen = try? c.decodeIfPresent(String.self, forKey: .lastSeen)
         status = try? c.decodeIfPresent(String.self, forKey: .status)
-        models = (try? c.decodeIfPresent([String].self, forKey: .models)) ?? []
+        models = (try? c.decodeIfPresent([String].self, forKey: .models))
+            ?? (try? c.decodeIfPresent([ModelIdentifier].self, forKey: .models))?.compactMap(\.id)
+            ?? []
+        workspaces = (try? c.decodeIfPresent([String].self, forKey: .workspaces)) ?? []
         workerRuntime = (try? c.decodeIfPresent(WorkerRuntime.self, forKey: .workerRuntime)) ?? .unknown
         workerRuntimeLabel = try? c.decodeIfPresent(String.self, forKey: .workerRuntimeLabel)
     }
@@ -189,13 +197,19 @@ struct AgentWorker: Codable, Identifiable, Hashable {
     /// inferred from its server-annotated capabilities or stable name prefix.
     var isHarvester: Bool {
         let lowered = capabilities.map { $0.lowercased() }
-        if lowered.contains("harvester")
-            || lowered.contains("persistent-workspace")
-            || lowered.contains("persistent_workspace") {
+        if lowered.contains("harvester") {
             return true
         }
         let n = (name ?? workerId).lowercased()
         return n.hasPrefix("harvester") || n.contains("-harvester-")
+    }
+
+    var supportsWorkSessions: Bool { capabilities.contains("session-context") }
+
+    var isOnline: Bool {
+        guard ["active", "online", "connected", "busy", "working"].contains(status?.lowercased() ?? "") else { return false }
+        guard let lastSeen, let date = ServerDateParser.shared.date(from: lastSeen) else { return true }
+        return Date().timeIntervalSince(date) < 300
     }
 
     var displayLabel: String {

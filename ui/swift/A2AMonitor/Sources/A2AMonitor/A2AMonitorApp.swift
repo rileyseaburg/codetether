@@ -70,14 +70,14 @@ struct ContentView: View {
     @State private var selectedTab: Tab = .command
 
     enum Tab: String, CaseIterable {
-        case command = "Command"
+        case command = "Agents"
         case activity = "Activity"
         case fleet = "Fleet"
         case environments = "Environments"
 
         var icon: String {
             switch self {
-            case .command: return "mic.fill"
+            case .command: return "bubble.left.and.bubble.right.fill"
             case .activity: return "list.bullet.rectangle.fill"
             case .fleet: return "cpu"
             case .environments: return "lock.shield.fill"
@@ -102,6 +102,7 @@ struct ContentView: View {
                     }
                 }
                 .tint(.cyan) // Tab bar tint color
+                .navigationTitle(selectedTab.rawValue)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailingCompat) {
                         UserProfileButton()
@@ -124,10 +125,17 @@ struct ContentView: View {
             }
             #endif
         }
+        .onChange(of: selectedTab) { _, tab in
+            if tab != .command {
+                viewModel.connect()
+            } else {
+                viewModel.disconnect()
+            }
+        }
         .onAppear {
             // Connect auth service to viewModel's client
             viewModel.setAuthService(authService)
-            viewModel.connect()
+            viewModel.connect(loadMonitorData: false)
 
             #if os(iOS)
             // Configure tab bar appearance for iOS
@@ -167,7 +175,7 @@ struct ContentView: View {
     func tabContent(for tab: Tab) -> some View {
         switch tab {
         case .command:
-            CommandView()
+            AgentWorkspaceView(controller: viewModel.workSessionController)
         case .activity:
             ActivityView()
         case .fleet:

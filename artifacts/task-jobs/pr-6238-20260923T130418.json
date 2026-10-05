@@ -1,0 +1,231 @@
+{
+  "at": "2026-09-23T13:04:17.602921+00:00",
+  "pr": {
+    "number": 6238,
+    "state": "open",
+    "merged": false,
+    "mergeable": true,
+    "head": "a7a3d2a2e1e1e8f17c9ab3bf5c912cf7343ddf43",
+    "ref": "codetether/issue-6237",
+    "title": "Fix #6237: [ERROR] spotlessbinco: {\"severity\":\"error\",\"timestamp\":\"<timestamp>: database failure (<num>)\",\"stack\":\"BanditDatabaseFailure: facebook_adset_rewards:",
+    "issue": null,
+    "updated_at": "2026-09-23T12:59:37Z"
+  },
+  "checks": [
+    {
+      "context": "CodeTether / Harvester Review",
+      "status": "pending",
+      "description": "Complete diff review in progress",
+      "updated_at": "2026-09-23T12:59:42Z"
+    }
+  ],
+  "files": [
+    ".forgejo/workflows/deploy-dev-api-ui.yml",
+    "api/src/scripts/facebookRewardDeliveryReference.ts",
+    "api/src/scripts/facebookRewardLeadReference.ts",
+    "api/src/scripts/verifyFacebookAdSetRewards.ts",
+    "api/src/services/facebookAdSetRewardRepository.ts",
+    "api/src/services/facebookRewardDelivery.ts",
+    "api/src/services/facebookRewardLeadValues.ts"
+  ],
+  "tasks": [
+    {
+      "id": "2c9e96cb-f50a-44dc-bc5b-93286a30a0d6",
+      "status": "completed",
+      "title": "Prepare Forgejo task #6237",
+      "error": null,
+      "created_at": "2026-09-23 09:26:23.977999+00:00",
+      "updated_at": "2026-09-23 09:31:07.389953+00:00",
+      "completed_at": "2026-09-23 09:31:07.315672+00:00",
+      "metadata": {
+        "workflow_stage": "prepare",
+        "issue_number": 6237,
+        "pr_head_sha": "",
+        "branch_name": "codetether/issue-6237",
+        "forgejo_agent_task_id": 664,
+        "temporal_workflow_id": "forgejo-agent-task-664",
+        "temporal_attempt": 1,
+        "job_name": "ct-task-fbbf44468c2035d69187c3e6a3266179",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "98ca9dba-205a-46fc-a45d-5223bfa8ffb0",
+      "status": "completed",
+      "title": "Work Forgejo task #6237",
+      "error": null,
+      "created_at": "2026-09-23 09:31:13.808792+00:00",
+      "updated_at": "2026-09-23 09:41:17.971720+00:00",
+      "completed_at": "2026-09-23 09:41:17.967170+00:00",
+      "metadata": {
+        "workflow_stage": "code",
+        "issue_number": 6237,
+        "pr_head_sha": "",
+        "branch_name": "codetether/issue-6237",
+        "forgejo_agent_task_id": 664,
+        "temporal_workflow_id": "forgejo-agent-task-664",
+        "temporal_attempt": 1,
+        "job_name": "ct-task-a949fcb62885ce330e6e84b78961f90f",
+        "job_cleanup_scheduled": true,
+        "forgejo_published_pr": {
+          "url": "https://forgejo.quantum-forge.io/riley/spotlessbinco/pulls/6238",
+          "number": 6238
+        }
+      }
+    },
+    {
+      "id": "0f79054b-af14-5d4e-8661-efb2a40f63fa",
+      "status": "failed",
+      "title": "Review PR #6238",
+      "error": "review_blocked",
+      "created_at": "2026-09-23 09:41:43.537729+00:00",
+      "updated_at": "2026-09-23 09:51:48.535000+00:00",
+      "completed_at": "2026-09-23 09:44:32.809228+00:00",
+      "metadata": {
+        "pr_number": 6238,
+        "pr_head_sha": "88809ef4df3a136d15a3e1dfc40f97f159b751b6",
+        "branch_name": "codetether/issue-6237",
+        "review_owner": true,
+        "review_verdict": "BLOCKED",
+        "review_error_reason": "review_chunk_blocked",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "c2d38f4d-00a3-4f18-bf7a-d26ae90e9d93"
+        ],
+        "recovery_state": "needs_input",
+        "recovery_blocker": "no_verified_commit_or_validation",
+        "recovery_task_id": "33b529b6-ecaa-45a5-a93e-97b397b1036e",
+        "recovery_reconciled": true
+      }
+    },
+    {
+      "id": "c2d38f4d-00a3-4f18-bf7a-d26ae90e9d93",
+      "status": "completed",
+      "title": "PR #6238 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-23 09:41:50.040748+00:00",
+      "updated_at": "2026-09-23 09:44:23.588385+00:00",
+      "completed_at": "2026-09-23 09:44:23.465964+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6238,
+        "pr_head_sha": "88809ef4df3a136d15a3e1dfc40f97f159b751b6",
+        "review_owner_id": "0f79054b-af14-5d4e-8661-efb2a40f63fa",
+        "job_name": "ct-task-71e6fdf9154d27414981755caacd05f4",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "33b529b6-ecaa-45a5-a93e-97b397b1036e",
+      "status": "completed",
+      "title": "Resolve review feedback for PR #6238",
+      "error": null,
+      "created_at": "2026-09-23 09:44:49.297917+00:00",
+      "updated_at": "2026-09-23 09:51:48.544585+00:00",
+      "completed_at": "2026-09-23 09:51:45.035501+00:00",
+      "metadata": {
+        "workflow_stage": "review_recovery",
+        "issue_number": 6237,
+        "pr_number": 6238,
+        "pr_head_sha": "88809ef4df3a136d15a3e1dfc40f97f159b751b6",
+        "branch_name": "codetether/issue-6237",
+        "review_owner_id": "0f79054b-af14-5d4e-8661-efb2a40f63fa",
+        "recovery_state": "needs_input",
+        "recovery_blocker": "no_verified_commit_or_validation",
+        "recovery_task_id": "33b529b6-ecaa-45a5-a93e-97b397b1036e",
+        "recovery_native_request": 664,
+        "recovery_attempt": 1,
+        "recovery_reconciled": true,
+        "job_name": "ct-task-6817f2a241ee2aff68edd7d98d1e5537",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "7e3eb45a-4c5c-5f96-8315-e8b656c08f72",
+      "status": "failed",
+      "title": "Review PR #6238",
+      "error": "review_blocked",
+      "created_at": "2026-09-23 12:30:20.290371+00:00",
+      "updated_at": "2026-09-23 12:34:12.148623+00:00",
+      "completed_at": "2026-09-23 12:34:12.148623+00:00",
+      "metadata": {
+        "pr_number": 6238,
+        "pr_head_sha": "a5193370639b6a1917a3b9eebdee3995a52a1841",
+        "branch_name": "codetether/issue-6237",
+        "review_owner": true,
+        "review_verdict": "BLOCKED",
+        "review_error_reason": "review_chunk_blocked",
+        "review_attempt": 1,
+        "review_chunk_task_ids": [
+          "f18cdeb2-bdaf-459c-8db4-dc576b2d3b3a"
+        ]
+      }
+    },
+    {
+      "id": "f18cdeb2-bdaf-459c-8db4-dc576b2d3b3a",
+      "status": "completed",
+      "title": "PR #6238 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-23 12:30:25.489372+00:00",
+      "updated_at": "2026-09-23 12:34:04.096539+00:00",
+      "completed_at": "2026-09-23 12:33:54.564691+00:00",
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6238,
+        "pr_head_sha": "a5193370639b6a1917a3b9eebdee3995a52a1841",
+        "review_owner_id": "7e3eb45a-4c5c-5f96-8315-e8b656c08f72",
+        "job_name": "ct-task-997b1d6a66dfbef83a1a05477ea2423d",
+        "job_cleanup_scheduled": true
+      }
+    },
+    {
+      "id": "850aaee5-12e7-5a64-a83a-e0a71bf62beb",
+      "status": "working",
+      "title": "Review PR #6238",
+      "error": "",
+      "created_at": "2026-09-23 12:59:39.717433+00:00",
+      "updated_at": "2026-09-23 12:59:43.589336+00:00",
+      "completed_at": null,
+      "metadata": {
+        "pr_number": 6238,
+        "pr_head_sha": "a7a3d2a2e1e1e8f17c9ab3bf5c912cf7343ddf43",
+        "branch_name": "codetether/issue-6237",
+        "review_owner": true,
+        "review_attempt": 1
+      }
+    },
+    {
+      "id": "0065704e-3f85-4e9a-8eb2-5ef544cedb72",
+      "status": "pending",
+      "title": "PR #6238 review chunk 1",
+      "error": null,
+      "created_at": "2026-09-23 12:59:44.774170+00:00",
+      "updated_at": "2026-09-23 12:59:44.976332+00:00",
+      "completed_at": null,
+      "metadata": {
+        "workflow_stage": "review_chunk",
+        "pr_number": 6238,
+        "pr_head_sha": "a7a3d2a2e1e1e8f17c9ab3bf5c912cf7343ddf43",
+        "review_owner_id": "850aaee5-12e7-5a64-a83a-e0a71bf62beb",
+        "job_name": "ct-task-e9a7fce3264324d0cde7959418633bc1"
+      }
+    }
+  ],
+  "natives": [
+    {
+      "id": 664,
+      "status": "failed",
+      "operation": "fix",
+      "branch": "codetether/issue-6237",
+      "head_sha": null,
+      "error": null,
+      "external_task_id": "33b529b6-ecaa-45a5-a93e-97b397b1036e",
+      "updated_at": "2026-09-23T09:51:48Z",
+      "workflow": {
+        "status": "RUNNING",
+        "run_id": "01a0cd96-56bf-782f-8d45-700636f327bb",
+        "closed": "None"
+      }
+    }
+  ]
+}

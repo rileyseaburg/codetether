@@ -65,6 +65,7 @@ class MonitorViewModel: ObservableObject {
     // MARK: - Private
 
     private let client: A2AClient
+    lazy var workSessionController = WorkSessionController(client: client)
     private var refreshTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
@@ -80,8 +81,8 @@ class MonitorViewModel: ObservableObject {
 
     // MARK: - Init
 
-    init() {
-        self.client = A2AClient(baseURL: UserDefaults.standard.string(forKey: "serverURL") ?? "https://api.codetether.run")
+    init(client: A2AClient? = nil) {
+        self.client = client ?? A2AClient(baseURL: UserDefaults.standard.string(forKey: "serverURL") ?? "https://api.codetether.run")
         setupCallbacks()
     }
 
@@ -160,17 +161,18 @@ class MonitorViewModel: ObservableObject {
 
     // MARK: - Connection
 
-    func connect() {
-        client.connectToMonitorStream()
+    func connect(loadMonitorData: Bool = true) {
+        if loadMonitorData { client.connectToMonitorStream() }
         // Don't set isConnected here - let it be driven by client state via Combine
 
         // Initial data load
         Task {
-            await loadInitialData()
+            if loadMonitorData { await loadInitialData() }
+            else { await loadCodebases() }
         }
 
         // Start refresh timer
-        startRefreshTimer()
+        if loadMonitorData { startRefreshTimer() }
     }
 
     func disconnect() {
@@ -529,16 +531,30 @@ class MonitorViewModel: ObservableObject {
         }
     }
 
-    func createTask(codebase: Codebase, title: String, description: String, priority: TaskPriority, context: String?, agentType: String = "build") async throws {
+    @Published private(set) var lastSubmittedTaskId: String?
+    func createTask(codebase: Codebase, title: String, description: String, priority: TaskPriority, context: String?, agentType: String = "build", model: String? = nil) async throws {
         let task = try await client.createTask(
             codebaseId: codebase.id,
             title: title,
             description: description,
             priority: priority,
             context: context,
-            agentType: agentType
+            agentType: agentType,
+            targetWorkerId: codebase.workerId,
+            model: model
         )
         tasks.insert(task, at: 0)
+        lastSubmittedTaskId = task.id
+    }
+
+    func refreshTask(taskId: String) async throws {
+        let task = try await client.fetchTask(taskId: taskId)
+        guard task.id == taskId else { throw A2AError.invalidResponse }
+        if let index = tasks.firstIndex(where: { $0.id == taskId }) {
+            tasks[index] = task
+        } else {
+            tasks.insert(task, at: 0)
+        }
     }
 
     func cancelTask(_ task: AgentTask) async throws {

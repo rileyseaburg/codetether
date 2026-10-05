@@ -1,0 +1,46 @@
+{
+  "session_id": "bc11961f-45ab-449d-af33-00ac86ee62a4",
+  "items": [],
+  "evidence": [
+    {
+      "kind": "youtube",
+      "level": "real platform upload",
+      "value": "`https://www.youtube.com/watch?v=-nsQUCNPIZM`"
+    },
+    {
+      "kind": "youtube",
+      "level": "real platform upload",
+      "value": "`https://www.youtube.com/watch?v=-nsQUCNPIZM`"
+    },
+    {
+      "kind": "youtube",
+      "level": "real platform upload",
+      "value": "`https://www.youtube.com/watch?v=-nsQUCNPIZM`"
+    },
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "test-results"
+    },
+    {
+      "kind": "db-migration",
+      "level": "live DB",
+      "value": "applied"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

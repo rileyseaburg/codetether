@@ -1,0 +1,71 @@
+{
+  "session_id": "669f6c7c-5941-4e40-812c-3493ab4020ed",
+  "items": [
+    {
+      "deliverable": "`scripts/harvester/job_worker.py`",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "/tmp/vault.zip",
+        "/tmp/vault.zip"
+      ]
+    },
+    {
+      "deliverable": "`tests/test_job_worker_supervisor.py`",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "/tmp/vault.zip",
+        "/tmp/vault.zip"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "kind": "argo",
+      "level": "live deployment/Argo",
+      "value": "healthy-synced"
+    },
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/tmp/vault.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/tmp/vault.zip"
+    },
+    {
+      "kind": "artifact",
+      "level": "focused CI-like",
+      "value": "/tmp/vault.zip"
+    },
+    {
+      "kind": "db-migration",
+      "level": "live DB",
+      "value": "applied"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

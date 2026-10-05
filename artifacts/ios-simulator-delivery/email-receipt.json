@@ -1,0 +1,11 @@
+{
+  "recipient": "riley@spotlessbinco.com",
+  "from": "noreply@codetether.run",
+  "subject": "A2A Monitor iPhone build — signed IPA and live simulator proof",
+  "status": 202,
+  "accepted": true,
+  "messageId": "bzYP-ipSR9iNPCe_zBkLSw",
+  "sentAt": "2026-10-05T14:44:07.492Z",
+  "simulatorTaskId": "b009806e-6184-4d5f-a5cb-2ca7ccf93214",
+  "ipaSha256": "4679f356dde97dbbfd82c5b64c68cd3911ad4431e497d7e2253767d449319109"
+}

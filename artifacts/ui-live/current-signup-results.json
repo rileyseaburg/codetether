@@ -1,0 +1,57 @@
+{
+  "level": "live deployment/Argo",
+  "mode": "changed local UI with real services; no frontend deployment change",
+  "base": "http://localhost:3001",
+  "api": "http://localhost:3001/api/tenant",
+  "backend": {
+    "namespace": "a2a-system",
+    "service": "a2a-server"
+  },
+  "started": "2026-09-06T20:34:25.023Z",
+  "stage": "awaiting-signup-response",
+  "checks": [
+    {
+      "check": "real workspace signup",
+      "status": 500,
+      "result": {
+        "detail": "Failed to create tenant: Failed to authenticate as admin: {\"error\":\"invalid_grant\",\"error_description\":\"Invalid user credentials\"}"
+      }
+    }
+  ],
+  "requests": [
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/tenants/signup",
+      "method": "POST",
+      "status": 500
+    }
+  ],
+  "testIdentityCredentialPath": "kv/codetether/playwright/ui-live-cb1e678f",
+  "submissionPage": {
+    "origin": "http://localhost:3001",
+    "path": "/register",
+    "queryKeys": []
+  },
+  "createdTenant": null,
+  "error": {
+    "name": "Error",
+    "message": "Workspace signup rejected: 500 {\"detail\":\"Failed to create tenant: Failed to authenticate as admin: {\\\"error\\\":\\\"invalid_grant\\\",\\\"error_description\\\":\\\"Invalid user credentials\\\"}\"}"
+  },
+  "page": "http://localhost:3001/register",
+  "alerts": [
+    ""
+  ],
+  "registrationText": "CodeTether\nCreate your workspace\n\nAlready have an account? Sign in\n\nFailed to create tenant: Failed to authenticate as admin: {\"error\":\"invalid_grant\",\"error_description\":\"Invalid user credentials\"}\nOrganization name\nEmail address\nPassword\nHow did you hear about us?\nSelect an option\nSearch engine\nSocial media\nFriend or colleague\nPodcast\nBlog or article\nOther\nGet started free\n\nFree tier includes 10 tasks/month. No credit card required.\n\nYour workspace includes a dedicated Kubernetes instance with data isolation."
+}

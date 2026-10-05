@@ -372,6 +372,9 @@ function BillingContent() {
         ),
       }
 
+      // Show known limits even while usage is slow or unavailable.
+      setBillingStatus(subscriptionStatus)
+
       try {
         const usageRes = await getUsageV1BillingUsageGet({ headers })
         const usage = usageRes.data as any
@@ -485,7 +488,10 @@ function BillingContent() {
     }
   }
 
-  if (authStatus === 'loading' || (loading && authToken)) {
+  if (
+    authStatus === 'loading' ||
+    (loading && authToken && !billingStatus)
+  ) {
     return (
       <div className="flex min-h-100 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-indigo-600" />
@@ -635,7 +641,12 @@ function BillingContent() {
             This Month&apos;s Usage
           </h2>
         </div>
-        <div className="space-y-6 p-6">
+        <div className="space-y-6 p-6" aria-busy={loading}>
+          {loading && (
+            <p role="status" className="text-sm text-gray-500">
+              Loading billing usage...
+            </p>
+          )}
           {/* Tasks used */}
           <div>
             <div className="flex items-center justify-between text-sm">

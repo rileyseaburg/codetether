@@ -1,0 +1,34 @@
+name: Docs Build
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+      - ".github/workflows/docs-build.yml"
+
+jobs:
+  build:
+    name: MkDocs strict build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install docs dependencies
+        run: pip install -r requirements-docs.txt
+
+      - name: Build docs (strict)
+        # --strict fails the build on broken internal links or nav warnings.
+        run: mkdocs build --strict

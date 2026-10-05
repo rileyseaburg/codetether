@@ -6,25 +6,25 @@ export function NavLinks() {
     return (
         <>
             <Link
-                href="#features"
+                href="/#features"
                 className="inline-block rounded-lg px-2 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
             >
                 Features
             </Link>
             <Link
-                href="#use-cases"
+                href="/#use-cases"
                 className="inline-block rounded-lg px-2 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
             >
                 Use Cases
             </Link>
             <Link
-                href="#roadmap"
+                href="/#roadmap"
                 className="inline-block rounded-lg px-2 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
             >
                 Roadmap
             </Link>
             <Link
-                href="#pricing"
+                href="/#pricing"
                 className="inline-block rounded-lg px-2 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
             >
                 Pricing
@@ -45,6 +45,7 @@ export function NavLinks() {
                 href="https://github.com/rileyseaburg/codetether"
                 className="inline-block rounded-lg px-2 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
                 target="_blank"
+                rel="noopener noreferrer"
             >
                 GitHub
             </Link>

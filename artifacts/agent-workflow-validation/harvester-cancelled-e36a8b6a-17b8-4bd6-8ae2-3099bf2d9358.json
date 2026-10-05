@@ -1,0 +1,16 @@
+{
+  "receipt": {
+    "target": "harvester",
+    "taskId": "e36a8b6a-17b8-4bd6-8ae2-3099bf2d9358",
+    "workerId": "wrk_1791224566_8c6171859f197c82",
+    "workerName": "harvester-a2a-server-harvester-0",
+    "workspaceId": "api-harvester-validation",
+    "workspacePath": "/var/lib/codetether/repos/api-validation",
+    "file": "/var/lib/codetether/repos/api-validation/api-harvester-0a7fde1c270de8fa.txt",
+    "marker": "api-harvester-0a7fde1c270de8fa",
+    "model": "github-copilot/gpt-5-mini",
+    "submittedAt": "2026-10-05T18:44:48.962Z"
+  },
+  "status": "cancelled",
+  "reason": "Stale worker identity during controlled restart"
+}

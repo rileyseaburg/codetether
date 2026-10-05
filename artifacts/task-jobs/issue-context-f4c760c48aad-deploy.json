@@ -1,0 +1,10 @@
+{
+  "namespace": "a2a-system",
+  "app": "codetether-a2a-server",
+  "revision": "f4c760c48aad5fb6fb5e117a3fc77fa190da319c",
+  "image": "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:issue-context-f4c760c48aad",
+  "digests": [
+    "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp@sha256:7946bd7cb3d45a8ab5ccddc83eb59aa59ab9dd1c18a04c062b9ca39c317fb727"
+  ],
+  "admission_config_unchanged": true
+}

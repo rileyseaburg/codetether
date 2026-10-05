@@ -1,0 +1,107 @@
+{
+  "at": "2026-09-23T16:50:57.841744+00:00",
+  "sampled_runs": 400,
+  "by_status": {
+    "waiting": 13,
+    "running": 5,
+    "success": 161,
+    "failure": 133,
+    "cancelled": 79,
+    "skipped": 9
+  },
+  "active_by_workflow": [
+    [
+      "waiting",
+      "deploy-dev.yml",
+      5
+    ],
+    [
+      "waiting",
+      "secret-scan.yml",
+      2
+    ],
+    [
+      "waiting",
+      "rudder-log-validation.yml",
+      2
+    ],
+    [
+      "running",
+      "codetether-pr-review.yml",
+      2
+    ],
+    [
+      "running",
+      "deploy-dev.yml",
+      2
+    ],
+    [
+      "waiting",
+      "tauri-apps.yml",
+      1
+    ],
+    [
+      "waiting",
+      "main.yml",
+      1
+    ],
+    [
+      "waiting",
+      "rudder-classification.yml",
+      1
+    ],
+    [
+      "waiting",
+      "codetether-pr-review.yml",
+      1
+    ],
+    [
+      "running",
+      "rudder-log-check.yml",
+      1
+    ]
+  ],
+  "oldest_waiting": [
+    "2026-09-23T15:21:25Z",
+    "2026-09-23T15:28:48Z",
+    "2026-09-23T15:51:09Z"
+  ],
+  "sample": [
+    {
+      "id": 11211,
+      "status": "waiting",
+      "event": "push",
+      "path": "tauri-apps.yml",
+      "branch": "main",
+      "sha": "55e85370a9",
+      "created": "2026-09-23T16:23:42Z",
+      "queried": null
+    },
+    {
+      "id": 11210,
+      "status": "waiting",
+      "event": "push",
+      "path": "main.yml",
+      "branch": "main",
+      "sha": "55e85370a9",
+      "created": "2026-09-23T16:23:40Z",
+      "queried": null
+    },
+    {
+      "id": 11207,
+      "status": "waiting",
+      "event": "pull_request",
+      "path": "secret-scan.yml",
+      "branch": "#6087",
+      "sha": "bf18b0dec8",
+      "created": "2026-09-23T16:06:37Z",
+      "queried": null
+    }
+  ],
+  "heads_with_any_run": {
+    "29d01830fd": false,
+    "1bc5c9a69e": false,
+    "a7a3d2a2e1": false
+  },
+  "errors": []
+}

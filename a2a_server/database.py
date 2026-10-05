@@ -753,10 +753,13 @@ async def db_get_active_worker_by_name(
 async def db_list_workers(
     status: Optional[str] = None,
     tenant_id: Optional[str] = None,
+    *, strict: bool = False,
 ) -> List[Dict[str, Any]]:
     """List all workers, optionally filtered by status or tenant."""
     pool = await get_pool()
     if not pool:
+        if strict:
+            raise RuntimeError('Worker database unavailable')
         return []
 
     try:
@@ -781,6 +784,8 @@ async def db_list_workers(
             return [_row_to_worker(row) for row in rows]
     except Exception as e:
         logger.error(f'Failed to list workers: {e}')
+        if strict:
+            raise
         return []
 
 

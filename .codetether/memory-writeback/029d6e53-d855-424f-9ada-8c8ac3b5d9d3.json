@@ -1,0 +1,17 @@
+[
+  {
+    "kind": "k8s",
+    "level": "live deployment/Argo",
+    "value": "pod-succeeded"
+  },
+  {
+    "kind": "runtime",
+    "level": "blocked",
+    "value": "failed-or-degraded"
+  },
+  {
+    "kind": "db-query",
+    "level": "live DB",
+    "value": "row-evidence"
+  }
+]

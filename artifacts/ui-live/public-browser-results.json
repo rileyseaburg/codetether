@@ -1,0 +1,18 @@
+{
+  "level": "live deployment/Argo",
+  "mode": "public endpoint browser probes; no mocks",
+  "checks": [
+    {
+      "url": "https://api.codetether.run/health",
+      "status": 200,
+      "server": "cloudflare",
+      "body": "{\"status\":\"healthy\",\"timestamp\":\"2026-09-06T20:14:30.174265\",\"policy_engine\":{\"mode\":\"local\",\"healthy\":true,\"roles_loaded\":11}}"
+    },
+    {
+      "url": "https://quantum-forge.codetether.run/health",
+      "status": 200,
+      "server": "cloudflare",
+      "body": "{\"status\":\"healthy\",\"timestamp\":\"2026-09-06T20:14:30.432772\",\"policy_engine\":{\"mode\":\"sidecar\",\"healthy\":true,\"url\":\"http://localhost:8181\"}}"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "level": "static/local",
+  "results": [
+    {
+      "file": "src/app/(dashboard)/dashboard/page.tsx",
+      "errors": 0,
+      "baseline": 0,
+      "introduced": [],
+      "warnings": 1
+    },
+    {
+      "file": "src/app/(dashboard)/dashboard/components/workspace-home/WorkspaceBrowser.tsx",
+      "errors": 0,
+      "baseline": 0,
+      "introduced": [],
+      "warnings": 0
+    }
+  ]
+}

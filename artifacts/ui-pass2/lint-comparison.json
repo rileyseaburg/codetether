@@ -1,0 +1,527 @@
+[
+  {
+    "file": "marketing-site/src/app/(auth)/login/login-form.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(auth)/register/page.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/billing/page.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "message": "React Hook useEffect has missing dependencies: 'loadBillingStatus', 'loadFinOpsData', and 'loadTokenUsage'. Either include them or remove the dependency array.",
+        "line": 203,
+        "column": 6,
+        "nodeType": "ArrayExpression",
+        "endLine": 203,
+        "endColumn": 29,
+        "suggestions": [
+          {
+            "desc": "Update the dependencies array to be: [authStatus, authToken, loadBillingStatus, loadFinOpsData, loadTokenUsage]",
+            "fix": {
+              "range": [
+                5197,
+                5220
+              ],
+              "text": "[authStatus, authToken, loadBillingStatus, loadFinOpsData, loadTokenUsage]"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/sessions/components/ChatInput.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/sessions/components/ChatMessages.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": [
+      {
+        "ruleId": "react-hooks/incompatible-library",
+        "severity": 1,
+        "message": "Compilation Skipped: Use of incompatible library\n\nThis API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.\n\n/home/riley/A2A-Server-MCP/marketing-site/src/app/(dashboard)/dashboard/sessions/components/ChatMessages.tsx:61:23\n  59 |     : null\n  60 |\n> 61 |   const virtualizer = useVirtualizer({\n     |                       ^^^^^^^^^^^^^^ TanStack Virtual's `useVirtualizer()` API returns functions that cannot be memoized safely\n  62 |     count: visibleChatItems.length,\n  63 |     getScrollElement: () => parentRef.current,\n  64 |     estimateSize: () => 120,",
+        "line": 61,
+        "column": 23,
+        "nodeType": null,
+        "endLine": 61,
+        "endColumn": 37
+      },
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "message": "React Hook useEffect has a missing dependency: 'chatItems'. Either include it or remove the dependency array.",
+        "line": 121,
+        "column": 6,
+        "nodeType": "ArrayExpression",
+        "endLine": 121,
+        "endColumn": 36,
+        "suggestions": [
+          {
+            "desc": "Update the dependencies array to be: [chatItems, chatItems.length, isAtBottom]",
+            "fix": {
+              "range": [
+                3659,
+                3689
+              ],
+              "text": "[chatItems, chatItems.length, isAtBottom]"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/sessions/components/SessionItem.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/sessions/components/SessionList.tsx",
+    "errorCount": 1,
+    "baselineErrorCount": 3,
+    "introduced": [],
+    "messages": [
+      {
+        "ruleId": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/home/riley/A2A-Server-MCP/marketing-site/src/app/(dashboard)/dashboard/sessions/components/SessionList.tsx:51:9\n  49 |\n  50 |     useEffect(() => {\n> 51 |         setQuery('')\n     |         ^^^^^^^^ Avoid calling setState() directly within an effect\n  52 |         setSortOrder('recent')\n  53 |         if (onSearchChange) {\n  54 |             onSearchChange('')",
+        "line": 51,
+        "column": 9,
+        "nodeType": null,
+        "endLine": 51,
+        "endColumn": 17
+      }
+    ]
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/sessions/hooks/useSessions.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/sessions/hooks/useWorkspaces.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 1,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/sessions/page.tsx",
+    "errorCount": 5,
+    "baselineErrorCount": 5,
+    "introduced": [],
+    "messages": [
+      {
+        "ruleId": "react-hooks/preserve-manual-memoization",
+        "severity": 2,
+        "message": "Compilation Skipped: Existing memoization could not be preserved\n\nReact Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `selectedSession`, but the source dependencies were [selectedSession?.id, loadSessionMessages]. Inferred less specific property than source.\n\n/home/riley/A2A-Server-MCP/marketing-site/src/app/(dashboard)/dashboard/sessions/page.tsx:86:34\n  84 |     loadSessionMessages,\n  85 |   })\n> 86 |   const handleIdle = useCallback(() => {\n     |                                  ^^^^^^^\n> 87 |     if (selectedSession?.id) loadSessionMessages(selectedSession.id)\n     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n> 88 |   }, [selectedSession?.id, loadSessionMessages])\n     | ^^^^ Could not preserve existing manual memoization\n  89 |   const { streamConnected, streamStatus, liveDraft, rlmSteps, rlmStats, resetStream } =\n  90 |     useSessionStream({\n  91 |       selectedWorkspace,",
+        "line": 86,
+        "column": 34,
+        "nodeType": null,
+        "endLine": 88,
+        "endColumn": 4
+      },
+      {
+        "ruleId": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/home/riley/A2A-Server-MCP/marketing-site/src/app/(dashboard)/dashboard/sessions/page.tsx:147:5\n  145 |     if (typeof window === 'undefined') return\n  146 |     if (!window.matchMedia('(max-width: 767px)').matches) return\n> 147 |     setMobilePane(currentId ? 'chat' : 'sessions')\n      |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect\n  148 |   }, [selectedSession?.id])\n  149 |\n  150 |   useEffect(() => {",
+        "line": 147,
+        "column": 5,
+        "nodeType": null,
+        "endLine": 147,
+        "endColumn": 18
+      },
+      {
+        "ruleId": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/home/riley/A2A-Server-MCP/marketing-site/src/app/(dashboard)/dashboard/sessions/page.tsx:151:5\n  149 |\n  150 |   useEffect(() => {\n> 151 |     setAwaitingResponse(false)\n      |     ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect\n  152 |     pendingResponseKeyRef.current = null\n  153 |     setOptimisticMessages([])\n  154 |   }, [selectedSession?.id])",
+        "line": 151,
+        "column": 5,
+        "nodeType": null,
+        "endLine": 151,
+        "endColumn": 24
+      },
+      {
+        "ruleId": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/home/riley/A2A-Server-MCP/marketing-site/src/app/(dashboard)/dashboard/sessions/page.tsx:158:5\n  156 |   useEffect(() => {\n  157 |     if (!chatItems.length) return\n> 158 |     setOptimisticMessages((prev) => {\n      |     ^^^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect\n  159 |       if (!prev.length) return prev\n  160 |       const matchesOptimistic = (optimistic: ChatItem, item: ChatItem) => {\n  161 |         if (item.role !== 'user') return false",
+        "line": 158,
+        "column": 5,
+        "nodeType": null,
+        "endLine": 158,
+        "endColumn": 26
+      },
+      {
+        "ruleId": "react-hooks/set-state-in-effect",
+        "severity": 2,
+        "message": "Error: Calling setState synchronously within an effect can trigger cascading renders\n\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\n* Update external systems with the latest state from React.\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\n\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\n\n/home/riley/A2A-Server-MCP/marketing-site/src/app/(dashboard)/dashboard/sessions/page.tsx:183:7\n  181 |     if (!awaitingResponse) return\n  182 |     if (liveDraft) {\n> 183 |       setAwaitingResponse(false)\n      |       ^^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect\n  184 |       return\n  185 |     }\n  186 |     if (actionStatus?.toLowerCase().includes('failed')) {",
+        "line": 183,
+        "column": 7,
+        "nodeType": null,
+        "endLine": 183,
+        "endColumn": 26
+      }
+    ]
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/settings/page.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "message": "React Hook useEffect has a missing dependency: 'loadData'. Either include it or remove the dependency array.",
+        "line": 104,
+        "column": 6,
+        "nodeType": "ArrayExpression",
+        "endLine": 104,
+        "endColumn": 25,
+        "suggestions": [
+          {
+            "desc": "Update the dependencies array to be: [status, authToken, loadData]",
+            "fix": {
+              "range": [
+                2791,
+                2810
+              ],
+              "text": "[status, authToken, loadData]"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/tasks/page.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": [
+      {
+        "ruleId": "react-hooks/exhaustive-deps",
+        "severity": 1,
+        "message": "React Hook useEffect has a missing dependency: 'session.accessToken'. Either include it or remove the dependency array.",
+        "line": 550,
+        "column": 8,
+        "nodeType": "ArrayExpression",
+        "endLine": 550,
+        "endColumn": 124,
+        "suggestions": [
+          {
+            "desc": "Update the dependencies array to be: [apiUrl, ingestTaskOutputPayload, selectedTaskAgentType, selectedTaskId, selectedTaskStatus, session.accessToken, updateTaskSwarmMonitor]",
+            "fix": {
+              "range": [
+                21125,
+                21241
+              ],
+              "text": "[apiUrl, ingestTaskOutputPayload, selectedTaskAgentType, selectedTaskId, selectedTaskStatus, session.accessToken, updateTaskSwarmMonitor]"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/layout.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 2,
+    "introduced": [],
+    "messages": [
+      {
+        "ruleId": "@next/next/no-img-element",
+        "severity": 1,
+        "message": "Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element",
+        "line": 750,
+        "column": 23,
+        "nodeType": "JSXOpeningElement",
+        "endLine": 754,
+        "endColumn": 25
+      }
+    ]
+  },
+  {
+    "file": "marketing-site/src/auth.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/ApiAuthSync.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/Button.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/Header.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/ModelSelector.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/ModelSelector/CardSelector.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/ModelSelector/CompactSelector.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/ModelSelector/DefaultSelector.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/ModelSelector/DropdownOptionItem.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/ModelSelector/SearchableDropdown.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/ModelSelector/SessionsSelector.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/ModelSelector/useDropdownFilter.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 1,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/ModelSelector/useDropdownPosition.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/components/Pricing.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/middleware.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/e2e/ui-regressions.spec.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/jest.dashboard-shell.config.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/jest.model-selector.config.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/jest.sessions-resilience.config.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/jest.settings-billing.config.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/jest.tasks-resilience.config.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(auth)/actions.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/error.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/app/(dashboard)/dashboard/loading.tsx",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/hooks/useDashboardAuth.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/hooks/useDashboardTheme.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/lib/auth-token.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/lib/auth-ui.test.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/lib/billing-display.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/lib/task-queue-response.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/src/lib/tenant-auth.ts",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/tests/dashboard-preferences.test.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/tests/dashboard-shell.test.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/tests/model-selector.test.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/tests/sessions-resilience.test.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/tests/settings-billing.test.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  },
+  {
+    "file": "marketing-site/tests/tasks-resilience.test.cjs",
+    "errorCount": 0,
+    "baselineErrorCount": 0,
+    "introduced": [],
+    "messages": []
+  }
+]

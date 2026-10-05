@@ -1,0 +1,204 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - button [expanded] [ref=e5]:
+        - img [ref=e6]
+      - generic [ref=e10]:
+        - button [ref=e11]:
+          - img [ref=e12]
+        - button [ref=e15]:
+          - generic [ref=e16]: A
+    - main [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - heading [level=1] [ref=e20]: Settings
+          - paragraph [ref=e21]: Manage your account, billing, and API keys
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - heading [level=2] [ref=e24]: Subscription & Usage
+            - link [ref=e25] [cursor=pointer]:
+              - /url: /dashboard/billing
+              - text: Manage billing →
+          - generic [ref=e27]:
+            - generic [ref=e29]:
+              - text: Current plan
+              - generic [ref=e30]: Pro
+            - generic [ref=e32]:
+              - generic [ref=e33]: Tasks this month
+              - generic [ref=e34]: 0 / 1000
+        - generic [ref=e36]:
+          - heading [level=2] [ref=e37]: Secrets Storage Status
+          - generic [ref=e41]: Connected to HashiCorp Vault
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - heading [level=2] [ref=e44]: Your API Keys
+            - paragraph [ref=e45]: API keys are securely stored in HashiCorp Vault and synced to your workers.
+          - generic [ref=e46]: No API keys configured. Add one below to get started.
+        - generic [ref=e47]:
+          - generic [ref=e48]:
+            - heading [level=2] [ref=e49]: Add API Key
+            - paragraph [ref=e50]: Add a new LLM provider API key to use with your agents.
+          - generic [ref=e51]:
+            - generic [ref=e52]:
+              - generic [ref=e53]: Provider
+              - combobox [ref=e54]
+            - generic [ref=e55]:
+              - generic [ref=e56]: API Key
+              - textbox [ref=e57]:
+                - /placeholder: Enter your API key
+            - generic [ref=e58]:
+              - button [disabled] [ref=e59]: Save API Key
+              - button [disabled] [ref=e60]: Test Key
+        - generic [ref=e61]:
+          - heading [level=2] [ref=e63]: Supported Providers
+          - heading [level=3] [ref=e67]: Fixture Provider
+  - button "Open chat" [ref=e69]:
+    - img [ref=e71]
+  - button "Open Next.js Dev Tools" [ref=e78] [cursor=pointer]:
+    - img [ref=e79]
+  - alert [ref=e82]
+  - generic:
+    - generic:
+      - generic:
+        - dialog "Dashboard navigation":
+          - generic [ref=e84]:
+            - heading "Dashboard navigation" [level=2] [ref=e85]
+            - generic [ref=e86]:
+              - link "CodeTether" [ref=e87] [cursor=pointer]:
+                - /url: /dashboard
+                - img [ref=e89]
+                - generic [ref=e91]: CodeTether
+              - button "Close navigation menu" [active] [ref=e92]:
+                - img [ref=e93]
+            - navigation [ref=e95]:
+              - list [ref=e96]:
+                - listitem [ref=e97]:
+                  - link "Get Started New" [ref=e98] [cursor=pointer]:
+                    - /url: /dashboard/getting-started
+                    - img [ref=e99]
+                    - text: Get Started
+                    - generic [ref=e101]: New
+                - listitem [ref=e102]:
+                  - link "Workspaces" [ref=e103] [cursor=pointer]:
+                    - /url: /dashboard
+                    - img [ref=e104]
+                    - text: Workspaces
+                - listitem [ref=e106]:
+                  - link "Workers" [ref=e107] [cursor=pointer]:
+                    - /url: /dashboard/workers
+                    - img [ref=e108]
+                    - text: Workers
+                - listitem [ref=e110]:
+                  - link "OKR New" [ref=e111] [cursor=pointer]:
+                    - /url: /dashboard/okr
+                    - img [ref=e112]
+                    - text: OKR
+                    - generic [ref=e114]: New
+                - listitem [ref=e115]:
+                  - link "Swarm New" [ref=e116] [cursor=pointer]:
+                    - /url: /dashboard/swarm
+                    - img [ref=e117]
+                    - text: Swarm
+                    - generic [ref=e119]: New
+                - listitem [ref=e120]:
+                  - link "MCP Tools New" [ref=e121] [cursor=pointer]:
+                    - /url: /dashboard/mcp
+                    - img [ref=e122]
+                    - text: MCP Tools
+                    - generic [ref=e124]: New
+                - listitem [ref=e125]:
+                  - link "Security New" [ref=e126] [cursor=pointer]:
+                    - /url: /dashboard/security
+                    - img [ref=e127]
+                    - text: Security
+                    - generic [ref=e129]: New
+                - listitem [ref=e130]:
+                  - link "Ralph New" [ref=e131] [cursor=pointer]:
+                    - /url: /dashboard/ralph
+                    - img [ref=e132]
+                    - text: Ralph
+                    - generic [ref=e134]: New
+                - listitem [ref=e135]:
+                  - link "Cognition" [ref=e136] [cursor=pointer]:
+                    - /url: /dashboard/cognition
+                    - img [ref=e137]
+                    - text: Cognition
+                - listitem [ref=e139]:
+                  - link "Avatar New" [ref=e140] [cursor=pointer]:
+                    - /url: /dashboard/avatar
+                    - img [ref=e141]
+                    - text: Avatar
+                    - generic [ref=e144]: New
+                - listitem [ref=e145]:
+                  - link "Ads New" [ref=e146] [cursor=pointer]:
+                    - /url: /dashboard/ads
+                    - img [ref=e147]
+                    - text: Ads
+                    - generic [ref=e149]: New
+                - listitem [ref=e150]:
+                  - link "Benchmarks" [ref=e151] [cursor=pointer]:
+                    - /url: /dashboard/benchmarks
+                    - img [ref=e152]
+                    - text: Benchmarks
+                - listitem [ref=e154]:
+                  - link "Analytics New" [ref=e155] [cursor=pointer]:
+                    - /url: /dashboard/analytics
+                    - img [ref=e156]
+                    - text: Analytics
+                    - generic [ref=e158]: New
+                - listitem [ref=e159]:
+                  - link "Cronjobs" [ref=e160] [cursor=pointer]:
+                    - /url: /cronjobs
+                    - img [ref=e161]
+                    - text: Cronjobs
+                - listitem [ref=e163]:
+                  - link "Tasks" [ref=e164] [cursor=pointer]:
+                    - /url: /dashboard/tasks
+                    - img [ref=e165]
+                    - text: Tasks
+                - listitem [ref=e167]:
+                  - link "Sessions" [ref=e168] [cursor=pointer]:
+                    - /url: /dashboard/sessions
+                    - img [ref=e169]
+                    - text: Sessions
+                - listitem [ref=e171]:
+                  - link "Output" [ref=e172] [cursor=pointer]:
+                    - /url: /dashboard/output
+                    - img [ref=e173]
+                    - text: Output
+                - listitem [ref=e175]:
+                  - link "Activity" [ref=e176] [cursor=pointer]:
+                    - /url: /dashboard/activity
+                    - img [ref=e177]
+                    - text: Activity
+                - listitem [ref=e179]:
+                  - link "GitHub Actions New" [ref=e180] [cursor=pointer]:
+                    - /url: /dashboard/integrations/github-actions
+                    - img [ref=e181]
+                    - text: GitHub Actions
+                    - generic [ref=e183]: New
+                - listitem [ref=e184]:
+                  - link "GitHub App New" [ref=e185] [cursor=pointer]:
+                    - /url: /dashboard/workflows/github-app
+                    - img [ref=e186]
+                    - text: GitHub App
+                    - generic [ref=e188]: New
+                - listitem [ref=e189]:
+                  - link "Automations" [ref=e190] [cursor=pointer]:
+                    - /url: /dashboard/automations
+                    - img [ref=e191]
+                    - text: Automations
+                - listitem [ref=e194]:
+                  - link "Billing" [ref=e195] [cursor=pointer]:
+                    - /url: /dashboard/billing
+                    - img [ref=e196]
+                    - text: Billing
+                - listitem [ref=e198]:
+                  - link "Settings" [ref=e199] [cursor=pointer]:
+                    - /url: /dashboard/settings
+                    - img [ref=e200]
+                    - text: Settings
+```

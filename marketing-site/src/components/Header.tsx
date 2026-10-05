@@ -88,7 +88,10 @@ export function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden items-center gap-8 lg:flex">
+          <nav
+            aria-label="Main navigation"
+            className="hidden items-center gap-8 lg:flex"
+          >
             <Link
               href="/#features"
               className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
@@ -127,6 +130,7 @@ export function Header() {
           <div className="hidden items-center gap-4 lg:flex">
             <a
               href="https://github.com/rileyseaburg/codetether"
+              aria-label="CodeTether on GitHub"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
@@ -155,9 +159,10 @@ export function Header() {
 
           {/* Mobile Menu Button */}
           <button
+            type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="relative z-50 p-2 text-gray-600 hover:text-gray-900 lg:hidden dark:text-gray-300 dark:hover:text-white"
-            aria-label="Toggle menu"
+            aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
             ref={menuButton}
             aria-expanded={isMobileMenuOpen}
             aria-controls="site-mobile-menu"
@@ -174,11 +179,12 @@ export function Header() {
       {/* Mobile Menu */}
       <AnimatePresence>
         {isMobileMenuOpen && (
-          <motion.div
+          <motion.nav
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             id="site-mobile-menu"
+            aria-label="Mobile navigation"
             className="border-t border-gray-200 bg-white lg:hidden dark:border-gray-800 dark:bg-gray-950"
           >
             <div className="mx-auto max-w-7xl space-y-4 px-4 py-6">
@@ -235,7 +241,7 @@ export function Header() {
                 </Link>
               </div>
             </div>
-          </motion.div>
+          </motion.nav>
         )}
       </AnimatePresence>
     </header>

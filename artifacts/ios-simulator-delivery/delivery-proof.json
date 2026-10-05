@@ -1,0 +1,15 @@
+{
+  "url": "https://server.codetether.run/downloads/a2amonitor/20261005/",
+  "ipaUrl": "https://server.codetether.run/downloads/a2amonitor/20261005/A2AMonitor-1.0.0-2.ipa",
+  "ipaSha256": "4679f356dde97dbbfd82c5b64c68cd3911ad4431e497d7e2253767d449319109",
+  "ipaBytes": 14211544,
+  "publicStatus": 200,
+  "rangeStatus": 206,
+  "blockedPathStatus": 404,
+  "signatureVerified": true,
+  "simulatorTaskId": "b009806e-6184-4d5f-a5cb-2ca7ccf93214",
+  "liveSimulatorTestsPassed": 1,
+  "userLoginTested": false,
+  "physicalPhoneTested": false,
+  "verifiedAt": "2026-10-05T14:42:03.396Z"
+}

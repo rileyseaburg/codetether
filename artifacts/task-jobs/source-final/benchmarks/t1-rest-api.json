@@ -1,0 +1,51 @@
+{
+    "project": "benchmark-rest-api",
+    "feature": "Simple REST API",
+    "branch_name": "bench/t1-rest-api",
+    "version": "1.0",
+    "user_stories": [
+        {
+            "id": "US-001",
+            "title": "Create a health check endpoint",
+            "description": "Add a GET /health endpoint that returns { \"status\": \"ok\" } with a 200 status code. Use axum as the HTTP framework.",
+            "acceptance_criteria": [
+                "GET /health returns 200 with JSON body {\"status\": \"ok\"}",
+                "The server starts on port 3000 by default",
+                "A unit test verifies the health endpoint response"
+            ],
+            "passes": false,
+            "priority": 1,
+            "depends_on": [],
+            "complexity": 1
+        },
+        {
+            "id": "US-002",
+            "title": "Add a greeting endpoint with query params",
+            "description": "Add a GET /greet?name=<name> endpoint that returns { \"message\": \"Hello, <name>!\" }. If no name is provided, default to \"World\".",
+            "acceptance_criteria": [
+                "GET /greet?name=Alice returns {\"message\": \"Hello, Alice!\"}",
+                "GET /greet without name returns {\"message\": \"Hello, World!\"}",
+                "A unit test covers both cases"
+            ],
+            "passes": false,
+            "priority": 2,
+            "depends_on": [
+                "US-001"
+            ],
+            "complexity": 1
+        }
+    ],
+    "technical_requirements": [
+        "Use Rust with axum and tokio",
+        "Use serde for JSON serialization",
+        "All tests must pass with cargo test"
+    ],
+    "quality_checks": {
+        "typecheck": "cargo check",
+        "test": "cargo test",
+        "lint": "cargo clippy -- -D warnings",
+        "build": "cargo build"
+    },
+    "created_at": "2026-02-10T00:00:00Z",
+    "updated_at": "2026-02-10T00:00:00Z"
+}

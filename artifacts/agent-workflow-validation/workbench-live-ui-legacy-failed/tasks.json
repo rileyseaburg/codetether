@@ -1,0 +1,14 @@
+[
+  {
+    "workerId": "wrk_1791203157_35195f4f7b97da0a",
+    "workspaceId": "ios-e2e-ubuntu-dev",
+    "label": "local",
+    "marker": "792001ea96bbde0c469a5efc",
+    "taskIds": [
+      "6cb5a89c-0781-4532-873a-eeca55580efd",
+      "598ef9b1-2fd1-480a-bb54-804464a4ffd9"
+    ],
+    "firstPrompt": "Remember this exact code for this conversation: 792001ea96bbde0c469a5efc. Reply READY. Do not use tools or read files.",
+    "contextId": "ios-7f538792-0c09-4c5c-b90d-52aef1a2f1b2"
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "before": "query = 'SELECT * FROM workers WHERE 1=1'",
+  "after": "query = '''SELECT worker_id, name, capabilities, hostname,\n                              CASE WHEN last_seen >= NOW() - INTERVAL '24 hours'\n                                   THEN models ELSE '[]'::jsonb END AS models,\n                              global_workspace_id, registered_at, last_seen,\n                              status\n                       FROM workers WHERE 1=1'''",
+  "preservesHistoricalRows": true,
+  "singleWorkerLookupUnchanged": true
+}

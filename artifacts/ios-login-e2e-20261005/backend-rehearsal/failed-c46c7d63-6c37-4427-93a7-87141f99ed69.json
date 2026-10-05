@@ -1,0 +1,11 @@
+{
+  "taskId": "c46c7d63-6c37-4427-93a7-87141f99ed69",
+  "status": "failed",
+  "result": null,
+  "error": "Error: Provider 'github-copilot' selected explicitly but is unavailable. Available providers: bedrock",
+  "phoneOrigin": false,
+  "observedAt": "2026-10-05T12:59:25.697Z",
+  "targetWorker": "wrk_1791203157_35195f4f7b97da0a",
+  "model": "github-copilot/gpt-5-mini",
+  "modelRef": "github-copilot:gpt-5-mini"
+}

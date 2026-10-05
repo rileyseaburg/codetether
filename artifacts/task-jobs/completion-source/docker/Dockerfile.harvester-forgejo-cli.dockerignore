@@ -1,0 +1,8 @@
+**
+!scripts/
+!scripts/harvester/
+!scripts/harvester/forgejo_auth.py
+!scripts/harvester/forgejo-cli
+!docker/
+!docker/Dockerfile.harvester-forgejo-cli
+!docker/Dockerfile.harvester-forgejo-cli.dockerignore

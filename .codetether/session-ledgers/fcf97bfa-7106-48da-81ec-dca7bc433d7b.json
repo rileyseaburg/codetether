@@ -1,0 +1,68 @@
+{
+  "session_id": "fcf97bfa-7106-48da-81ec-dca7bc433d7b",
+  "items": [
+    {
+      "deliverable": "**Static/local:** root Ruff, format check, whitespace check, and copy comparison passed.",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "applied",
+        "row-evidence"
+      ]
+    },
+    {
+      "deliverable": "**Mocked local + static/local Git regression:** **24 tests and 32 subtests passed**, including the sparse-refspec case.",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "applied",
+        "row-evidence"
+      ]
+    },
+    {
+      "deliverable": "Child worktree is clean.",
+      "status": "blocked",
+      "evidence_level": "live deployment/Argo",
+      "evidence": [
+        "healthy-synced",
+        "pod-succeeded",
+        "failed-or-degraded",
+        "applied",
+        "row-evidence"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "kind": "argo",
+      "level": "live deployment/Argo",
+      "value": "healthy-synced"
+    },
+    {
+      "kind": "k8s",
+      "level": "live deployment/Argo",
+      "value": "pod-succeeded"
+    },
+    {
+      "kind": "runtime",
+      "level": "blocked",
+      "value": "failed-or-degraded"
+    },
+    {
+      "kind": "db-migration",
+      "level": "live DB",
+      "value": "applied"
+    },
+    {
+      "kind": "db-query",
+      "level": "live DB",
+      "value": "row-evidence"
+    }
+  ]
+}

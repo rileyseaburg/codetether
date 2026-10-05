@@ -1,0 +1,500 @@
+{
+  "level": "live integration: changed local UI with real remote services",
+  "base": "http://localhost:3001",
+  "api": "http://localhost:3001/api/tenant",
+  "started": "2026-09-06T20:08:02.986Z",
+  "stage": "read-only-phase-finished",
+  "checks": [
+    {
+      "check": "real OAuth authorization",
+      "origin": "https://auth.quantum-forge.io",
+      "path": "/realms/quantum-forge/protocol/openid-connect/auth",
+      "clientId": "a2a-monitor",
+      "redirectUri": "http://localhost:3001/api/auth/callback/keycloak",
+      "pkce": true,
+      "statePresent": true
+    },
+    {
+      "check": "real session",
+      "authenticated": true,
+      "hasRefreshToken": true,
+      "tenantId": null,
+      "error": null
+    },
+    {
+      "check": "/v1/agent/workspaces/list",
+      "status": 500,
+      "summary": {
+        "count": 0,
+        "currentRepository": []
+      }
+    },
+    {
+      "check": "/v1/agent/workers",
+      "status": 500,
+      "summary": []
+    },
+    {
+      "check": "/v1/worker/connected",
+      "status": 500,
+      "summary": {
+        "workers": []
+      }
+    },
+    {
+      "check": "/v1/billing/subscription",
+      "status": 500,
+      "summary": null
+    },
+    {
+      "check": "/v1/billing/usage",
+      "status": 500,
+      "summary": null
+    },
+    {
+      "check": "real page",
+      "route": "/dashboard/settings",
+      "headings": [
+        "Settings"
+      ],
+      "alerts": [
+        "Failed to load API keys",
+        ""
+      ]
+    },
+    {
+      "check": "real page",
+      "route": "/dashboard/billing",
+      "headings": [
+        "Billing"
+      ],
+      "alerts": [
+        "Failed to load billing status",
+        "Some token usage or budget data is unavailable. Please retry.Retry token usage",
+        ""
+      ]
+    },
+    {
+      "check": "real page",
+      "route": "/dashboard/tasks",
+      "headings": [],
+      "alerts": [
+        "The task service is unavailable. Please retry.Retry loading tasks",
+        ""
+      ]
+    },
+    {
+      "check": "real page",
+      "route": "/dashboard/sessions",
+      "headings": [],
+      "alerts": [
+        "Failed to load workspaces. Please retry.Retry sessions",
+        ""
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/login",
+      "method": "POST",
+      "failure": "net::ERR_ABORTED"
+    },
+    {
+      "origin": "https://auth.quantum-forge.io",
+      "path": "/realms/quantum-forge/protocol/openid-connect/auth",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/callback/keycloak",
+      "method": "GET",
+      "status": 302
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "https://localhost:3001",
+      "path": "/api/tenant/v1/worker/connected",
+      "method": "GET",
+      "failure": "net::ERR_SSL_PROTOCOL_ERROR"
+    },
+    {
+      "origin": "https://localhost:3001",
+      "path": "/api/tenant/v1/agent/agents",
+      "method": "GET",
+      "failure": "net::ERR_SSL_PROTOCOL_ERROR"
+    },
+    {
+      "origin": "https://localhost:3001",
+      "path": "/api/tenant/v1/worker/connected",
+      "method": "GET",
+      "failure": "net::ERR_SSL_PROTOCOL_ERROR"
+    },
+    {
+      "origin": "https://localhost:3001",
+      "path": "/api/tenant/v1/agent/agents",
+      "method": "GET",
+      "failure": "net::ERR_SSL_PROTOCOL_ERROR"
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/workspaces/list",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/workers",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/workspaces/list",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/workers",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/workspaces/list",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/workers",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/worker/connected",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/billing/subscription",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/billing/usage",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/providers",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/vault/status",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/api-keys",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/billing/subscription",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/providers",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/vault/status",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/api-keys",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/billing/subscription",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/token-billing/usage/summary",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/token-billing/budget",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/forecast",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/anomalies",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/alerts",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/alerts/summary",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/recommendations",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/cost-trend",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/policies",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/token-billing/usage/summary",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/token-billing/budget",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/forecast",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/billing/subscription",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/anomalies",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/alerts",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/alerts/summary",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/recommendations",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/cost-trend",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/finops/policies",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/billing/subscription",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/workspaces/list",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/tasks",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/workspaces/list",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/auth/session",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/workspaces/list",
+      "method": "GET",
+      "status": 500
+    },
+    {
+      "origin": "http://localhost:3001",
+      "path": "/api/tenant/v1/agent/workspaces/list",
+      "method": "GET",
+      "status": 500
+    }
+  ]
+}

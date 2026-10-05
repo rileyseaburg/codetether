@@ -1,0 +1,67 @@
+{
+  "level": "live deployment/Argo",
+  "mode": "production-host canary",
+  "commit": "b69b1cc969bc706216af87f5203b122833c7bcb6",
+  "image": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing:ui-b69b1cc969bc",
+  "checks": [
+    {
+      "host": "codetether.run",
+      "requests": [
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/callback/keycloak",
+          "status": 302
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "quantum-forge.codetether.run",
+          "path": "/v1/agent/agents",
+          "status": 200
+        },
+        {
+          "host": "quantum-forge.codetether.run",
+          "path": "/v1/worker/connected",
+          "status": 200
+        },
+        {
+          "host": "quantum-forge.codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        },
+        {
+          "host": "quantum-forge.codetether.run",
+          "path": "/api/auth/session",
+          "status": 200
+        }
+      ],
+      "versionStatus": 200,
+      "revision": "b69b1cc969bc706216af87f5203b122833c7bcb6",
+      "callback": "https://codetether.run/api/auth/callback/keycloak",
+      "pkce": "S256"
+    }
+  ],
+  "mutations": [],
+  "testUserId": "da5a72ed-2dd2-4ade-b6e2-24cda88e518d",
+  "error": "locator.waitFor: Timeout 45000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('heading', { name: 'Workspaces', exact: true }) to be visible\u001b[22m\n\u001b[2m    - waiting for\" https://quantum-forge.codetether.run/dashboard\" navigation to finish...\u001b[22m\n\u001b[2m    - navigated to \"https://quantum-forge.codetether.run/login\"\u001b[22m\n",
+  "success": false,
+  "testUserDisabled": true
+}

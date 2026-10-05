@@ -1,0 +1,95 @@
+{{- if and .Values.serviceAccount.create .Values.knative.enabled }}
+---
+# Role for Knative worker management
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-knative-manager
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+rules:
+  # ConfigMaps for templates
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  # Workspace PVC management for persistent Knative workspaces
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Knative Serving - manage Services (workers)
+  - apiGroups: ["serving.knative.dev"]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Knative Eventing - manage Triggers for event routing
+  - apiGroups: ["eventing.knative.dev"]
+    resources: ["triggers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Knative Eventing - read Brokers
+  - apiGroups: ["eventing.knative.dev"]
+    resources: ["brokers"]
+    verbs: ["get", "list", "watch"]
+  # Kubernetes CronJobs for scheduler reconciliation
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+# RoleBinding to grant the service account Knative management permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-knative-manager
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "a2a-server.fullname" . }}-knative-manager
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "a2a-server.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- if .Values.knative.cron.allowCrossNamespace }}
+---
+# Optional ClusterRole for cross-namespace cron reconciliation.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-knative-manager
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["serving.knative.dev"]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["eventing.knative.dev"]
+    resources: ["triggers", "brokers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "a2a-server.fullname" . }}-knative-manager
+  labels:
+    {{- include "a2a-server.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "a2a-server.fullname" . }}-knative-manager
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "a2a-server.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- end }}

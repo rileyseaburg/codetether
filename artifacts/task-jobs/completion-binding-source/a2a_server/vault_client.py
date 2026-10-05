@@ -1,0 +1,728 @@
+"""
+HashiCorp Vault client for A2A Server.
+
+Provides secure storage for LLM provider API keys and other secrets.
+API keys are stored per-user, tied to their Keycloak identity.
+
+Supports both Kubernetes auth (in-cluster) and token auth (local dev).
+
+Configuration (environment variables):
+    VAULT_ADDR: Vault server URL (default: http://vault.vault.svc.cluster.local:8200)
+    VAULT_TOKEN: Vault token for authentication (local dev)
+    VAULT_ROLE: Kubernetes auth role (default: a2a-server)
+    VAULT_MOUNT_PATH: KV secrets engine mount path (default: secret)
+    VAULT_API_KEYS_PATH: Base path for API keys (default: a2a/users)
+"""
+
+import asyncio
+import logging
+import math
+import os
+import time
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from http import HTTPStatus
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import aiohttp
+
+
+logger = logging.getLogger(__name__)
+
+# Vault configuration
+VAULT_ADDR = os.environ.get(
+    'VAULT_ADDR', 'http://vault.vault.svc.cluster.local:8200'
+)
+VAULT_TOKEN = os.environ.get('VAULT_TOKEN', '')
+VAULT_ROLE = os.environ.get('VAULT_ROLE', 'a2a-server')
+VAULT_MOUNT_PATH = os.environ.get('VAULT_MOUNT_PATH', 'secret')
+VAULT_API_KEYS_BASE_PATH = os.environ.get('VAULT_API_KEYS_PATH', 'a2a/users')
+
+# Kubernetes service account token path
+K8S_TOKEN_PATH = '/var/run/secrets/kubernetes.io/serviceaccount/token'
+
+
+# Kubernetes tokens are shared only within the same authentication scope.
+@dataclass
+class _KubernetesToken:
+    """Lease and single-flight state; never include credentials in repr."""
+
+    token: str | None = field(default=None, repr=False)
+    expires_at: float = 0.0
+    retry_after: float = 0.0
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+
+
+_kubernetes_tokens: dict[tuple[str, str, str], _KubernetesToken] = {}
+_AUTH_RETRY_DELAY = 1.0
+# Missing/non-expiring leases must not recreate an indefinite cache.
+_MAX_CACHE_SECONDS = 300.0
+
+
+# Known providers with their display names and configurations
+KNOWN_PROVIDERS = {
+    'anthropic': {
+        'name': 'Anthropic',
+        'npm': '@ai-sdk/anthropic',
+        'description': 'Claude models (Opus, Sonnet, Haiku)',
+    },
+    'openai': {
+        'name': 'OpenAI',
+        'npm': '@ai-sdk/openai',
+        'description': 'GPT-4, GPT-3.5, and other OpenAI models',
+    },
+    'google': {
+        'name': 'Google AI',
+        'npm': '@ai-sdk/google',
+        'description': 'Gemini and other Google AI models',
+    },
+    'minimax': {
+        'name': 'MiniMax',
+        'npm': '@ai-sdk/anthropic',
+        'base_url': 'https://api.minimax.io/anthropic/v1',
+        'description': 'MiniMax M2 models (Anthropic-compatible API)',
+    },
+    'minimax-m2': {
+        'name': 'MiniMax M2',
+        'npm': '@ai-sdk/anthropic',
+        'base_url': 'https://api.minimax.io/anthropic/v1',
+        'description': 'MiniMax M2.1 early access',
+        'models': {
+            'MiniMax-M2.1': {
+                'name': 'MiniMax M2.1',
+                'reasoning': True,
+                'temperature': True,
+                'tool_call': True,
+            },
+            'MiniMax-M2': {
+                'name': 'MiniMax M2',
+                'reasoning': True,
+                'temperature': True,
+                'tool_call': True,
+            },
+        },
+    },
+    'azure': {
+        'name': 'Azure OpenAI',
+        'npm': '@ai-sdk/azure',
+        'description': 'Azure-hosted OpenAI models',
+    },
+    'azure-anthropic': {
+        'name': 'Azure AI Foundry (Anthropic)',
+        'npm': '@ai-sdk/anthropic',
+        'description': 'Claude models via Azure AI Foundry',
+        'requires_base_url': True,
+    },
+    'deepseek': {
+        'name': 'DeepSeek',
+        'npm': '@ai-sdk/openai-compatible',
+        'base_url': 'https://api.deepseek.com/v1',
+        'description': 'DeepSeek Coder and Chat models',
+    },
+    'groq': {
+        'name': 'Groq',
+        'npm': '@ai-sdk/groq',
+        'description': 'Fast inference with Groq',
+    },
+    'github-copilot': {
+        'name': 'GitHub Copilot',
+        'npm': '@ai-sdk/github-copilot',
+        'description': 'GitHub Copilot (requires OAuth)',
+        'auth_type': 'oauth',
+    },
+    'zai-coding-plan': {
+        'name': 'Z.AI Coding Plan',
+        'npm': '@ai-sdk/openai-compatible',
+        'base_url': 'https://api.z.ai/v1',
+        'description': 'Z.AI GLM models',
+    },
+}
+
+
+class VaultClient:
+    """Async client for HashiCorp Vault."""
+
+    def __init__(self, addr: str = VAULT_ADDR):
+        self.addr = addr.rstrip('/')
+        self._session: Optional[aiohttp.ClientSession] = None
+        self._static_token = VAULT_TOKEN
+        self._role = VAULT_ROLE
+        self._jwt_path = K8S_TOKEN_PATH
+        self._auth_state = _kubernetes_tokens.setdefault(
+            (self.addr, self._role, self._jwt_path), _KubernetesToken()
+        )
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create HTTP session."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30)
+            )
+        return self._session
+
+    async def close(self):
+        """Close the HTTP session."""
+        if self._session and not self._session.closed:
+            await self._session.close()
+
+    async def _get_token(  # noqa: PLR0911 (explicit auth failure exits)
+        self, rejected_token: str | None = None
+    ) -> str | None:
+        """Return a static token or a shared, lease-aware Kubernetes token.
+
+        Compare the rejected token while holding the refresh lock: a late 403
+        from another client must not discard a replacement already obtained.
+        """
+        if self._static_token:
+            return self._static_token
+
+        state = self._auth_state
+        async with state.lock:
+            if rejected_token is not None and state.token == rejected_token:
+                state.token = None
+            now = time.monotonic()
+            if state.token and now < state.expires_at:
+                return state.token
+            if now < state.retry_after:
+                return None
+            state.token = None
+            # Bound repeated failed logins from concurrent callers.
+            state.retry_after = now + _AUTH_RETRY_DELAY
+            try:
+                jwt = Path(self._jwt_path).read_text().strip()
+                if not jwt:
+                    return None
+                session = await self._get_session()
+                async with session.post(
+                    f'{self.addr}/v1/auth/kubernetes/login',
+                    json={'jwt': jwt, 'role': self._role},
+                    allow_redirects=False,
+                ) as resp:
+                    if resp.status != 200:
+                        logger.warning(
+                            'Kubernetes auth failed: HTTP %s', resp.status
+                        )
+                        return None
+                    auth = (await resp.json())['auth']
+                    token = auth['client_token']
+                    if not isinstance(token, str) or not token.strip():
+                        return None
+                    lease = float(
+                        auth.get('lease_duration') or _MAX_CACHE_SECONDS
+                    )
+                    if not math.isfinite(lease) or lease < 0:
+                        return None
+                    # Start the deadline before login to account for latency,
+                    # refresh early, and bound even missing/zero lease metadata.
+                    lifetime = min(lease, _MAX_CACHE_SECONDS)
+                    state.expires_at = now + lifetime * 0.9
+                    if time.monotonic() >= state.expires_at:
+                        return None
+                    state.token = token
+                    state.retry_after = 0.0
+                    logger.info(
+                        'Authenticated with Vault using Kubernetes auth'
+                    )
+                    return token
+            except Exception as exc:
+                # Exception strings can include JWTs or raw Vault responses.
+                logger.warning('Kubernetes auth error: %s', type(exc).__name__)
+            finally:
+                if state.token is None:
+                    state.retry_after = time.monotonic() + _AUTH_RETRY_DELAY
+            return None
+
+    async def _invalidate_token(self, rejected_token: str) -> None:
+        """Retire a twice-rejected token without initiating another login."""
+        async with self._auth_state.lock:
+            if self._auth_state.token == rejected_token:
+                self._auth_state.token = None
+                self._auth_state.retry_after = (
+                    time.monotonic() + _AUTH_RETRY_DELAY
+                )
+
+    @staticmethod
+    async def _invalid_token_response(resp: aiohttp.ClientResponse) -> bool:
+        """Recognize explicit invalid-token errors, not generic ACL denials."""
+        try:
+            errors = (await resp.json()).get('errors', [])
+            return isinstance(errors, list) and any(
+                line.strip().lstrip('* ').lower() == 'invalid token'
+                for error in errors
+                if isinstance(error, str)
+                for line in error.splitlines()
+            )
+        except Exception:
+            return False
+
+    async def _request(  # noqa: PLR0911 (bounded response handling)
+        self, method: str, path: str, data: Optional[Dict] = None
+    ) -> Optional[Dict]:
+        """Make authenticated request to Vault."""
+        token = await self._get_token()
+        if not token:
+            return None
+
+        session = await self._get_session()
+        url = f'{self.addr}/v1/{path}'
+
+        for attempt in range(2):
+            try:
+                async with session.request(
+                    method,
+                    url,
+                    headers={'X-Vault-Token': token},
+                    json=data,
+                    allow_redirects=False,
+                ) as resp:
+                    if resp.status == 200:
+                        return await resp.json()
+                    if resp.status == 204:
+                        return {}
+                    if resp.status == 404:
+                        return None
+                    invalid = (
+                        resp.status == HTTPStatus.FORBIDDEN
+                        and not self._static_token
+                        and await self._invalid_token_response(resp)
+                    )
+                    if not invalid:
+                        logger.error(
+                            'Vault request failed: HTTP %s', resp.status
+                        )
+                        return None
+                # Exit the response context before logging in or retrying.
+                if attempt:
+                    await self._invalidate_token(token)
+                    logger.error('Vault rejected refreshed Kubernetes token')
+                    return None
+                token = await self._get_token(rejected_token=token)
+                if not token:
+                    return None
+            except Exception as exc:
+                logger.error('Vault request error: %s', type(exc).__name__)
+                return None
+        return None
+
+    async def read_secret(self, path: str) -> Optional[Dict[str, Any]]:
+        """Read a secret from Vault KV v2."""
+        result = await self._request('GET', f'{VAULT_MOUNT_PATH}/data/{path}')
+        if result and 'data' in result and 'data' in result['data']:
+            return result['data']['data']
+        return None
+
+    async def write_secret(self, path: str, data: Dict[str, Any]) -> bool:
+        """Write a secret to Vault KV v2."""
+        result = await self._request(
+            'POST', f'{VAULT_MOUNT_PATH}/data/{path}', {'data': data}
+        )
+        return result is not None
+
+    async def delete_secret(self, path: str) -> bool:
+        """Delete a secret from Vault KV v2."""
+        result = await self._request(
+            'DELETE', f'{VAULT_MOUNT_PATH}/data/{path}'
+        )
+        return result is not None
+
+    async def list_secrets(self, path: str) -> List[str]:
+        """List secrets at a path in Vault KV v2."""
+        result = await self._request(
+            'LIST', f'{VAULT_MOUNT_PATH}/metadata/{path}'
+        )
+        if result and 'data' in result and 'keys' in result['data']:
+            return result['data']['keys']
+        return []
+
+
+# Singleton client instance
+_client: Optional[VaultClient] = None
+
+
+def get_vault_client() -> VaultClient:
+    """Get the singleton Vault client instance."""
+    global _client
+    if _client is None:
+        _client = VaultClient()
+    return _client
+
+
+# =============================================================================
+# Per-User API Key Management Functions
+# =============================================================================
+
+
+def _user_api_keys_path(user_id: str) -> str:
+    """Get the Vault path for a user's API keys."""
+    # Sanitize user_id for use in path
+    safe_user_id = user_id.replace('/', '_').replace('\\', '_')
+    return f'{VAULT_API_KEYS_BASE_PATH}/{safe_user_id}/api-keys'
+
+
+async def get_user_api_key(
+    user_id: str, provider_id: str
+) -> Optional[Dict[str, Any]]:
+    """Get an API key for a specific provider for a user."""
+    client = get_vault_client()
+    path = f'{_user_api_keys_path(user_id)}/{provider_id}'
+    return await client.read_secret(path)
+
+
+async def set_user_api_key(
+    user_id: str,
+    provider_id: str,
+    api_key: str,
+    provider_name: Optional[str] = None,
+    base_url: Optional[str] = None,
+    metadata: Optional[Dict] = None,
+) -> bool:
+    """Store an API key for a provider for a specific user."""
+    client = get_vault_client()
+    path = f'{_user_api_keys_path(user_id)}/{provider_id}'
+
+    # Get provider info
+    provider_info = KNOWN_PROVIDERS.get(provider_id, {})
+
+    data = {
+        'api_key': api_key,
+        'provider_id': provider_id,
+        'provider_name': provider_name
+        or provider_info.get('name', provider_id),
+        'user_id': user_id,
+        'updated_at': datetime.now(timezone.utc).isoformat(),
+    }
+
+    # Include base_url if provided or from known providers
+    if base_url:
+        data['base_url'] = base_url
+    elif 'base_url' in provider_info:
+        data['base_url'] = provider_info['base_url']
+
+    if metadata:
+        data['metadata'] = metadata
+
+    return await client.write_secret(path, data)
+
+
+async def delete_user_api_key(user_id: str, provider_id: str) -> bool:
+    """Delete an API key for a user."""
+    client = get_vault_client()
+    path = f'{_user_api_keys_path(user_id)}/{provider_id}'
+    return await client.delete_secret(path)
+
+
+async def list_user_api_keys(user_id: str) -> List[str]:
+    """List all configured provider IDs for a user."""
+    provider_ids, _, _ = await list_user_api_keys_with_diagnostics(user_id)
+    return provider_ids
+
+
+async def list_user_api_keys_with_diagnostics(
+    user_id: str,
+) -> Tuple[List[str], Optional[str], Optional[int]]:
+    """List configured provider IDs for a user with Vault error diagnostics.
+
+    Returns:
+        (provider_ids, error_message, status_code)
+    """
+    client = get_vault_client()
+    path = _user_api_keys_path(user_id)
+    token = await client._get_token()
+
+    if not token:
+        return [], 'Vault authentication unavailable', 401
+
+    session = await client._get_session()
+    headers = {'X-Vault-Token': token}
+    url = f'{client.addr}/v1/{VAULT_MOUNT_PATH}/metadata/{path}'
+
+    try:
+        async with session.request('LIST', url, headers=headers) as resp:
+            if resp.status == 200:
+                payload = await resp.json()
+                keys = payload.get('data', {}).get('keys', [])
+                return [k.rstrip('/') for k in keys], None, 200
+            if resp.status == 404:
+                # Path not found means user has no keys yet.
+                return [], None, 404
+
+            error_text = await resp.text()
+            if resp.status == 403:
+                message = (
+                    'Vault token is not authorized to access API key storage'
+                )
+            elif resp.status == 401:
+                message = 'Vault authentication failed'
+            else:
+                message = f'Vault request failed ({resp.status})'
+
+            logger.error(
+                f'Vault API key list request failed: {resp.status} - {error_text}'
+            )
+            return [], message, resp.status
+    except Exception as e:
+        logger.error(f'Vault API key list request error: {e}')
+        return [], f'Vault request error: {e}', None
+
+
+async def get_all_user_api_keys_with_diagnostics(
+    user_id: str,
+) -> Tuple[Dict[str, Dict[str, Any]], Optional[str], Optional[int]]:
+    """Get all API keys for a user with Vault error diagnostics."""
+    (
+        provider_ids,
+        list_error,
+        status_code,
+    ) = await list_user_api_keys_with_diagnostics(user_id)
+
+    if list_error:
+        return {}, list_error, status_code
+
+    keys: Dict[str, Dict[str, Any]] = {}
+    for pid in provider_ids:
+        key_data = await get_user_api_key(user_id, pid)
+        if key_data:
+            keys[pid] = key_data
+
+    return keys, None, status_code
+
+
+async def get_all_user_api_keys(user_id: str) -> Dict[str, Dict[str, Any]]:
+    """Get all API keys for a user."""
+    keys, _, _ = await get_all_user_api_keys_with_diagnostics(user_id)
+    return keys
+
+
+async def get_user_agent_auth_json(
+    user_id: str,
+) -> Dict[str, Dict[str, str]]:
+    """Get all API keys for a user formatted as agent auth.json structure."""
+    all_keys = await get_all_user_api_keys(user_id)
+
+    auth_json = {}
+    for pid, data in all_keys.items():
+        auth_json[pid] = {
+            'type': 'api',
+            'key': data.get('api_key', ''),
+        }
+
+    return auth_json
+
+
+async def get_user_agent_provider_config(
+    user_id: str,
+) -> Dict[str, Dict[str, Any]]:
+    """Get provider configuration for a user's custom providers."""
+    all_keys = await get_all_user_api_keys(user_id)
+
+    provider_config = {}
+    for pid, data in all_keys.items():
+        # Only include custom providers that need special configuration
+        if pid in KNOWN_PROVIDERS:
+            provider_info = KNOWN_PROVIDERS[pid]
+            if 'base_url' in provider_info or 'base_url' in data:
+                provider_config[pid] = {
+                    'npm': provider_info.get(
+                        'npm', '@ai-sdk/openai-compatible'
+                    ),
+                    'name': provider_info.get('name', pid),
+                    'options': {
+                        'baseURL': data.get('base_url')
+                        or provider_info.get('base_url'),
+                    },
+                }
+                if 'models' in provider_info:
+                    provider_config[pid]['models'] = provider_info['models']
+
+    return provider_config
+
+
+async def get_worker_sync_data(user_id: str) -> Dict[str, Any]:
+    """
+    Get all data needed for a worker to sync a user's API keys.
+
+    Returns:
+        Dict containing:
+        - auth: Agent auth.json format
+        - providers: Custom provider configurations for agent config
+        - updated_at: Timestamp of last update
+    """
+    auth_json = await get_user_agent_auth_json(user_id)
+    provider_config = await get_user_agent_provider_config(user_id)
+
+    return {
+        'user_id': user_id,
+        'auth': auth_json,
+        'providers': provider_config,
+        'updated_at': datetime.now(timezone.utc).isoformat(),
+    }
+
+
+# =============================================================================
+# Health Check
+# =============================================================================
+
+
+async def check_vault_connection(
+    user_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Check Vault connectivity/authentication and optional key access."""
+    client = get_vault_client()
+
+    try:
+        session = await client._get_session()
+
+        # Check if Vault is reachable
+        try:
+            async with session.get(f'{client.addr}/v1/sys/health') as resp:
+                health = await resp.json() if resp.status == 200 else {}
+                connected = resp.status in (200, 429, 472, 473, 501, 503)
+        except Exception:
+            health = {}
+            connected = False
+
+        # Check if we can authenticate
+        token = await client._get_token()
+
+        status: Dict[str, Any] = {
+            'connected': connected,
+            'authenticated': token is not None,
+            'vault_addr': client.addr,
+            'health': health,
+        }
+
+        # Optional: check whether this specific user can access API key storage.
+        if user_id and token is not None:
+            (
+                _,
+                access_error,
+                access_status,
+            ) = await list_user_api_keys_with_diagnostics(user_id)
+            status['authorized'] = access_error is None
+            if access_error:
+                status['authorization_error'] = access_error
+            if access_status is not None:
+                status['authorization_status'] = access_status
+
+        return status
+    except Exception as e:
+        return {
+            'connected': False,
+            'authenticated': False,
+            'vault_addr': client.addr,
+            'error': str(e),
+        }
+
+
+# =============================================================================
+# Test API Key Function
+# =============================================================================
+
+
+async def test_api_key(provider_id: str, api_key: str) -> Dict[str, Any]:
+    """Test an API key by making a simple request to the provider."""
+
+    # Define test endpoints for known providers
+    test_configs = {
+        'anthropic': {
+            'url': 'https://api.anthropic.com/v1/messages',
+            'headers': {
+                'x-api-key': api_key,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json',
+            },
+            'body': {
+                'model': 'claude-3-haiku-20240307',
+                'max_tokens': 10,
+                'messages': [{'role': 'user', 'content': 'Hi'}],
+            },
+        },
+        'minimax-m2': {
+            'url': 'https://api.minimax.io/anthropic/v1/messages',
+            'headers': {
+                'x-api-key': api_key,
+                'content-type': 'application/json',
+            },
+            'body': {
+                'model': 'MiniMax-M2',
+                'max_tokens': 10,
+                'messages': [{'role': 'user', 'content': 'Hi'}],
+            },
+        },
+        'minimax': {
+            'url': 'https://api.minimax.io/anthropic/v1/messages',
+            'headers': {
+                'x-api-key': api_key,
+                'content-type': 'application/json',
+            },
+            'body': {
+                'model': 'MiniMax-M2',
+                'max_tokens': 10,
+                'messages': [{'role': 'user', 'content': 'Hi'}],
+            },
+        },
+        'openai': {
+            'url': 'https://api.openai.com/v1/chat/completions',
+            'headers': {
+                'Authorization': f'Bearer {api_key}',
+                'content-type': 'application/json',
+            },
+            'body': {
+                'model': 'gpt-3.5-turbo',
+                'max_tokens': 10,
+                'messages': [{'role': 'user', 'content': 'Hi'}],
+            },
+        },
+        'deepseek': {
+            'url': 'https://api.deepseek.com/v1/chat/completions',
+            'headers': {
+                'Authorization': f'Bearer {api_key}',
+                'content-type': 'application/json',
+            },
+            'body': {
+                'model': 'deepseek-chat',
+                'max_tokens': 10,
+                'messages': [{'role': 'user', 'content': 'Hi'}],
+            },
+        },
+    }
+
+    if provider_id not in test_configs:
+        return {
+            'success': True,
+            'message': f'API key saved (no test available for {provider_id})',
+            'tested': False,
+        }
+
+    config = test_configs[provider_id]
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                config['url'],
+                headers=config['headers'],
+                json=config['body'],
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                if resp.status == 200:
+                    return {
+                        'success': True,
+                        'message': f'API key for {provider_id} is valid',
+                        'tested': True,
+                    }
+                else:
+                    error_text = await resp.text()
+                    return {
+                        'success': False,
+                        'message': f'API key test failed: {resp.status}',
+                        'error': error_text[:200],
+                        'tested': True,
+                    }
+    except Exception as e:
+        return {
+            'success': False,
+            'message': f'API key test failed: {str(e)}',
+            'tested': True,
+        }

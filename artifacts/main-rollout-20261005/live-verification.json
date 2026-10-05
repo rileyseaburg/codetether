@@ -1,0 +1,53 @@
+{
+  "level": "live deployment/Argo",
+  "observedAt": "2026-10-05T02:51:08.212Z",
+  "sourceRevision": "eb2051a212a2c729a7963da8e1dda39a4e958513",
+  "serverDigest": "registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp@sha256:f98bd714789f0b7a8693ec47a3abe87a0d87f34984e3c7719cfeb0f334b9b8a0",
+  "dashboardDigest": "registry.quantum-forge.net/cluster-ci-cache/codetether-marketing@sha256:fbd3f4c362329c3972dd297cb2de028a29e9da3a7ed748a2af89c7cc45401c87",
+  "readyServerPods": [
+    "a2a-server-deployment-green-78d998dcf-622s6",
+    "a2a-server-deployment-green-78d998dcf-nt2dx",
+    "a2a-server-temporal-worker-5496f5d8fb-jswp8"
+  ],
+  "readyDashboardPods": [
+    "codetether-marketing-64c94bd7f4-lwp9j"
+  ],
+  "applications": [
+    {
+      "name": "codetether-a2a-server",
+      "namespace": "argocd",
+      "sync": "OutOfSync",
+      "health": "Healthy",
+      "revision": "eb2051a212a2c729a7963da8e1dda39a4e958513"
+    },
+    {
+      "name": "codetether-marketing",
+      "namespace": "argocd",
+      "sync": "Synced",
+      "health": "Healthy",
+      "revision": "eb2051a212a2c729a7963da8e1dda39a4e958513"
+    }
+  ],
+  "smoke": [
+    {
+      "url": "https://api.codetether.run/health",
+      "expectedStatus": 200,
+      "actualStatus": 200
+    },
+    {
+      "url": "https://codetether.run/",
+      "expectedStatus": 200,
+      "actualStatus": 200
+    },
+    {
+      "url": "https://codetether.run/login",
+      "expectedStatus": 200,
+      "actualStatus": 200
+    },
+    {
+      "url": "https://api.codetether.run/v1/worker/connected",
+      "expectedStatus": 401,
+      "actualStatus": 401
+    }
+  ]
+}

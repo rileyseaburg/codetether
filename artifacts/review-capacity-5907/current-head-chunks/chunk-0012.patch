@@ -1,0 +1,4251 @@
++/// Creates one `email_workflow_event_waits` row and returns it.
++pub async fn create_email_workflow_event_waits(pool: &PgPool, input: NewEmailWorkflowEventWaits) -> Result<EmailWorkflowEventWaits, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, EmailWorkflowEventWaits>("INSERT INTO \"email_workflow_event_waits\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"email_workflow_event_waits\" (");
++{
++let mut columns = query.separated(", " );
++        if input.id.is_some() {
++            columns.push("\"id\"");
++        }
++        columns.push("\"run_id\"");
++        columns.push("\"node_id\"");
++        columns.push("\"event_type\"");
++        if input.event_config.is_some() {
++            columns.push("\"event_config\"");
++        }
++        if input.timeout_at.is_some() {
++            columns.push("\"timeout_at\"");
++        }
++        if input.timeout_action.is_some() {
++            columns.push("\"timeout_action\"");
++        }
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        if input.triggered_at.is_some() {
++            columns.push("\"triggered_at\"");
++        }
++        if input.trigger_data.is_some() {
++            columns.push("\"trigger_data\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        if let Some(value) = input.id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.run_id);
++        values.push_bind(&input.node_id);
++        values.push_bind(&input.event_type);
++        if let Some(value) = input.event_config.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.timeout_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.timeout_action.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.triggered_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.trigger_data.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<EmailWorkflowEventWaits>().fetch_one(pool).await
++}
++/// Applies a partial update to one `email_workflow_event_waits` row.
++pub async fn update_email_workflow_event_waits(pool: &PgPool, id: sqlx::types::Uuid, input: PatchEmailWorkflowEventWaits) -> Result<Option<EmailWorkflowEventWaits>, sqlx::Error> {
++if !(input.run_id.is_some() || input.node_id.is_some() || input.event_type.is_some() || input.event_config.is_some() || input.timeout_at.is_some() || input.timeout_action.is_some() || input.status.is_some() || input.triggered_at.is_some() || input.trigger_data.is_some() || input.created_at.is_some()) {
++return find_email_workflow_event_waits(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"email_workflow_event_waits\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.run_id.as_ref() {
++set.push("\"run_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.node_id.as_ref() {
++set.push("\"node_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.event_type.as_ref() {
++set.push("\"event_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.event_config.as_ref() {
++set.push("\"event_config\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.timeout_at.as_ref() {
++set.push("\"timeout_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.timeout_action.as_ref() {
++set.push("\"timeout_action\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.triggered_at.as_ref() {
++set.push("\"triggered_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.trigger_data.as_ref() {
++set.push("\"trigger_data\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<EmailWorkflowEventWaits>().fetch_optional(pool).await
++}
++/// Deletes one `email_workflow_event_waits` row by primary key.
++pub async fn delete_email_workflow_event_waits(pool: &PgPool, id: sqlx::types::Uuid) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"email_workflow_event_waits\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `email_workflow_folders`.
+ pub async fn list_email_workflow_folders(pool: &PgPool) -> Result<Vec<EmailWorkflowFolders>, sqlx::Error> {
+ sqlx::query_as::<_, EmailWorkflowFolders>("SELECT * FROM \"email_workflow_folders\"").fetch_all(pool).await
+@@ -37097,6 +46283,139 @@ let result = sqlx::query("DELETE FROM \"email_workflow_scheduled_steps\" WHERE \
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `email_workflow_split_test_results`.
++pub async fn list_email_workflow_split_test_results(pool: &PgPool) -> Result<Vec<EmailWorkflowSplitTestResults>, sqlx::Error> {
++sqlx::query_as::<_, EmailWorkflowSplitTestResults>("SELECT * FROM \"email_workflow_split_test_results\"").fetch_all(pool).await
++}
++
++/// Returns one `email_workflow_split_test_results` row by primary key.
++pub async fn find_email_workflow_split_test_results(pool: &PgPool, id: sqlx::types::Uuid) -> Result<Option<EmailWorkflowSplitTestResults>, sqlx::Error> {
++sqlx::query_as::<_, EmailWorkflowSplitTestResults>("SELECT * FROM \"email_workflow_split_test_results\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `email_workflow_split_test_results` row and returns it.
++pub async fn create_email_workflow_split_test_results(pool: &PgPool, input: NewEmailWorkflowSplitTestResults) -> Result<EmailWorkflowSplitTestResults, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, EmailWorkflowSplitTestResults>("INSERT INTO \"email_workflow_split_test_results\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"email_workflow_split_test_results\" (");
++{
++let mut columns = query.separated(", " );
++        if input.id.is_some() {
++            columns.push("\"id\"");
++        }
++        columns.push("\"workflow_id\"");
++        columns.push("\"node_id\"");
++        columns.push("\"variant_key\"");
++        if input.impressions.is_some() {
++            columns.push("\"impressions\"");
++        }
++        if input.conversions.is_some() {
++            columns.push("\"conversions\"");
++        }
++        if input.revenue_cents.is_some() {
++            columns.push("\"revenue_cents\"");
++        }
++        if input.alpha_prior.is_some() {
++            columns.push("\"alpha_prior\"");
++        }
++        if input.beta_prior.is_some() {
++            columns.push("\"beta_prior\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        if let Some(value) = input.id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.workflow_id);
++        values.push_bind(&input.node_id);
++        values.push_bind(&input.variant_key);
++        if let Some(value) = input.impressions.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.conversions.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.revenue_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.alpha_prior.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.beta_prior.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<EmailWorkflowSplitTestResults>().fetch_one(pool).await
++}
++/// Applies a partial update to one `email_workflow_split_test_results` row.
++pub async fn update_email_workflow_split_test_results(pool: &PgPool, id: sqlx::types::Uuid, input: PatchEmailWorkflowSplitTestResults) -> Result<Option<EmailWorkflowSplitTestResults>, sqlx::Error> {
++if !(input.workflow_id.is_some() || input.node_id.is_some() || input.variant_key.is_some() || input.impressions.is_some() || input.conversions.is_some() || input.revenue_cents.is_some() || input.alpha_prior.is_some() || input.beta_prior.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
++return find_email_workflow_split_test_results(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"email_workflow_split_test_results\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.workflow_id.as_ref() {
++set.push("\"workflow_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.node_id.as_ref() {
++set.push("\"node_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.variant_key.as_ref() {
++set.push("\"variant_key\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.impressions.as_ref() {
++set.push("\"impressions\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.conversions.as_ref() {
++set.push("\"conversions\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.revenue_cents.as_ref() {
++set.push("\"revenue_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.alpha_prior.as_ref() {
++set.push("\"alpha_prior\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.beta_prior.as_ref() {
++set.push("\"beta_prior\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<EmailWorkflowSplitTestResults>().fetch_optional(pool).await
++}
++/// Deletes one `email_workflow_split_test_results` row by primary key.
++pub async fn delete_email_workflow_split_test_results(pool: &PgPool, id: sqlx::types::Uuid) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"email_workflow_split_test_results\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `email_workflows`.
+ pub async fn list_email_workflows(pool: &PgPool) -> Result<Vec<EmailWorkflows>, sqlx::Error> {
+ sqlx::query_as::<_, EmailWorkflows>("SELECT * FROM \"email_workflows\"").fetch_all(pool).await
+@@ -37280,7 +46599,9 @@ let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"emails\" (");
+ let mut columns = query.separated(", " );
+         columns.push("\"to_field\"");
+         columns.push("\"from_field\"");
+-        columns.push("\"template_id\"");
++        if input.template_id.is_some() {
++            columns.push("\"template_id\"");
++        }
+         if input.sent_at.is_some() {
+             columns.push("\"sent_at\"");
+         }
+@@ -37305,7 +46626,9 @@ query.push(") VALUES (");
+ let mut values = query.separated(", " );
+         values.push_bind(&input.to_field);
+         values.push_bind(&input.from_field);
+-        values.push_bind(&input.template_id);
++        if let Some(value) = input.template_id.as_ref() {
++            values.push_bind(value);
++        }
+         if let Some(value) = input.sent_at.as_ref() {
+             values.push_bind(value);
+         }
+@@ -39628,6 +48951,673 @@ let result = sqlx::query("DELETE FROM \"facebook_ad_set_metrics\" WHERE \"id\" =
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `facebook_bulk_ad_set_templates`.
++pub async fn list_facebook_bulk_ad_set_templates(pool: &PgPool) -> Result<Vec<FacebookBulkAdSetTemplates>, sqlx::Error> {
++sqlx::query_as::<_, FacebookBulkAdSetTemplates>("SELECT * FROM \"facebook_bulk_ad_set_templates\"").fetch_all(pool).await
++}
++
++/// Returns one `facebook_bulk_ad_set_templates` row by primary key.
++pub async fn find_facebook_bulk_ad_set_templates(pool: &PgPool, id: sqlx::types::Uuid) -> Result<Option<FacebookBulkAdSetTemplates>, sqlx::Error> {
++sqlx::query_as::<_, FacebookBulkAdSetTemplates>("SELECT * FROM \"facebook_bulk_ad_set_templates\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `facebook_bulk_ad_set_templates` row and returns it.
++pub async fn create_facebook_bulk_ad_set_templates(pool: &PgPool, input: NewFacebookBulkAdSetTemplates) -> Result<FacebookBulkAdSetTemplates, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FacebookBulkAdSetTemplates>("INSERT INTO \"facebook_bulk_ad_set_templates\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"facebook_bulk_ad_set_templates\" (");
++{
++let mut columns = query.separated(", " );
++        if input.id.is_some() {
++            columns.push("\"id\"");
++        }
++        columns.push("\"request_id\"");
++        columns.push("\"campaign_id\"");
++        columns.push("\"base_name\"");
++        if input.daily_budget.is_some() {
++            columns.push("\"daily_budget\"");
++        }
++        if input.lifetime_budget.is_some() {
++            columns.push("\"lifetime_budget\"");
++        }
++        columns.push("\"optimization_goal\"");
++        columns.push("\"billing_event\"");
++        if input.bid_amount.is_some() {
++            columns.push("\"bid_amount\"");
++        }
++        if input.bid_strategy.is_some() {
++            columns.push("\"bid_strategy\"");
++        }
++        if input.targeting.is_some() {
++            columns.push("\"targeting\"");
++        }
++        if input.placement_mode.is_some() {
++            columns.push("\"placement_mode\"");
++        }
++        if input.placements.is_some() {
++            columns.push("\"placements\"");
++        }
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        if input.page_id.is_some() {
++            columns.push("\"page_id\"");
++        }
++        if input.promoted_object_pixel_id.is_some() {
++            columns.push("\"promoted_object_pixel_id\"");
++        }
++        if input.promoted_object_custom_event_type.is_some() {
++            columns.push("\"promoted_object_custom_event_type\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.destination_type.is_some() {
++            columns.push("\"destination_type\"");
++        }
++        if input.provider_ad_set_id.is_some() {
++            columns.push("\"provider_ad_set_id\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        if let Some(value) = input.id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.request_id);
++        values.push_bind(&input.campaign_id);
++        values.push_bind(&input.base_name);
++        if let Some(value) = input.daily_budget.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.lifetime_budget.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.optimization_goal);
++        values.push_bind(&input.billing_event);
++        if let Some(value) = input.bid_amount.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.bid_strategy.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.targeting.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.placement_mode.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.placements.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.page_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.promoted_object_pixel_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.promoted_object_custom_event_type.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.destination_type.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.provider_ad_set_id.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FacebookBulkAdSetTemplates>().fetch_one(pool).await
++}
++/// Applies a partial update to one `facebook_bulk_ad_set_templates` row.
++pub async fn update_facebook_bulk_ad_set_templates(pool: &PgPool, id: sqlx::types::Uuid, input: PatchFacebookBulkAdSetTemplates) -> Result<Option<FacebookBulkAdSetTemplates>, sqlx::Error> {
++if !(input.request_id.is_some() || input.campaign_id.is_some() || input.base_name.is_some() || input.daily_budget.is_some() || input.lifetime_budget.is_some() || input.optimization_goal.is_some() || input.billing_event.is_some() || input.bid_amount.is_some() || input.bid_strategy.is_some() || input.targeting.is_some() || input.placement_mode.is_some() || input.placements.is_some() || input.status.is_some() || input.page_id.is_some() || input.promoted_object_pixel_id.is_some() || input.promoted_object_custom_event_type.is_some() || input.created_at.is_some() || input.destination_type.is_some() || input.provider_ad_set_id.is_some()) {
++return find_facebook_bulk_ad_set_templates(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"facebook_bulk_ad_set_templates\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.request_id.as_ref() {
++set.push("\"request_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.campaign_id.as_ref() {
++set.push("\"campaign_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.base_name.as_ref() {
++set.push("\"base_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.daily_budget.as_ref() {
++set.push("\"daily_budget\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.lifetime_budget.as_ref() {
++set.push("\"lifetime_budget\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.optimization_goal.as_ref() {
++set.push("\"optimization_goal\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.billing_event.as_ref() {
++set.push("\"billing_event\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.bid_amount.as_ref() {
++set.push("\"bid_amount\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.bid_strategy.as_ref() {
++set.push("\"bid_strategy\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.targeting.as_ref() {
++set.push("\"targeting\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.placement_mode.as_ref() {
++set.push("\"placement_mode\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.placements.as_ref() {
++set.push("\"placements\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.page_id.as_ref() {
++set.push("\"page_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.promoted_object_pixel_id.as_ref() {
++set.push("\"promoted_object_pixel_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.promoted_object_custom_event_type.as_ref() {
++set.push("\"promoted_object_custom_event_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.destination_type.as_ref() {
++set.push("\"destination_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.provider_ad_set_id.as_ref() {
++set.push("\"provider_ad_set_id\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FacebookBulkAdSetTemplates>().fetch_optional(pool).await
++}
++/// Deletes one `facebook_bulk_ad_set_templates` row by primary key.
++pub async fn delete_facebook_bulk_ad_set_templates(pool: &PgPool, id: sqlx::types::Uuid) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"facebook_bulk_ad_set_templates\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
++/// Returns every row from `facebook_bulk_creative_assets`.
++pub async fn list_facebook_bulk_creative_assets(pool: &PgPool) -> Result<Vec<FacebookBulkCreativeAssets>, sqlx::Error> {
++sqlx::query_as::<_, FacebookBulkCreativeAssets>("SELECT * FROM \"facebook_bulk_creative_assets\"").fetch_all(pool).await
++}
++
++/// Returns one `facebook_bulk_creative_assets` row by primary key.
++pub async fn find_facebook_bulk_creative_assets(pool: &PgPool, id: sqlx::types::Uuid) -> Result<Option<FacebookBulkCreativeAssets>, sqlx::Error> {
++sqlx::query_as::<_, FacebookBulkCreativeAssets>("SELECT * FROM \"facebook_bulk_creative_assets\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `facebook_bulk_creative_assets` row and returns it.
++pub async fn create_facebook_bulk_creative_assets(pool: &PgPool, input: NewFacebookBulkCreativeAssets) -> Result<FacebookBulkCreativeAssets, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FacebookBulkCreativeAssets>("INSERT INTO \"facebook_bulk_creative_assets\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"facebook_bulk_creative_assets\" (");
++{
++let mut columns = query.separated(", " );
++        if input.id.is_some() {
++            columns.push("\"id\"");
++        }
++        columns.push("\"request_id\"");
++        columns.push("\"client_asset_id\"");
++        columns.push("\"asset_type\"");
++        if input.source_url.is_some() {
++            columns.push("\"source_url\"");
++        }
++        if input.facebook_video_id.is_some() {
++            columns.push("\"facebook_video_id\"");
++        }
++        if input.facebook_image_hash.is_some() {
++            columns.push("\"facebook_image_hash\"");
++        }
++        if input.thumbnail_url.is_some() {
++            columns.push("\"thumbnail_url\"");
++        }
++        if input.display_order.is_some() {
++            columns.push("\"display_order\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        if let Some(value) = input.id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.request_id);
++        values.push_bind(&input.client_asset_id);
++        values.push_bind(&input.asset_type);
++        if let Some(value) = input.source_url.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.facebook_video_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.facebook_image_hash.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.thumbnail_url.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.display_order.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FacebookBulkCreativeAssets>().fetch_one(pool).await
++}
++/// Applies a partial update to one `facebook_bulk_creative_assets` row.
++pub async fn update_facebook_bulk_creative_assets(pool: &PgPool, id: sqlx::types::Uuid, input: PatchFacebookBulkCreativeAssets) -> Result<Option<FacebookBulkCreativeAssets>, sqlx::Error> {
++if !(input.request_id.is_some() || input.client_asset_id.is_some() || input.asset_type.is_some() || input.source_url.is_some() || input.facebook_video_id.is_some() || input.facebook_image_hash.is_some() || input.thumbnail_url.is_some() || input.display_order.is_some() || input.created_at.is_some()) {
++return find_facebook_bulk_creative_assets(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"facebook_bulk_creative_assets\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.request_id.as_ref() {
++set.push("\"request_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.client_asset_id.as_ref() {
++set.push("\"client_asset_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.asset_type.as_ref() {
++set.push("\"asset_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.source_url.as_ref() {
++set.push("\"source_url\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.facebook_video_id.as_ref() {
++set.push("\"facebook_video_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.facebook_image_hash.as_ref() {
++set.push("\"facebook_image_hash\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.thumbnail_url.as_ref() {
++set.push("\"thumbnail_url\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.display_order.as_ref() {
++set.push("\"display_order\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FacebookBulkCreativeAssets>().fetch_optional(pool).await
++}
++/// Deletes one `facebook_bulk_creative_assets` row by primary key.
++pub async fn delete_facebook_bulk_creative_assets(pool: &PgPool, id: sqlx::types::Uuid) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"facebook_bulk_creative_assets\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
++/// Returns every row from `facebook_bulk_input_sets`.
++pub async fn list_facebook_bulk_input_sets(pool: &PgPool) -> Result<Vec<FacebookBulkInputSets>, sqlx::Error> {
++sqlx::query_as::<_, FacebookBulkInputSets>("SELECT * FROM \"facebook_bulk_input_sets\"").fetch_all(pool).await
++}
++
++/// Returns one `facebook_bulk_input_sets` row by primary key.
++pub async fn find_facebook_bulk_input_sets(pool: &PgPool, id: sqlx::types::Uuid) -> Result<Option<FacebookBulkInputSets>, sqlx::Error> {
++sqlx::query_as::<_, FacebookBulkInputSets>("SELECT * FROM \"facebook_bulk_input_sets\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `facebook_bulk_input_sets` row and returns it.
++pub async fn create_facebook_bulk_input_sets(pool: &PgPool, input: NewFacebookBulkInputSets) -> Result<FacebookBulkInputSets, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FacebookBulkInputSets>("INSERT INTO \"facebook_bulk_input_sets\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"facebook_bulk_input_sets\" (");
++{
++let mut columns = query.separated(", " );
++        if input.id.is_some() {
++            columns.push("\"id\"");
++        }
++        columns.push("\"request_id\"");
++        if input.creative_format.is_some() {
++            columns.push("\"creative_format\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        if let Some(value) = input.id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.request_id);
++        if let Some(value) = input.creative_format.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FacebookBulkInputSets>().fetch_one(pool).await
++}
++/// Applies a partial update to one `facebook_bulk_input_sets` row.
++pub async fn update_facebook_bulk_input_sets(pool: &PgPool, id: sqlx::types::Uuid, input: PatchFacebookBulkInputSets) -> Result<Option<FacebookBulkInputSets>, sqlx::Error> {
++if !(input.request_id.is_some() || input.creative_format.is_some() || input.created_at.is_some()) {
++return find_facebook_bulk_input_sets(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"facebook_bulk_input_sets\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.request_id.as_ref() {
++set.push("\"request_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.creative_format.as_ref() {
++set.push("\"creative_format\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FacebookBulkInputSets>().fetch_optional(pool).await
++}
++/// Deletes one `facebook_bulk_input_sets` row by primary key.
++pub async fn delete_facebook_bulk_input_sets(pool: &PgPool, id: sqlx::types::Uuid) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"facebook_bulk_input_sets\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
++/// Returns every row from `facebook_bulk_text_variations`.
++pub async fn list_facebook_bulk_text_variations(pool: &PgPool) -> Result<Vec<FacebookBulkTextVariations>, sqlx::Error> {
++sqlx::query_as::<_, FacebookBulkTextVariations>("SELECT * FROM \"facebook_bulk_text_variations\"").fetch_all(pool).await
++}
++
++/// Returns one `facebook_bulk_text_variations` row by primary key.
++pub async fn find_facebook_bulk_text_variations(pool: &PgPool, id: i64) -> Result<Option<FacebookBulkTextVariations>, sqlx::Error> {
++sqlx::query_as::<_, FacebookBulkTextVariations>("SELECT * FROM \"facebook_bulk_text_variations\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `facebook_bulk_text_variations` row and returns it.
++pub async fn create_facebook_bulk_text_variations(pool: &PgPool, input: NewFacebookBulkTextVariations) -> Result<FacebookBulkTextVariations, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FacebookBulkTextVariations>("INSERT INTO \"facebook_bulk_text_variations\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"facebook_bulk_text_variations\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"request_id\"");
++        columns.push("\"variation_type\"");
++        columns.push("\"content\"");
++        if input.display_order.is_some() {
++            columns.push("\"display_order\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.request_id);
++        values.push_bind(&input.variation_type);
++        values.push_bind(&input.content);
++        if let Some(value) = input.display_order.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FacebookBulkTextVariations>().fetch_one(pool).await
++}
++/// Applies a partial update to one `facebook_bulk_text_variations` row.
++pub async fn update_facebook_bulk_text_variations(pool: &PgPool, id: i64, input: PatchFacebookBulkTextVariations) -> Result<Option<FacebookBulkTextVariations>, sqlx::Error> {
++if !(input.request_id.is_some() || input.variation_type.is_some() || input.content.is_some() || input.display_order.is_some() || input.created_at.is_some()) {
++return find_facebook_bulk_text_variations(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"facebook_bulk_text_variations\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.request_id.as_ref() {
++set.push("\"request_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.variation_type.as_ref() {
++set.push("\"variation_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.content.as_ref() {
++set.push("\"content\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.display_order.as_ref() {
++set.push("\"display_order\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FacebookBulkTextVariations>().fetch_optional(pool).await
++}
++/// Deletes one `facebook_bulk_text_variations` row by primary key.
++pub async fn delete_facebook_bulk_text_variations(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"facebook_bulk_text_variations\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
++/// Returns every row from `facebook_bulk_upload_requests`.
++pub async fn list_facebook_bulk_upload_requests(pool: &PgPool) -> Result<Vec<FacebookBulkUploadRequests>, sqlx::Error> {
++sqlx::query_as::<_, FacebookBulkUploadRequests>("SELECT * FROM \"facebook_bulk_upload_requests\"").fetch_all(pool).await
++}
++
++/// Returns one `facebook_bulk_upload_requests` row by primary key.
++pub async fn find_facebook_bulk_upload_requests(pool: &PgPool, id: sqlx::types::Uuid) -> Result<Option<FacebookBulkUploadRequests>, sqlx::Error> {
++sqlx::query_as::<_, FacebookBulkUploadRequests>("SELECT * FROM \"facebook_bulk_upload_requests\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `facebook_bulk_upload_requests` row and returns it.
++pub async fn create_facebook_bulk_upload_requests(pool: &PgPool, input: NewFacebookBulkUploadRequests) -> Result<FacebookBulkUploadRequests, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FacebookBulkUploadRequests>("INSERT INTO \"facebook_bulk_upload_requests\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"facebook_bulk_upload_requests\" (");
++{
++let mut columns = query.separated(", " );
++        if input.id.is_some() {
++            columns.push("\"id\"");
++        }
++        if input.bulk_job_id.is_some() {
++            columns.push("\"bulk_job_id\"");
++        }
++        if input.user_id.is_some() {
++            columns.push("\"user_id\"");
++        }
++        columns.push("\"ad_account_id\"");
++        if input.funnel_id.is_some() {
++            columns.push("\"funnel_id\"");
++        }
++        if input.offer_id.is_some() {
++            columns.push("\"offer_id\"");
++        }
++        if input.test_id.is_some() {
++            columns.push("\"test_id\"");
++        }
++        if input.variant_id.is_some() {
++            columns.push("\"variant_id\"");
++        }
++        if input.max_ads.is_some() {
++            columns.push("\"max_ads\"");
++        }
++        if input.concurrency.is_some() {
++            columns.push("\"concurrency\"");
++        }
++        if input.continue_on_error.is_some() {
++            columns.push("\"continue_on_error\"");
++        }
++        if input.ad_naming_strategy.is_some() {
++            columns.push("\"ad_naming_strategy\"");
++        }
++        if input.link_to_funnel.is_some() {
++            columns.push("\"link_to_funnel\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.submitted_at.is_some() {
++            columns.push("\"submitted_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        if let Some(value) = input.id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.bulk_job_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.user_id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.ad_account_id);
++        if let Some(value) = input.funnel_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.offer_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.test_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.variant_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.max_ads.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.concurrency.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.continue_on_error.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.ad_naming_strategy.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.link_to_funnel.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.submitted_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FacebookBulkUploadRequests>().fetch_one(pool).await
++}
++/// Applies a partial update to one `facebook_bulk_upload_requests` row.
++pub async fn update_facebook_bulk_upload_requests(pool: &PgPool, id: sqlx::types::Uuid, input: PatchFacebookBulkUploadRequests) -> Result<Option<FacebookBulkUploadRequests>, sqlx::Error> {
++if !(input.bulk_job_id.is_some() || input.user_id.is_some() || input.ad_account_id.is_some() || input.funnel_id.is_some() || input.offer_id.is_some() || input.test_id.is_some() || input.variant_id.is_some() || input.max_ads.is_some() || input.concurrency.is_some() || input.continue_on_error.is_some() || input.ad_naming_strategy.is_some() || input.link_to_funnel.is_some() || input.created_at.is_some() || input.submitted_at.is_some()) {
++return find_facebook_bulk_upload_requests(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"facebook_bulk_upload_requests\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.bulk_job_id.as_ref() {
++set.push("\"bulk_job_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.user_id.as_ref() {
++set.push("\"user_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.ad_account_id.as_ref() {
++set.push("\"ad_account_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.funnel_id.as_ref() {
++set.push("\"funnel_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.offer_id.as_ref() {
++set.push("\"offer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.test_id.as_ref() {
++set.push("\"test_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.variant_id.as_ref() {
++set.push("\"variant_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.max_ads.as_ref() {
++set.push("\"max_ads\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.concurrency.as_ref() {
++set.push("\"concurrency\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.continue_on_error.as_ref() {
++set.push("\"continue_on_error\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.ad_naming_strategy.as_ref() {
++set.push("\"ad_naming_strategy\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.link_to_funnel.as_ref() {
++set.push("\"link_to_funnel\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.submitted_at.as_ref() {
++set.push("\"submitted_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FacebookBulkUploadRequests>().fetch_optional(pool).await
++}
++/// Deletes one `facebook_bulk_upload_requests` row by primary key.
++pub async fn delete_facebook_bulk_upload_requests(pool: &PgPool, id: sqlx::types::Uuid) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"facebook_bulk_upload_requests\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `facebook_campaign_insights`.
+ pub async fn list_facebook_campaign_insights(pool: &PgPool) -> Result<Vec<FacebookCampaignInsights>, sqlx::Error> {
+ sqlx::query_as::<_, FacebookCampaignInsights>("SELECT * FROM \"facebook_campaign_insights\"").fetch_all(pool).await
+@@ -39809,6 +49799,146 @@ let result = sqlx::query("DELETE FROM \"facebook_campaign_insights\" WHERE \"id\
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `facebook_daily_metrics`.
++pub async fn list_facebook_daily_metrics(pool: &PgPool) -> Result<Vec<FacebookDailyMetrics>, sqlx::Error> {
++sqlx::query_as::<_, FacebookDailyMetrics>("SELECT * FROM \"facebook_daily_metrics\"").fetch_all(pool).await
++}
++
++/// Returns one `facebook_daily_metrics` row by primary key.
++pub async fn find_facebook_daily_metrics(pool: &PgPool, id: i64) -> Result<Option<FacebookDailyMetrics>, sqlx::Error> {
++sqlx::query_as::<_, FacebookDailyMetrics>("SELECT * FROM \"facebook_daily_metrics\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `facebook_daily_metrics` row and returns it.
++pub async fn create_facebook_daily_metrics(pool: &PgPool, input: NewFacebookDailyMetrics) -> Result<FacebookDailyMetrics, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FacebookDailyMetrics>("INSERT INTO \"facebook_daily_metrics\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"facebook_daily_metrics\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"account_external_id\"");
++        columns.push("\"metric_date\"");
++        if input.currency.is_some() {
++            columns.push("\"currency\"");
++        }
++        if input.spend.is_some() {
++            columns.push("\"spend\"");
++        }
++        if input.clicks.is_some() {
++            columns.push("\"clicks\"");
++        }
++        if input.reach.is_some() {
++            columns.push("\"reach\"");
++        }
++        if input.impressions.is_some() {
++            columns.push("\"impressions\"");
++        }
++        if input.leads.is_some() {
++            columns.push("\"leads\"");
++        }
++        if input.conversions.is_some() {
++            columns.push("\"conversions\"");
++        }
++        if input.actions.is_some() {
++            columns.push("\"actions\"");
++        }
++        if input.synced_at.is_some() {
++            columns.push("\"synced_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.account_external_id);
++        values.push_bind(&input.metric_date);
++        if let Some(value) = input.currency.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.spend.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.clicks.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.reach.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.impressions.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.leads.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.conversions.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.actions.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.synced_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FacebookDailyMetrics>().fetch_one(pool).await
++}
++/// Applies a partial update to one `facebook_daily_metrics` row.
++pub async fn update_facebook_daily_metrics(pool: &PgPool, id: i64, input: PatchFacebookDailyMetrics) -> Result<Option<FacebookDailyMetrics>, sqlx::Error> {
++if !(input.account_external_id.is_some() || input.metric_date.is_some() || input.currency.is_some() || input.spend.is_some() || input.clicks.is_some() || input.reach.is_some() || input.impressions.is_some() || input.leads.is_some() || input.conversions.is_some() || input.actions.is_some() || input.synced_at.is_some()) {
++return find_facebook_daily_metrics(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"facebook_daily_metrics\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.account_external_id.as_ref() {
++set.push("\"account_external_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metric_date.as_ref() {
++set.push("\"metric_date\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.currency.as_ref() {
++set.push("\"currency\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.spend.as_ref() {
++set.push("\"spend\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.clicks.as_ref() {
++set.push("\"clicks\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.reach.as_ref() {
++set.push("\"reach\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.impressions.as_ref() {
++set.push("\"impressions\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.leads.as_ref() {
++set.push("\"leads\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.conversions.as_ref() {
++set.push("\"conversions\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.actions.as_ref() {
++set.push("\"actions\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.synced_at.as_ref() {
++set.push("\"synced_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FacebookDailyMetrics>().fetch_optional(pool).await
++}
++/// Deletes one `facebook_daily_metrics` row by primary key.
++pub async fn delete_facebook_daily_metrics(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"facebook_daily_metrics\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `facebook_events_log`.
+ pub async fn list_facebook_events_log(pool: &PgPool) -> Result<Vec<FacebookEventsLog>, sqlx::Error> {
+ sqlx::query_as::<_, FacebookEventsLog>("SELECT * FROM \"facebook_events_log\"").fetch_all(pool).await
+@@ -40768,6 +50898,12 @@ let mut columns = query.separated(", " );
+         if input.visitor_id.is_some() {
+             columns.push("\"visitor_id\"");
+         }
++        if input.crm_lead_id.is_some() {
++            columns.push("\"crm_lead_id\"");
++        }
++        if input.crm_contact_id.is_some() {
++            columns.push("\"crm_contact_id\"");
++        }
+         if input.customer_id.is_some() {
+             columns.push("\"customer_id\"");
+         }
+@@ -40788,12 +50924,6 @@ let mut columns = query.separated(", " );
+         if input.ingested_at.is_some() {
+             columns.push("\"ingested_at\"");
+         }
+-        if input.crm_lead_id.is_some() {
+-            columns.push("\"crm_lead_id\"");
+-        }
+-        if input.crm_contact_id.is_some() {
+-            columns.push("\"crm_contact_id\"");
+-        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -40813,6 +50943,12 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.visitor_id.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.crm_lead_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.crm_contact_id.as_ref() {
++            values.push_bind(value);
++        }
+         if let Some(value) = input.customer_id.as_ref() {
+             values.push_bind(value);
+         }
+@@ -40833,19 +50969,13 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.ingested_at.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.crm_lead_id.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.crm_contact_id.as_ref() {
+-            values.push_bind(value);
+-        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<FactCustomerJourneyEvent>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `fact_customer_journey_event` row.
+ pub async fn update_fact_customer_journey_event(pool: &PgPool, id: String, input: PatchFactCustomerJourneyEvent) -> Result<Option<FactCustomerJourneyEvent>, sqlx::Error> {
+-if !(input.event_date.is_some() || input.source_table.is_some() || input.source_record_id.is_some() || input.event_type.is_some() || input.event_at.is_some() || input.person_key.is_some() || input.session_key.is_some() || input.visitor_id.is_some() || input.customer_id.is_some() || input.resolution_method.is_some() || input.resolution_confidence.is_some() || input.campaign_id.is_some() || input.ad_set_id.is_some() || input.ad_id.is_some() || input.payload_json.is_some() || input.ingested_at.is_some() || input.crm_lead_id.is_some() || input.crm_contact_id.is_some()) {
++if !(input.event_date.is_some() || input.source_table.is_some() || input.source_record_id.is_some() || input.event_type.is_some() || input.event_at.is_some() || input.person_key.is_some() || input.session_key.is_some() || input.visitor_id.is_some() || input.crm_lead_id.is_some() || input.crm_contact_id.is_some() || input.customer_id.is_some() || input.resolution_method.is_some() || input.resolution_confidence.is_some() || input.campaign_id.is_some() || input.ad_set_id.is_some() || input.ad_id.is_some() || input.payload_json.is_some() || input.ingested_at.is_some()) {
+ return find_fact_customer_journey_event(pool, id).await;
+ }
+ 
+@@ -40875,6 +51005,12 @@ set.push("\"session_key\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.visitor_id.as_ref() {
+ set.push("\"visitor_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.crm_lead_id.as_ref() {
++set.push("\"crm_lead_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.crm_contact_id.as_ref() {
++set.push("\"crm_contact_id\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.customer_id.as_ref() {
+ set.push("\"customer_id\" = ").push_bind_unseparated(value);
+@@ -40899,12 +51035,6 @@ set.push("\"payload_json\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.ingested_at.as_ref() {
+ set.push("\"ingested_at\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.crm_lead_id.as_ref() {
+-set.push("\"crm_lead_id\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.crm_contact_id.as_ref() {
+-set.push("\"crm_contact_id\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"event_key\" = ").push_bind(id).push(" RETURNING *");
+@@ -41408,6 +51538,164 @@ let result = sqlx::query("DELETE FROM \"forms\" WHERE \"id\" = $1").bind(id).exe
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `funnel_analytics`.
++pub async fn list_funnel_analytics(pool: &PgPool) -> Result<Vec<FunnelAnalytics>, sqlx::Error> {
++sqlx::query_as::<_, FunnelAnalytics>("SELECT * FROM \"funnel_analytics\"").fetch_all(pool).await
++}
++
++/// Returns one `funnel_analytics` row by primary key.
++pub async fn find_funnel_analytics(pool: &PgPool, id: i32) -> Result<Option<FunnelAnalytics>, sqlx::Error> {
++sqlx::query_as::<_, FunnelAnalytics>("SELECT * FROM \"funnel_analytics\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `funnel_analytics` row and returns it.
++pub async fn create_funnel_analytics(pool: &PgPool, input: NewFunnelAnalytics) -> Result<FunnelAnalytics, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FunnelAnalytics>("INSERT INTO \"funnel_analytics\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"funnel_analytics\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"customer_id\"");
++        if input.session_id.is_some() {
++            columns.push("\"session_id\"");
++        }
++        columns.push("\"event_type\"");
++        if input.event_stage.is_some() {
++            columns.push("\"event_stage\"");
++        }
++        if input.event_data.is_some() {
++            columns.push("\"event_data\"");
++        }
++        if input.source.is_some() {
++            columns.push("\"source\"");
++        }
++        if input.amount_cents.is_some() {
++            columns.push("\"amount_cents\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.event_category.is_some() {
++            columns.push("\"event_category\"");
++        }
++        if input.customer_journey_id.is_some() {
++            columns.push("\"customer_journey_id\"");
++        }
++        if input.preceding_event_id.is_some() {
++            columns.push("\"preceding_event_id\"");
++        }
++        if input.conversion_step.is_some() {
++            columns.push("\"conversion_step\"");
++        }
++        if input.time_to_conversion_seconds.is_some() {
++            columns.push("\"time_to_conversion_seconds\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.customer_id);
++        if let Some(value) = input.session_id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.event_type);
++        if let Some(value) = input.event_stage.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.event_data.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.source.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.amount_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.event_category.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.customer_journey_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.preceding_event_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.conversion_step.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.time_to_conversion_seconds.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FunnelAnalytics>().fetch_one(pool).await
++}
++/// Applies a partial update to one `funnel_analytics` row.
++pub async fn update_funnel_analytics(pool: &PgPool, id: i32, input: PatchFunnelAnalytics) -> Result<Option<FunnelAnalytics>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.session_id.is_some() || input.event_type.is_some() || input.event_stage.is_some() || input.event_data.is_some() || input.source.is_some() || input.amount_cents.is_some() || input.created_at.is_some() || input.event_category.is_some() || input.customer_journey_id.is_some() || input.preceding_event_id.is_some() || input.conversion_step.is_some() || input.time_to_conversion_seconds.is_some()) {
++return find_funnel_analytics(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"funnel_analytics\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.session_id.as_ref() {
++set.push("\"session_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.event_type.as_ref() {
++set.push("\"event_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.event_stage.as_ref() {
++set.push("\"event_stage\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.event_data.as_ref() {
++set.push("\"event_data\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.source.as_ref() {
++set.push("\"source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.amount_cents.as_ref() {
++set.push("\"amount_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.event_category.as_ref() {
++set.push("\"event_category\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.customer_journey_id.as_ref() {
++set.push("\"customer_journey_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.preceding_event_id.as_ref() {
++set.push("\"preceding_event_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.conversion_step.as_ref() {
++set.push("\"conversion_step\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.time_to_conversion_seconds.as_ref() {
++set.push("\"time_to_conversion_seconds\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FunnelAnalytics>().fetch_optional(pool).await
++}
++/// Deletes one `funnel_analytics` row by primary key.
++pub async fn delete_funnel_analytics(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"funnel_analytics\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `funnel_builder_layouts`.
+ pub async fn list_funnel_builder_layouts(pool: &PgPool) -> Result<Vec<FunnelBuilderLayouts>, sqlx::Error> {
+ sqlx::query_as::<_, FunnelBuilderLayouts>("SELECT * FROM \"funnel_builder_layouts\"").fetch_all(pool).await
+@@ -41477,6 +51765,728 @@ let result = sqlx::query("DELETE FROM \"funnel_builder_layouts\" WHERE \"funnel_
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `funnel_circuit_breaker_config`.
++pub async fn list_funnel_circuit_breaker_config(pool: &PgPool) -> Result<Vec<FunnelCircuitBreakerConfig>, sqlx::Error> {
++sqlx::query_as::<_, FunnelCircuitBreakerConfig>("SELECT * FROM \"funnel_circuit_breaker_config\"").fetch_all(pool).await
++}
++
++/// Returns one `funnel_circuit_breaker_config` row by primary key.
++pub async fn find_funnel_circuit_breaker_config(pool: &PgPool, id: i32) -> Result<Option<FunnelCircuitBreakerConfig>, sqlx::Error> {
++sqlx::query_as::<_, FunnelCircuitBreakerConfig>("SELECT * FROM \"funnel_circuit_breaker_config\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `funnel_circuit_breaker_config` row and returns it.
++pub async fn create_funnel_circuit_breaker_config(pool: &PgPool, input: NewFunnelCircuitBreakerConfig) -> Result<FunnelCircuitBreakerConfig, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FunnelCircuitBreakerConfig>("INSERT INTO \"funnel_circuit_breaker_config\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"funnel_circuit_breaker_config\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"circuit_name\"");
++        if input.failure_threshold.is_some() {
++            columns.push("\"failure_threshold\"");
++        }
++        if input.success_threshold.is_some() {
++            columns.push("\"success_threshold\"");
++        }
++        if input.timeout_seconds.is_some() {
++            columns.push("\"timeout_seconds\"");
++        }
++        if input.half_open_max_calls.is_some() {
++            columns.push("\"half_open_max_calls\"");
++        }
++        if input.enabled.is_some() {
++            columns.push("\"enabled\"");
++        }
++        if input.current_state.is_some() {
++            columns.push("\"current_state\"");
++        }
++        if input.failure_count.is_some() {
++            columns.push("\"failure_count\"");
++        }
++        if input.success_count.is_some() {
++            columns.push("\"success_count\"");
++        }
++        if input.last_failure_at.is_some() {
++            columns.push("\"last_failure_at\"");
++        }
++        if input.last_state_change.is_some() {
++            columns.push("\"last_state_change\"");
++        }
++        if input.total_calls.is_some() {
++            columns.push("\"total_calls\"");
++        }
++        if input.total_failures.is_some() {
++            columns.push("\"total_failures\"");
++        }
++        if input.total_successes.is_some() {
++            columns.push("\"total_successes\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.circuit_name);
++        if let Some(value) = input.failure_threshold.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.success_threshold.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.timeout_seconds.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.half_open_max_calls.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.enabled.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.current_state.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.failure_count.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.success_count.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_failure_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_state_change.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.total_calls.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.total_failures.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.total_successes.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FunnelCircuitBreakerConfig>().fetch_one(pool).await
++}
++/// Applies a partial update to one `funnel_circuit_breaker_config` row.
++pub async fn update_funnel_circuit_breaker_config(pool: &PgPool, id: i32, input: PatchFunnelCircuitBreakerConfig) -> Result<Option<FunnelCircuitBreakerConfig>, sqlx::Error> {
++if !(input.circuit_name.is_some() || input.failure_threshold.is_some() || input.success_threshold.is_some() || input.timeout_seconds.is_some() || input.half_open_max_calls.is_some() || input.enabled.is_some() || input.current_state.is_some() || input.failure_count.is_some() || input.success_count.is_some() || input.last_failure_at.is_some() || input.last_state_change.is_some() || input.total_calls.is_some() || input.total_failures.is_some() || input.total_successes.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
++return find_funnel_circuit_breaker_config(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"funnel_circuit_breaker_config\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.circuit_name.as_ref() {
++set.push("\"circuit_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.failure_threshold.as_ref() {
++set.push("\"failure_threshold\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.success_threshold.as_ref() {
++set.push("\"success_threshold\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.timeout_seconds.as_ref() {
++set.push("\"timeout_seconds\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.half_open_max_calls.as_ref() {
++set.push("\"half_open_max_calls\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.enabled.as_ref() {
++set.push("\"enabled\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.current_state.as_ref() {
++set.push("\"current_state\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.failure_count.as_ref() {
++set.push("\"failure_count\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.success_count.as_ref() {
++set.push("\"success_count\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_failure_at.as_ref() {
++set.push("\"last_failure_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_state_change.as_ref() {
++set.push("\"last_state_change\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.total_calls.as_ref() {
++set.push("\"total_calls\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.total_failures.as_ref() {
++set.push("\"total_failures\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.total_successes.as_ref() {
++set.push("\"total_successes\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FunnelCircuitBreakerConfig>().fetch_optional(pool).await
++}
++/// Deletes one `funnel_circuit_breaker_config` row by primary key.
++pub async fn delete_funnel_circuit_breaker_config(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"funnel_circuit_breaker_config\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
++/// Returns every row from `funnel_consistency_checks`.
++pub async fn list_funnel_consistency_checks(pool: &PgPool) -> Result<Vec<FunnelConsistencyChecks>, sqlx::Error> {
++sqlx::query_as::<_, FunnelConsistencyChecks>("SELECT * FROM \"funnel_consistency_checks\"").fetch_all(pool).await
++}
++
++/// Returns one `funnel_consistency_checks` row by primary key.
++pub async fn find_funnel_consistency_checks(pool: &PgPool, id: i64) -> Result<Option<FunnelConsistencyChecks>, sqlx::Error> {
++sqlx::query_as::<_, FunnelConsistencyChecks>("SELECT * FROM \"funnel_consistency_checks\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `funnel_consistency_checks` row and returns it.
++pub async fn create_funnel_consistency_checks(pool: &PgPool, input: NewFunnelConsistencyChecks) -> Result<FunnelConsistencyChecks, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FunnelConsistencyChecks>("INSERT INTO \"funnel_consistency_checks\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"funnel_consistency_checks\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"orchestration_id\"");
++        columns.push("\"customer_id\"");
++        columns.push("\"journey_id\"");
++        columns.push("\"check_type\"");
++        if input.expected_value.is_some() {
++            columns.push("\"expected_value\"");
++        }
++        if input.actual_value.is_some() {
++            columns.push("\"actual_value\"");
++        }
++        if input.discrepancy_description.is_some() {
++            columns.push("\"discrepancy_description\"");
++        }
++        if input.resolution_action.is_some() {
++            columns.push("\"resolution_action\"");
++        }
++        if input.resolved_at.is_some() {
++            columns.push("\"resolved_at\"");
++        }
++        if input.resolution_details.is_some() {
++            columns.push("\"resolution_details\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.orchestration_id);
++        values.push_bind(&input.customer_id);
++        values.push_bind(&input.journey_id);
++        values.push_bind(&input.check_type);
++        if let Some(value) = input.expected_value.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.actual_value.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.discrepancy_description.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.resolution_action.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.resolved_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.resolution_details.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FunnelConsistencyChecks>().fetch_one(pool).await
++}
++/// Applies a partial update to one `funnel_consistency_checks` row.
++pub async fn update_funnel_consistency_checks(pool: &PgPool, id: i64, input: PatchFunnelConsistencyChecks) -> Result<Option<FunnelConsistencyChecks>, sqlx::Error> {
++if !(input.orchestration_id.is_some() || input.customer_id.is_some() || input.journey_id.is_some() || input.check_type.is_some() || input.expected_value.is_some() || input.actual_value.is_some() || input.discrepancy_description.is_some() || input.resolution_action.is_some() || input.resolved_at.is_some() || input.resolution_details.is_some() || input.created_at.is_some()) {
++return find_funnel_consistency_checks(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"funnel_consistency_checks\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.orchestration_id.as_ref() {
++set.push("\"orchestration_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_id.as_ref() {
++set.push("\"journey_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.check_type.as_ref() {
++set.push("\"check_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.expected_value.as_ref() {
++set.push("\"expected_value\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.actual_value.as_ref() {
++set.push("\"actual_value\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.discrepancy_description.as_ref() {
++set.push("\"discrepancy_description\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.resolution_action.as_ref() {
++set.push("\"resolution_action\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.resolved_at.as_ref() {
++set.push("\"resolved_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.resolution_details.as_ref() {
++set.push("\"resolution_details\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FunnelConsistencyChecks>().fetch_optional(pool).await
++}
++/// Deletes one `funnel_consistency_checks` row by primary key.
++pub async fn delete_funnel_consistency_checks(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"funnel_consistency_checks\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
++/// Returns every row from `funnel_conversion_events`.
++pub async fn list_funnel_conversion_events(pool: &PgPool) -> Result<Vec<FunnelConversionEvents>, sqlx::Error> {
++sqlx::query_as::<_, FunnelConversionEvents>("SELECT * FROM \"funnel_conversion_events\"").fetch_all(pool).await
++}
++
++/// Returns one `funnel_conversion_events` row by primary key.
++pub async fn find_funnel_conversion_events(pool: &PgPool, id: i64) -> Result<Option<FunnelConversionEvents>, sqlx::Error> {
++sqlx::query_as::<_, FunnelConversionEvents>("SELECT * FROM \"funnel_conversion_events\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `funnel_conversion_events` row and returns it.
++pub async fn create_funnel_conversion_events(pool: &PgPool, input: NewFunnelConversionEvents) -> Result<FunnelConversionEvents, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FunnelConversionEvents>("INSERT INTO \"funnel_conversion_events\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"funnel_conversion_events\" (");
++{
++let mut columns = query.separated(", " );
++        if input.customer_id.is_some() {
++            columns.push("\"customer_id\"");
++        }
++        if input.session_id.is_some() {
++            columns.push("\"session_id\"");
++        }
++        columns.push("\"journey_id\"");
++        columns.push("\"event_type\"");
++        if input.event_status.is_some() {
++            columns.push("\"event_status\"");
++        }
++        if input.funnel_name.is_some() {
++            columns.push("\"funnel_name\"");
++        }
++        if input.offer_id.is_some() {
++            columns.push("\"offer_id\"");
++        }
++        if input.order_id.is_some() {
++            columns.push("\"order_id\"");
++        }
++        if input.subscription_id.is_some() {
++            columns.push("\"subscription_id\"");
++        }
++        if input.amount_cents.is_some() {
++            columns.push("\"amount_cents\"");
++        }
++        if input.source.is_some() {
++            columns.push("\"source\"");
++        }
++        if input.utm_campaign.is_some() {
++            columns.push("\"utm_campaign\"");
++        }
++        if input.utm_source.is_some() {
++            columns.push("\"utm_source\"");
++        }
++        if input.utm_medium.is_some() {
++            columns.push("\"utm_medium\"");
++        }
++        if input.referrer_url.is_some() {
++            columns.push("\"referrer_url\"");
++        }
++        if input.page_url.is_some() {
++            columns.push("\"page_url\"");
++        }
++        if input.previous_event_id.is_some() {
++            columns.push("\"previous_event_id\"");
++        }
++        if input.converted_at.is_some() {
++            columns.push("\"converted_at\"");
++        }
++        if input.time_to_event_seconds.is_some() {
++            columns.push("\"time_to_event_seconds\"");
++        }
++        if input.metadata.is_some() {
++            columns.push("\"metadata\"");
++        }
++        if input.event_timestamp.is_some() {
++            columns.push("\"event_timestamp\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.automated_touchpoint_id.is_some() {
++            columns.push("\"automated_touchpoint_id\"");
++        }
++        if input.ad_conversion_id.is_some() {
++            columns.push("\"ad_conversion_id\"");
++        }
++        if input.tripwire_offer_id.is_some() {
++            columns.push("\"tripwire_offer_id\"");
++        }
++        if input.tripwire_upsell_triggered.is_some() {
++            columns.push("\"tripwire_upsell_triggered\"");
++        }
++        if input.tripwire_upsell_accepted.is_some() {
++            columns.push("\"tripwire_upsell_accepted\"");
++        }
++        if input.automation_source.is_some() {
++            columns.push("\"automation_source\"");
++        }
++        if input.ad_platform.is_some() {
++            columns.push("\"ad_platform\"");
++        }
++        if input.ad_campaign_id.is_some() {
++            columns.push("\"ad_campaign_id\"");
++        }
++        if input.ad_ad_id.is_some() {
++            columns.push("\"ad_ad_id\"");
++        }
++        if input.crm_lead_id.is_some() {
++            columns.push("\"crm_lead_id\"");
++        }
++        if input.crm_contact_id.is_some() {
++            columns.push("\"crm_contact_id\"");
++        }
++        if input.customer_email_hash.is_some() {
++            columns.push("\"customer_email_hash\"");
++        }
++        if input.customer_phone_hash.is_some() {
++            columns.push("\"customer_phone_hash\"");
++        }
++        if input.checkout_session_id.is_some() {
++            columns.push("\"checkout_session_id\"");
++        }
++        if input.stripe_payment_intent_id.is_some() {
++            columns.push("\"stripe_payment_intent_id\"");
++        }
++        if input.funnel_session_token.is_some() {
++            columns.push("\"funnel_session_token\"");
++        }
++        if input.journey_person_key.is_some() {
++            columns.push("\"journey_person_key\"");
++        }
++        if input.journey_session_key.is_some() {
++            columns.push("\"journey_session_key\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.session_id.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.journey_id);
++        values.push_bind(&input.event_type);
++        if let Some(value) = input.event_status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.funnel_name.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.offer_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.order_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.subscription_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.amount_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.source.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_campaign.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_source.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_medium.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.referrer_url.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.page_url.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.previous_event_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.converted_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.time_to_event_seconds.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.metadata.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.event_timestamp.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.automated_touchpoint_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.ad_conversion_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tripwire_offer_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tripwire_upsell_triggered.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tripwire_upsell_accepted.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.automation_source.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.ad_platform.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.ad_campaign_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.ad_ad_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.crm_lead_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.crm_contact_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.customer_email_hash.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.customer_phone_hash.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.checkout_session_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.stripe_payment_intent_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.funnel_session_token.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.journey_person_key.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.journey_session_key.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FunnelConversionEvents>().fetch_one(pool).await
++}
++/// Applies a partial update to one `funnel_conversion_events` row.
++pub async fn update_funnel_conversion_events(pool: &PgPool, id: i64, input: PatchFunnelConversionEvents) -> Result<Option<FunnelConversionEvents>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.session_id.is_some() || input.journey_id.is_some() || input.event_type.is_some() || input.event_status.is_some() || input.funnel_name.is_some() || input.offer_id.is_some() || input.order_id.is_some() || input.subscription_id.is_some() || input.amount_cents.is_some() || input.source.is_some() || input.utm_campaign.is_some() || input.utm_source.is_some() || input.utm_medium.is_some() || input.referrer_url.is_some() || input.page_url.is_some() || input.previous_event_id.is_some() || input.converted_at.is_some() || input.time_to_event_seconds.is_some() || input.metadata.is_some() || input.event_timestamp.is_some() || input.created_at.is_some() || input.automated_touchpoint_id.is_some() || input.ad_conversion_id.is_some() || input.tripwire_offer_id.is_some() || input.tripwire_upsell_triggered.is_some() || input.tripwire_upsell_accepted.is_some() || input.automation_source.is_some() || input.ad_platform.is_some() || input.ad_campaign_id.is_some() || input.ad_ad_id.is_some() || input.crm_lead_id.is_some() || input.crm_contact_id.is_some() || input.customer_email_hash.is_some() || input.customer_phone_hash.is_some() || input.checkout_session_id.is_some() || input.stripe_payment_intent_id.is_some() || input.funnel_session_token.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some()) {
++return find_funnel_conversion_events(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"funnel_conversion_events\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.session_id.as_ref() {
++set.push("\"session_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_id.as_ref() {
++set.push("\"journey_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.event_type.as_ref() {
++set.push("\"event_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.event_status.as_ref() {
++set.push("\"event_status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.funnel_name.as_ref() {
++set.push("\"funnel_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.offer_id.as_ref() {
++set.push("\"offer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.order_id.as_ref() {
++set.push("\"order_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.subscription_id.as_ref() {
++set.push("\"subscription_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.amount_cents.as_ref() {
++set.push("\"amount_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.source.as_ref() {
++set.push("\"source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_campaign.as_ref() {
++set.push("\"utm_campaign\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_source.as_ref() {
++set.push("\"utm_source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_medium.as_ref() {
++set.push("\"utm_medium\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.referrer_url.as_ref() {
++set.push("\"referrer_url\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.page_url.as_ref() {
++set.push("\"page_url\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.previous_event_id.as_ref() {
++set.push("\"previous_event_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.converted_at.as_ref() {
++set.push("\"converted_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.time_to_event_seconds.as_ref() {
++set.push("\"time_to_event_seconds\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metadata.as_ref() {
++set.push("\"metadata\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.event_timestamp.as_ref() {
++set.push("\"event_timestamp\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.automated_touchpoint_id.as_ref() {
++set.push("\"automated_touchpoint_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.ad_conversion_id.as_ref() {
++set.push("\"ad_conversion_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tripwire_offer_id.as_ref() {
++set.push("\"tripwire_offer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tripwire_upsell_triggered.as_ref() {
++set.push("\"tripwire_upsell_triggered\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tripwire_upsell_accepted.as_ref() {
++set.push("\"tripwire_upsell_accepted\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.automation_source.as_ref() {
++set.push("\"automation_source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.ad_platform.as_ref() {
++set.push("\"ad_platform\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.ad_campaign_id.as_ref() {
++set.push("\"ad_campaign_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.ad_ad_id.as_ref() {
++set.push("\"ad_ad_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.crm_lead_id.as_ref() {
++set.push("\"crm_lead_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.crm_contact_id.as_ref() {
++set.push("\"crm_contact_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.customer_email_hash.as_ref() {
++set.push("\"customer_email_hash\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.customer_phone_hash.as_ref() {
++set.push("\"customer_phone_hash\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.checkout_session_id.as_ref() {
++set.push("\"checkout_session_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.stripe_payment_intent_id.as_ref() {
++set.push("\"stripe_payment_intent_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.funnel_session_token.as_ref() {
++set.push("\"funnel_session_token\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_person_key.as_ref() {
++set.push("\"journey_person_key\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_session_key.as_ref() {
++set.push("\"journey_session_key\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FunnelConversionEvents>().fetch_optional(pool).await
++}
++/// Deletes one `funnel_conversion_events` row by primary key.
++pub async fn delete_funnel_conversion_events(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"funnel_conversion_events\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `funnel_events`.
+ pub async fn list_funnel_events(pool: &PgPool) -> Result<Vec<FunnelEvents>, sqlx::Error> {
+ sqlx::query_as::<_, FunnelEvents>("SELECT * FROM \"funnel_events\"").fetch_all(pool).await
+@@ -41551,12 +52561,6 @@ let mut columns = query.separated(", " );
+         if input.event_origin.is_some() {
+             columns.push("\"event_origin\"");
+         }
+-        if input.journey_person_key.is_some() {
+-            columns.push("\"journey_person_key\"");
+-        }
+-        if input.journey_session_key.is_some() {
+-            columns.push("\"journey_session_key\"");
+-        }
+         if input.crm_lead_id.is_some() {
+             columns.push("\"crm_lead_id\"");
+         }
+@@ -41578,6 +52582,12 @@ let mut columns = query.separated(", " );
+         if input.funnel_session_token.is_some() {
+             columns.push("\"funnel_session_token\"");
+         }
++        if input.journey_person_key.is_some() {
++            columns.push("\"journey_person_key\"");
++        }
++        if input.journey_session_key.is_some() {
++            columns.push("\"journey_session_key\"");
++        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -41634,12 +52644,6 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.event_origin.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.journey_person_key.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.journey_session_key.as_ref() {
+-            values.push_bind(value);
+-        }
+         if let Some(value) = input.crm_lead_id.as_ref() {
+             values.push_bind(value);
+         }
+@@ -41661,13 +52665,19 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.funnel_session_token.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.journey_person_key.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.journey_session_key.as_ref() {
++            values.push_bind(value);
++        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<FunnelEvents>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `funnel_events` row.
+ pub async fn update_funnel_events(pool: &PgPool, id: i64, input: PatchFunnelEvents) -> Result<Option<FunnelEvents>, sqlx::Error> {
+-if !(input.session_id.is_some() || input.customer_id.is_some() || input.funnel_id.is_some() || input.step_id.is_some() || input.event_type.is_some() || input.value_cents.is_some() || input.test_id.is_some() || input.variant.is_some() || input.offer_id.is_some() || input.meta.is_some() || input.created_at.is_some() || input.visitor_id.is_some() || input.source.is_some() || input.qr_zone_id.is_some() || input.dwell_time_seconds.is_some() || input.zip_code.is_some() || input.source_event_id.is_some() || input.event_origin.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some() || input.crm_lead_id.is_some() || input.crm_contact_id.is_some() || input.customer_email_hash.is_some() || input.customer_phone_hash.is_some() || input.checkout_session_id.is_some() || input.stripe_payment_intent_id.is_some() || input.funnel_session_token.is_some()) {
++if !(input.session_id.is_some() || input.customer_id.is_some() || input.funnel_id.is_some() || input.step_id.is_some() || input.event_type.is_some() || input.value_cents.is_some() || input.test_id.is_some() || input.variant.is_some() || input.offer_id.is_some() || input.meta.is_some() || input.created_at.is_some() || input.visitor_id.is_some() || input.source.is_some() || input.qr_zone_id.is_some() || input.dwell_time_seconds.is_some() || input.zip_code.is_some() || input.source_event_id.is_some() || input.event_origin.is_some() || input.crm_lead_id.is_some() || input.crm_contact_id.is_some() || input.customer_email_hash.is_some() || input.customer_phone_hash.is_some() || input.checkout_session_id.is_some() || input.stripe_payment_intent_id.is_some() || input.funnel_session_token.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some()) {
+ return find_funnel_events(pool, id).await;
+ }
+ 
+@@ -41727,12 +52737,6 @@ set.push("\"source_event_id\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.event_origin.as_ref() {
+ set.push("\"event_origin\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.journey_person_key.as_ref() {
+-set.push("\"journey_person_key\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.journey_session_key.as_ref() {
+-set.push("\"journey_session_key\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.crm_lead_id.as_ref() {
+ set.push("\"crm_lead_id\" = ").push_bind_unseparated(value);
+@@ -41754,6 +52758,12 @@ set.push("\"stripe_payment_intent_id\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.funnel_session_token.as_ref() {
+ set.push("\"funnel_session_token\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_person_key.as_ref() {
++set.push("\"journey_person_key\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_session_key.as_ref() {
++set.push("\"journey_session_key\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -41893,6 +52903,434 @@ let result = sqlx::query("DELETE FROM \"funnel_lifecycle_revisions\" WHERE \"id\
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `funnel_orchestration`.
++pub async fn list_funnel_orchestration(pool: &PgPool) -> Result<Vec<FunnelOrchestration>, sqlx::Error> {
++sqlx::query_as::<_, FunnelOrchestration>("SELECT * FROM \"funnel_orchestration\"").fetch_all(pool).await
++}
++
++/// Returns one `funnel_orchestration` row by primary key.
++pub async fn find_funnel_orchestration(pool: &PgPool, id: i64) -> Result<Option<FunnelOrchestration>, sqlx::Error> {
++sqlx::query_as::<_, FunnelOrchestration>("SELECT * FROM \"funnel_orchestration\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `funnel_orchestration` row and returns it.
++pub async fn create_funnel_orchestration(pool: &PgPool, input: NewFunnelOrchestration) -> Result<FunnelOrchestration, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FunnelOrchestration>("INSERT INTO \"funnel_orchestration\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"funnel_orchestration\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"customer_id\"");
++        columns.push("\"journey_id\"");
++        if input.current_state.is_some() {
++            columns.push("\"current_state\"");
++        }
++        if input.previous_state.is_some() {
++            columns.push("\"previous_state\"");
++        }
++        if input.status.is_some() {
++            columns.push("\"status\"");
++        }
++        if input.ad_source.is_some() {
++            columns.push("\"ad_source\"");
++        }
++        if input.ad_campaign_id.is_some() {
++            columns.push("\"ad_campaign_id\"");
++        }
++        if input.funnel_id.is_some() {
++            columns.push("\"funnel_id\"");
++        }
++        if input.funnel_step_id.is_some() {
++            columns.push("\"funnel_step_id\"");
++        }
++        if input.tripwire_offer_id.is_some() {
++            columns.push("\"tripwire_offer_id\"");
++        }
++        if input.tripwire_order_id.is_some() {
++            columns.push("\"tripwire_order_id\"");
++        }
++        if input.tripwire_amount_cents.is_some() {
++            columns.push("\"tripwire_amount_cents\"");
++        }
++        if input.tripwire_purchased_at.is_some() {
++            columns.push("\"tripwire_purchased_at\"");
++        }
++        if input.tripwire_retry_count.is_some() {
++            columns.push("\"tripwire_retry_count\"");
++        }
++        if input.upsell_offer_id.is_some() {
++            columns.push("\"upsell_offer_id\"");
++        }
++        if input.upsell_order_id.is_some() {
++            columns.push("\"upsell_order_id\"");
++        }
++        if input.upsell_amount_cents.is_some() {
++            columns.push("\"upsell_amount_cents\"");
++        }
++        if input.upsell_accepted_at.is_some() {
++            columns.push("\"upsell_accepted_at\"");
++        }
++        if input.upsell_retry_count.is_some() {
++            columns.push("\"upsell_retry_count\"");
++        }
++        if input.subscription_id.is_some() {
++            columns.push("\"subscription_id\"");
++        }
++        if input.subscription_amount_cents.is_some() {
++            columns.push("\"subscription_amount_cents\"");
++        }
++        if input.subscription_started_at.is_some() {
++            columns.push("\"subscription_started_at\"");
++        }
++        if input.subscription_recurrence.is_some() {
++            columns.push("\"subscription_recurrence\"");
++        }
++        if input.utm_campaign.is_some() {
++            columns.push("\"utm_campaign\"");
++        }
++        if input.utm_source.is_some() {
++            columns.push("\"utm_source\"");
++        }
++        if input.utm_medium.is_some() {
++            columns.push("\"utm_medium\"");
++        }
++        if input.referrer_url.is_some() {
++            columns.push("\"referrer_url\"");
++        }
++        if input.session_id.is_some() {
++            columns.push("\"session_id\"");
++        }
++        if input.circuit_breaker_failures.is_some() {
++            columns.push("\"circuit_breaker_failures\"");
++        }
++        if input.circuit_breaker_opened_at.is_some() {
++            columns.push("\"circuit_breaker_opened_at\"");
++        }
++        if input.circuit_breaker_retry_after.is_some() {
++            columns.push("\"circuit_breaker_retry_after\"");
++        }
++        if input.retry_count.is_some() {
++            columns.push("\"retry_count\"");
++        }
++        if input.last_retry_at.is_some() {
++            columns.push("\"last_retry_at\"");
++        }
++        if input.max_retries.is_some() {
++            columns.push("\"max_retries\"");
++        }
++        if input.last_error_message.is_some() {
++            columns.push("\"last_error_message\"");
++        }
++        if input.last_error_at.is_some() {
++            columns.push("\"last_error_at\"");
++        }
++        if input.failure_reason.is_some() {
++            columns.push("\"failure_reason\"");
++        }
++        if input.data_version.is_some() {
++            columns.push("\"data_version\"");
++        }
++        if input.last_consistency_check.is_some() {
++            columns.push("\"last_consistency_check\"");
++        }
++        if input.consistency_status.is_some() {
++            columns.push("\"consistency_status\"");
++        }
++        if input.metadata.is_some() {
++            columns.push("\"metadata\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.customer_id);
++        values.push_bind(&input.journey_id);
++        if let Some(value) = input.current_state.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.previous_state.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.ad_source.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.ad_campaign_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.funnel_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.funnel_step_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tripwire_offer_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tripwire_order_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tripwire_amount_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tripwire_purchased_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tripwire_retry_count.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.upsell_offer_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.upsell_order_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.upsell_amount_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.upsell_accepted_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.upsell_retry_count.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.subscription_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.subscription_amount_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.subscription_started_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.subscription_recurrence.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_campaign.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_source.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_medium.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.referrer_url.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.session_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.circuit_breaker_failures.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.circuit_breaker_opened_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.circuit_breaker_retry_after.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.retry_count.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_retry_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.max_retries.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_error_message.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_error_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.failure_reason.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.data_version.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.last_consistency_check.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.consistency_status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.metadata.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FunnelOrchestration>().fetch_one(pool).await
++}
++/// Applies a partial update to one `funnel_orchestration` row.
++pub async fn update_funnel_orchestration(pool: &PgPool, id: i64, input: PatchFunnelOrchestration) -> Result<Option<FunnelOrchestration>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.journey_id.is_some() || input.current_state.is_some() || input.previous_state.is_some() || input.status.is_some() || input.ad_source.is_some() || input.ad_campaign_id.is_some() || input.funnel_id.is_some() || input.funnel_step_id.is_some() || input.tripwire_offer_id.is_some() || input.tripwire_order_id.is_some() || input.tripwire_amount_cents.is_some() || input.tripwire_purchased_at.is_some() || input.tripwire_retry_count.is_some() || input.upsell_offer_id.is_some() || input.upsell_order_id.is_some() || input.upsell_amount_cents.is_some() || input.upsell_accepted_at.is_some() || input.upsell_retry_count.is_some() || input.subscription_id.is_some() || input.subscription_amount_cents.is_some() || input.subscription_started_at.is_some() || input.subscription_recurrence.is_some() || input.utm_campaign.is_some() || input.utm_source.is_some() || input.utm_medium.is_some() || input.referrer_url.is_some() || input.session_id.is_some() || input.circuit_breaker_failures.is_some() || input.circuit_breaker_opened_at.is_some() || input.circuit_breaker_retry_after.is_some() || input.retry_count.is_some() || input.last_retry_at.is_some() || input.max_retries.is_some() || input.last_error_message.is_some() || input.last_error_at.is_some() || input.failure_reason.is_some() || input.data_version.is_some() || input.last_consistency_check.is_some() || input.consistency_status.is_some() || input.metadata.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
++return find_funnel_orchestration(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"funnel_orchestration\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_id.as_ref() {
++set.push("\"journey_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.current_state.as_ref() {
++set.push("\"current_state\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.previous_state.as_ref() {
++set.push("\"previous_state\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.status.as_ref() {
++set.push("\"status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.ad_source.as_ref() {
++set.push("\"ad_source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.ad_campaign_id.as_ref() {
++set.push("\"ad_campaign_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.funnel_id.as_ref() {
++set.push("\"funnel_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.funnel_step_id.as_ref() {
++set.push("\"funnel_step_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tripwire_offer_id.as_ref() {
++set.push("\"tripwire_offer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tripwire_order_id.as_ref() {
++set.push("\"tripwire_order_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tripwire_amount_cents.as_ref() {
++set.push("\"tripwire_amount_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tripwire_purchased_at.as_ref() {
++set.push("\"tripwire_purchased_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tripwire_retry_count.as_ref() {
++set.push("\"tripwire_retry_count\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.upsell_offer_id.as_ref() {
++set.push("\"upsell_offer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.upsell_order_id.as_ref() {
++set.push("\"upsell_order_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.upsell_amount_cents.as_ref() {
++set.push("\"upsell_amount_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.upsell_accepted_at.as_ref() {
++set.push("\"upsell_accepted_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.upsell_retry_count.as_ref() {
++set.push("\"upsell_retry_count\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.subscription_id.as_ref() {
++set.push("\"subscription_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.subscription_amount_cents.as_ref() {
++set.push("\"subscription_amount_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.subscription_started_at.as_ref() {
++set.push("\"subscription_started_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.subscription_recurrence.as_ref() {
++set.push("\"subscription_recurrence\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_campaign.as_ref() {
++set.push("\"utm_campaign\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_source.as_ref() {
++set.push("\"utm_source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_medium.as_ref() {
++set.push("\"utm_medium\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.referrer_url.as_ref() {
++set.push("\"referrer_url\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.session_id.as_ref() {
++set.push("\"session_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.circuit_breaker_failures.as_ref() {
++set.push("\"circuit_breaker_failures\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.circuit_breaker_opened_at.as_ref() {
++set.push("\"circuit_breaker_opened_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.circuit_breaker_retry_after.as_ref() {
++set.push("\"circuit_breaker_retry_after\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.retry_count.as_ref() {
++set.push("\"retry_count\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_retry_at.as_ref() {
++set.push("\"last_retry_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.max_retries.as_ref() {
++set.push("\"max_retries\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_error_message.as_ref() {
++set.push("\"last_error_message\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_error_at.as_ref() {
++set.push("\"last_error_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.failure_reason.as_ref() {
++set.push("\"failure_reason\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.data_version.as_ref() {
++set.push("\"data_version\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_consistency_check.as_ref() {
++set.push("\"last_consistency_check\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.consistency_status.as_ref() {
++set.push("\"consistency_status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metadata.as_ref() {
++set.push("\"metadata\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FunnelOrchestration>().fetch_optional(pool).await
++}
++/// Deletes one `funnel_orchestration` row by primary key.
++pub async fn delete_funnel_orchestration(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"funnel_orchestration\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `funnel_payment_state`.
+ pub async fn list_funnel_payment_state(pool: &PgPool) -> Result<Vec<FunnelPaymentState>, sqlx::Error> {
+ sqlx::query_as::<_, FunnelPaymentState>("SELECT * FROM \"funnel_payment_state\"").fetch_all(pool).await
+@@ -42037,6 +53475,539 @@ let result = sqlx::query("DELETE FROM \"funnel_payment_state\" WHERE \"id\" = $1
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `funnel_retry_policy`.
++pub async fn list_funnel_retry_policy(pool: &PgPool) -> Result<Vec<FunnelRetryPolicy>, sqlx::Error> {
++sqlx::query_as::<_, FunnelRetryPolicy>("SELECT * FROM \"funnel_retry_policy\"").fetch_all(pool).await
++}
++
++/// Returns one `funnel_retry_policy` row by primary key.
++pub async fn find_funnel_retry_policy(pool: &PgPool, id: i32) -> Result<Option<FunnelRetryPolicy>, sqlx::Error> {
++sqlx::query_as::<_, FunnelRetryPolicy>("SELECT * FROM \"funnel_retry_policy\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `funnel_retry_policy` row and returns it.
++pub async fn create_funnel_retry_policy(pool: &PgPool, input: NewFunnelRetryPolicy) -> Result<FunnelRetryPolicy, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FunnelRetryPolicy>("INSERT INTO \"funnel_retry_policy\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"funnel_retry_policy\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"retry_type\"");
++        if input.max_retries.is_some() {
++            columns.push("\"max_retries\"");
++        }
++        if input.initial_delay_seconds.is_some() {
++            columns.push("\"initial_delay_seconds\"");
++        }
++        if input.max_delay_seconds.is_some() {
++            columns.push("\"max_delay_seconds\"");
++        }
++        if input.backoff_multiplier.is_some() {
++            columns.push("\"backoff_multiplier\"");
++        }
++        if input.jitter_enabled.is_some() {
++            columns.push("\"jitter_enabled\"");
++        }
++        if input.jitter_max_seconds.is_some() {
++            columns.push("\"jitter_max_seconds\"");
++        }
++        if input.circuit_breaker_name.is_some() {
++            columns.push("\"circuit_breaker_name\"");
++        }
++        if input.fail_fast_enabled.is_some() {
++            columns.push("\"fail_fast_enabled\"");
++        }
++        if input.enabled.is_some() {
++            columns.push("\"enabled\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.retry_type);
++        if let Some(value) = input.max_retries.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.initial_delay_seconds.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.max_delay_seconds.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.backoff_multiplier.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.jitter_enabled.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.jitter_max_seconds.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.circuit_breaker_name.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.fail_fast_enabled.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.enabled.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FunnelRetryPolicy>().fetch_one(pool).await
++}
++/// Applies a partial update to one `funnel_retry_policy` row.
++pub async fn update_funnel_retry_policy(pool: &PgPool, id: i32, input: PatchFunnelRetryPolicy) -> Result<Option<FunnelRetryPolicy>, sqlx::Error> {
++if !(input.retry_type.is_some() || input.max_retries.is_some() || input.initial_delay_seconds.is_some() || input.max_delay_seconds.is_some() || input.backoff_multiplier.is_some() || input.jitter_enabled.is_some() || input.jitter_max_seconds.is_some() || input.circuit_breaker_name.is_some() || input.fail_fast_enabled.is_some() || input.enabled.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
++return find_funnel_retry_policy(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"funnel_retry_policy\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.retry_type.as_ref() {
++set.push("\"retry_type\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.max_retries.as_ref() {
++set.push("\"max_retries\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.initial_delay_seconds.as_ref() {
++set.push("\"initial_delay_seconds\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.max_delay_seconds.as_ref() {
++set.push("\"max_delay_seconds\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.backoff_multiplier.as_ref() {
++set.push("\"backoff_multiplier\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.jitter_enabled.as_ref() {
++set.push("\"jitter_enabled\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.jitter_max_seconds.as_ref() {
++set.push("\"jitter_max_seconds\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.circuit_breaker_name.as_ref() {
++set.push("\"circuit_breaker_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.fail_fast_enabled.as_ref() {
++set.push("\"fail_fast_enabled\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.enabled.as_ref() {
++set.push("\"enabled\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FunnelRetryPolicy>().fetch_optional(pool).await
++}
++/// Deletes one `funnel_retry_policy` row by primary key.
++pub async fn delete_funnel_retry_policy(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"funnel_retry_policy\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
++/// Returns every row from `funnel_stage_events`.
++pub async fn list_funnel_stage_events(pool: &PgPool) -> Result<Vec<FunnelStageEvents>, sqlx::Error> {
++sqlx::query_as::<_, FunnelStageEvents>("SELECT * FROM \"funnel_stage_events\"").fetch_all(pool).await
++}
++
++/// Returns one `funnel_stage_events` row by primary key.
++pub async fn find_funnel_stage_events(pool: &PgPool, id: i64) -> Result<Option<FunnelStageEvents>, sqlx::Error> {
++sqlx::query_as::<_, FunnelStageEvents>("SELECT * FROM \"funnel_stage_events\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `funnel_stage_events` row and returns it.
++pub async fn create_funnel_stage_events(pool: &PgPool, input: NewFunnelStageEvents) -> Result<FunnelStageEvents, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FunnelStageEvents>("INSERT INTO \"funnel_stage_events\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"funnel_stage_events\" (");
++{
++let mut columns = query.separated(", " );
++        if input.customer_id.is_some() {
++            columns.push("\"customer_id\"");
++        }
++        if input.session_id.is_some() {
++            columns.push("\"session_id\"");
++        }
++        if input.funnel_name.is_some() {
++            columns.push("\"funnel_name\"");
++        }
++        columns.push("\"stage\"");
++        if input.stage_status.is_some() {
++            columns.push("\"stage_status\"");
++        }
++        if input.conversion_value_cents.is_some() {
++            columns.push("\"conversion_value_cents\"");
++        }
++        if input.source.is_some() {
++            columns.push("\"source\"");
++        }
++        if input.utm_campaign.is_some() {
++            columns.push("\"utm_campaign\"");
++        }
++        if input.utm_content.is_some() {
++            columns.push("\"utm_content\"");
++        }
++        if input.utm_medium.is_some() {
++            columns.push("\"utm_medium\"");
++        }
++        if input.utm_source.is_some() {
++            columns.push("\"utm_source\"");
++        }
++        if input.utm_term.is_some() {
++            columns.push("\"utm_term\"");
++        }
++        if input.referrer_url.is_some() {
++            columns.push("\"referrer_url\"");
++        }
++        if input.page_url.is_some() {
++            columns.push("\"page_url\"");
++        }
++        if input.metadata.is_some() {
++            columns.push("\"metadata\"");
++        }
++        if input.event_timestamp.is_some() {
++            columns.push("\"event_timestamp\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.time_in_stage_seconds.is_some() {
++            columns.push("\"time_in_stage_seconds\"");
++        }
++        if input.previous_stage_id.is_some() {
++            columns.push("\"previous_stage_id\"");
++        }
++        if input.velocity_bucket.is_some() {
++            columns.push("\"velocity_bucket\"");
++        }
++        if input.journey_person_key.is_some() {
++            columns.push("\"journey_person_key\"");
++        }
++        if input.journey_session_key.is_some() {
++            columns.push("\"journey_session_key\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.session_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.funnel_name.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.stage);
++        if let Some(value) = input.stage_status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.conversion_value_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.source.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_campaign.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_content.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_medium.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_source.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.utm_term.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.referrer_url.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.page_url.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.metadata.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.event_timestamp.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.time_in_stage_seconds.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.previous_stage_id.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.velocity_bucket.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.journey_person_key.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.journey_session_key.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FunnelStageEvents>().fetch_one(pool).await
++}
++/// Applies a partial update to one `funnel_stage_events` row.
++pub async fn update_funnel_stage_events(pool: &PgPool, id: i64, input: PatchFunnelStageEvents) -> Result<Option<FunnelStageEvents>, sqlx::Error> {
++if !(input.customer_id.is_some() || input.session_id.is_some() || input.funnel_name.is_some() || input.stage.is_some() || input.stage_status.is_some() || input.conversion_value_cents.is_some() || input.source.is_some() || input.utm_campaign.is_some() || input.utm_content.is_some() || input.utm_medium.is_some() || input.utm_source.is_some() || input.utm_term.is_some() || input.referrer_url.is_some() || input.page_url.is_some() || input.metadata.is_some() || input.event_timestamp.is_some() || input.created_at.is_some() || input.time_in_stage_seconds.is_some() || input.previous_stage_id.is_some() || input.velocity_bucket.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some()) {
++return find_funnel_stage_events(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"funnel_stage_events\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.session_id.as_ref() {
++set.push("\"session_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.funnel_name.as_ref() {
++set.push("\"funnel_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.stage.as_ref() {
++set.push("\"stage\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.stage_status.as_ref() {
++set.push("\"stage_status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.conversion_value_cents.as_ref() {
++set.push("\"conversion_value_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.source.as_ref() {
++set.push("\"source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_campaign.as_ref() {
++set.push("\"utm_campaign\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_content.as_ref() {
++set.push("\"utm_content\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_medium.as_ref() {
++set.push("\"utm_medium\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_source.as_ref() {
++set.push("\"utm_source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.utm_term.as_ref() {
++set.push("\"utm_term\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.referrer_url.as_ref() {
++set.push("\"referrer_url\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.page_url.as_ref() {
++set.push("\"page_url\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metadata.as_ref() {
++set.push("\"metadata\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.event_timestamp.as_ref() {
++set.push("\"event_timestamp\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.time_in_stage_seconds.as_ref() {
++set.push("\"time_in_stage_seconds\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.previous_stage_id.as_ref() {
++set.push("\"previous_stage_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.velocity_bucket.as_ref() {
++set.push("\"velocity_bucket\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_person_key.as_ref() {
++set.push("\"journey_person_key\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_session_key.as_ref() {
++set.push("\"journey_session_key\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FunnelStageEvents>().fetch_optional(pool).await
++}
++/// Deletes one `funnel_stage_events` row by primary key.
++pub async fn delete_funnel_stage_events(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"funnel_stage_events\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
++/// Returns every row from `funnel_state_log`.
++pub async fn list_funnel_state_log(pool: &PgPool) -> Result<Vec<FunnelStateLog>, sqlx::Error> {
++sqlx::query_as::<_, FunnelStateLog>("SELECT * FROM \"funnel_state_log\"").fetch_all(pool).await
++}
++
++/// Returns one `funnel_state_log` row by primary key.
++pub async fn find_funnel_state_log(pool: &PgPool, id: i64) -> Result<Option<FunnelStateLog>, sqlx::Error> {
++sqlx::query_as::<_, FunnelStateLog>("SELECT * FROM \"funnel_state_log\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `funnel_state_log` row and returns it.
++pub async fn create_funnel_state_log(pool: &PgPool, input: NewFunnelStateLog) -> Result<FunnelStateLog, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, FunnelStateLog>("INSERT INTO \"funnel_state_log\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"funnel_state_log\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"orchestration_id\"");
++        columns.push("\"customer_id\"");
++        columns.push("\"journey_id\"");
++        if input.from_state.is_some() {
++            columns.push("\"from_state\"");
++        }
++        columns.push("\"to_state\"");
++        columns.push("\"event\"");
++        if input.trigger_source.is_some() {
++            columns.push("\"trigger_source\"");
++        }
++        if input.trigger_details.is_some() {
++            columns.push("\"trigger_details\"");
++        }
++        if input.success.is_some() {
++            columns.push("\"success\"");
++        }
++        if input.error_message.is_some() {
++            columns.push("\"error_message\"");
++        }
++        if input.processing_time_ms.is_some() {
++            columns.push("\"processing_time_ms\"");
++        }
++        if input.event_timestamp.is_some() {
++            columns.push("\"event_timestamp\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.orchestration_id);
++        values.push_bind(&input.customer_id);
++        values.push_bind(&input.journey_id);
++        if let Some(value) = input.from_state.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.to_state);
++        values.push_bind(&input.event);
++        if let Some(value) = input.trigger_source.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.trigger_details.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.success.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.error_message.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.processing_time_ms.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.event_timestamp.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<FunnelStateLog>().fetch_one(pool).await
++}
++/// Applies a partial update to one `funnel_state_log` row.
++pub async fn update_funnel_state_log(pool: &PgPool, id: i64, input: PatchFunnelStateLog) -> Result<Option<FunnelStateLog>, sqlx::Error> {
++if !(input.orchestration_id.is_some() || input.customer_id.is_some() || input.journey_id.is_some() || input.from_state.is_some() || input.to_state.is_some() || input.event.is_some() || input.trigger_source.is_some() || input.trigger_details.is_some() || input.success.is_some() || input.error_message.is_some() || input.processing_time_ms.is_some() || input.event_timestamp.is_some()) {
++return find_funnel_state_log(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"funnel_state_log\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.orchestration_id.as_ref() {
++set.push("\"orchestration_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.customer_id.as_ref() {
++set.push("\"customer_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.journey_id.as_ref() {
++set.push("\"journey_id\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.from_state.as_ref() {
++set.push("\"from_state\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.to_state.as_ref() {
++set.push("\"to_state\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.event.as_ref() {
++set.push("\"event\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.trigger_source.as_ref() {
++set.push("\"trigger_source\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.trigger_details.as_ref() {
++set.push("\"trigger_details\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.success.as_ref() {
++set.push("\"success\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.error_message.as_ref() {
++set.push("\"error_message\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.processing_time_ms.as_ref() {
++set.push("\"processing_time_ms\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.event_timestamp.as_ref() {
++set.push("\"event_timestamp\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<FunnelStateLog>().fetch_optional(pool).await
++}
++/// Deletes one `funnel_state_log` row by primary key.
++pub async fn delete_funnel_state_log(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"funnel_state_log\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `funnel_step_components`.
+ pub async fn list_funnel_step_components(pool: &PgPool) -> Result<Vec<FunnelStepComponents>, sqlx::Error> {
+ sqlx::query_as::<_, FunnelStepComponents>("SELECT * FROM \"funnel_step_components\"").fetch_all(pool).await
+@@ -42623,6 +54594,15 @@ let mut columns = query.separated(", " );
+         if input.mvt_winning_variants.is_some() {
+             columns.push("\"mvt_winning_variants\"");
+         }
++        if input.potential_value_cents.is_some() {
++            columns.push("\"potential_value_cents\"");
++        }
++        if input.potential_value_currency.is_some() {
++            columns.push("\"potential_value_currency\"");
++        }
++        if input.potential_value_interval.is_some() {
++            columns.push("\"potential_value_interval\"");
++        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -42662,13 +54642,22 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.mvt_winning_variants.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.potential_value_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.potential_value_currency.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.potential_value_interval.as_ref() {
++            values.push_bind(value);
++        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<FunnelSteps>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `funnel_steps` row.
+ pub async fn update_funnel_steps(pool: &PgPool, id: i32, input: PatchFunnelSteps) -> Result<Option<FunnelSteps>, sqlx::Error> {
+-if !(input.funnel_version_id.is_some() || input.step_order.is_some() || input.step_type.is_some() || input.name.is_some() || input.slug.is_some() || input.primary_cta_text.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.offer_id.is_some() || input.ab_test_id.is_some() || input.page_id.is_some() || input.email_campaign_id.is_some() || input.trigger_id.is_some() || input.template_hint.is_some() || input.mvt_winning_variants.is_some()) {
++if !(input.funnel_version_id.is_some() || input.step_order.is_some() || input.step_type.is_some() || input.name.is_some() || input.slug.is_some() || input.primary_cta_text.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.offer_id.is_some() || input.ab_test_id.is_some() || input.page_id.is_some() || input.email_campaign_id.is_some() || input.trigger_id.is_some() || input.template_hint.is_some() || input.mvt_winning_variants.is_some() || input.potential_value_cents.is_some() || input.potential_value_currency.is_some() || input.potential_value_interval.is_some()) {
+ return find_funnel_steps(pool, id).await;
+ }
+ 
+@@ -42719,6 +54708,15 @@ set.push("\"template_hint\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.mvt_winning_variants.as_ref() {
+ set.push("\"mvt_winning_variants\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.potential_value_cents.as_ref() {
++set.push("\"potential_value_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.potential_value_currency.as_ref() {
++set.push("\"potential_value_currency\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.potential_value_interval.as_ref() {
++set.push("\"potential_value_interval\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -43030,9 +55028,6 @@ let mut columns = query.separated(", " );
+         if input.change_summary.is_some() {
+             columns.push("\"change_summary\"");
+         }
+-        if input.renderer_version.is_some() {
+-            columns.push("\"renderer_version\"");
+-        }
+         if input.lifecycle_status.is_some() {
+             columns.push("\"lifecycle_status\"");
+         }
+@@ -43042,6 +55037,18 @@ let mut columns = query.separated(", " );
+         if input.validation_errors.is_some() {
+             columns.push("\"validation_errors\"");
+         }
++        if input.renderer_version.is_some() {
++            columns.push("\"renderer_version\"");
++        }
++        if input.potential_value_cents.is_some() {
++            columns.push("\"potential_value_cents\"");
++        }
++        if input.potential_value_currency.is_some() {
++            columns.push("\"potential_value_currency\"");
++        }
++        if input.potential_value_incomplete.is_some() {
++            columns.push("\"potential_value_incomplete\"");
++        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -43075,9 +55082,6 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.change_summary.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.renderer_version.as_ref() {
+-            values.push_bind(value);
+-        }
+         if let Some(value) = input.lifecycle_status.as_ref() {
+             values.push_bind(value);
+         }
+@@ -43087,13 +55091,25 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.validation_errors.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.renderer_version.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.potential_value_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.potential_value_currency.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.potential_value_incomplete.as_ref() {
++            values.push_bind(value);
++        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<FunnelVersions>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `funnel_versions` row.
+ pub async fn update_funnel_versions(pool: &PgPool, id: i32, input: PatchFunnelVersions) -> Result<Option<FunnelVersions>, sqlx::Error> {
+-if !(input.funnel_id.is_some() || input.version_number.is_some() || input.is_published.is_some() || input.published_at.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.revision.is_some() || input.is_draft.is_some() || input.based_on_version_id.is_some() || input.created_by.is_some() || input.change_summary.is_some() || input.renderer_version.is_some() || input.lifecycle_status.is_some() || input.source_version_id.is_some() || input.validation_errors.is_some()) {
++if !(input.funnel_id.is_some() || input.version_number.is_some() || input.is_published.is_some() || input.published_at.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.revision.is_some() || input.is_draft.is_some() || input.based_on_version_id.is_some() || input.created_by.is_some() || input.change_summary.is_some() || input.lifecycle_status.is_some() || input.source_version_id.is_some() || input.validation_errors.is_some() || input.renderer_version.is_some() || input.potential_value_cents.is_some() || input.potential_value_currency.is_some() || input.potential_value_incomplete.is_some()) {
+ return find_funnel_versions(pool, id).await;
+ }
+ 
+@@ -43132,9 +55148,6 @@ set.push("\"created_by\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.change_summary.as_ref() {
+ set.push("\"change_summary\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.renderer_version.as_ref() {
+-set.push("\"renderer_version\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.lifecycle_status.as_ref() {
+ set.push("\"lifecycle_status\" = ").push_bind_unseparated(value);
+@@ -43144,6 +55157,18 @@ set.push("\"source_version_id\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.validation_errors.as_ref() {
+ set.push("\"validation_errors\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.renderer_version.as_ref() {
++set.push("\"renderer_version\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.potential_value_cents.as_ref() {
++set.push("\"potential_value_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.potential_value_currency.as_ref() {
++set.push("\"potential_value_currency\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.potential_value_incomplete.as_ref() {
++set.push("\"potential_value_incomplete\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -43193,9 +55218,7 @@ let mut columns = query.separated(", " );
+         if input.is_active.is_some() {
+             columns.push("\"is_active\"");
+         }
+-        if input.created_by.is_some() {
+-            columns.push("\"created_by\"");
+-        }
++        columns.push("\"created_by\"");
+         if input.ab_test_id.is_some() {
+             columns.push("\"ab_test_id\"");
+         }
+@@ -43225,9 +55248,7 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.is_active.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.created_by.as_ref() {
+-            values.push_bind(value);
+-        }
++        values.push_bind(&input.created_by);
+         if let Some(value) = input.ab_test_id.as_ref() {
+             values.push_bind(value);
+         }
+@@ -44703,15 +56724,15 @@ let mut columns = query.separated(", " );
+         if input.sync_attempt_count.is_some() {
+             columns.push("\"sync_attempt_count\"");
+         }
++        if input.last_seen_at.is_some() {
++            columns.push("\"last_seen_at\"");
++        }
+         if input.last_sync_attempt_at.is_some() {
+             columns.push("\"last_sync_attempt_at\"");
+         }
+         if input.last_synced_at.is_some() {
+             columns.push("\"last_synced_at\"");
+         }
+-        if input.last_seen_at.is_some() {
+-            columns.push("\"last_seen_at\"");
+-        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -44765,22 +56786,22 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.sync_attempt_count.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.last_seen_at.as_ref() {
++            values.push_bind(value);
++        }
+         if let Some(value) = input.last_sync_attempt_at.as_ref() {
+             values.push_bind(value);
+         }
+         if let Some(value) = input.last_synced_at.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.last_seen_at.as_ref() {
+-            values.push_bind(value);
+-        }
+ }
+ query.push(") RETURNING *");
+ query.build_query_as::<GoogleDriveArtifacts>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `google_drive_artifacts` row.
+ pub async fn update_google_drive_artifacts(pool: &PgPool, id: i32, input: PatchGoogleDriveArtifacts) -> Result<Option<GoogleDriveArtifacts>, sqlx::Error> {
+-if !(input.drive_file_id.is_some() || input.media_library_id.is_some() || input.artifact_kind.is_some() || input.thumbnail_url.is_some() || input.google_thumbnail_link.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.drive_name.is_some() || input.drive_mime_type.is_some() || input.drive_folder_id.is_some() || input.drive_size_bytes.is_some() || input.drive_modified_at.is_some() || input.drive_md5_checksum.is_some() || input.drive_version.is_some() || input.sync_status.is_some() || input.sync_error.is_some() || input.sync_attempt_count.is_some() || input.last_sync_attempt_at.is_some() || input.last_synced_at.is_some() || input.last_seen_at.is_some()) {
++if !(input.drive_file_id.is_some() || input.media_library_id.is_some() || input.artifact_kind.is_some() || input.thumbnail_url.is_some() || input.google_thumbnail_link.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.drive_name.is_some() || input.drive_mime_type.is_some() || input.drive_folder_id.is_some() || input.drive_size_bytes.is_some() || input.drive_modified_at.is_some() || input.drive_md5_checksum.is_some() || input.drive_version.is_some() || input.sync_status.is_some() || input.sync_error.is_some() || input.sync_attempt_count.is_some() || input.last_seen_at.is_some() || input.last_sync_attempt_at.is_some() || input.last_synced_at.is_some()) {
+ return find_google_drive_artifacts(pool, id).await;
+ }
+ 
+@@ -44837,15 +56858,15 @@ set.push("\"sync_error\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.sync_attempt_count.as_ref() {
+ set.push("\"sync_attempt_count\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_seen_at.as_ref() {
++set.push("\"last_seen_at\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.last_sync_attempt_at.as_ref() {
+ set.push("\"last_sync_attempt_at\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.last_synced_at.as_ref() {
+ set.push("\"last_synced_at\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.last_seen_at.as_ref() {
+-set.push("\"last_seen_at\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -47569,138 +59590,6 @@ let result = sqlx::query("DELETE FROM \"hourly_conversion_rates\" WHERE \"hour\"
+ Ok(result.rows_affected() > 0)
+ }
+ 
+-/// Returns every row from `hr_application_reviews`.
+-pub async fn list_hr_application_reviews(pool: &PgPool) -> Result<Vec<HrApplicationReviews>, sqlx::Error> {
+-sqlx::query_as::<_, HrApplicationReviews>("SELECT * FROM \"hr_application_reviews\"").fetch_all(pool).await
+-}
+-
+-/// Returns one `hr_application_reviews` row by primary key.
+-pub async fn find_hr_application_reviews(pool: &PgPool, id: String) -> Result<Option<HrApplicationReviews>, sqlx::Error> {
+-sqlx::query_as::<_, HrApplicationReviews>("SELECT * FROM \"hr_application_reviews\" WHERE \"application_id\" = $1 LIMIT 1")
+-.bind(id)
+-.fetch_optional(pool)
+-.await
+-}
+-
+-/// Creates one `hr_application_reviews` row and returns it.
+-pub async fn create_hr_application_reviews(pool: &PgPool, input: NewHrApplicationReviews) -> Result<HrApplicationReviews, sqlx::Error> {
+-if !(true) {
+-return sqlx::query_as::<_, HrApplicationReviews>("INSERT INTO \"hr_application_reviews\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
+-}
+-
+-let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"hr_application_reviews\" (");
+-{
+-let mut columns = query.separated(", " );
+-        columns.push("\"application_id\"");
+-        if input.status.is_some() {
+-            columns.push("\"status\"");
+-        }
+-        if input.interview_at.is_some() {
+-            columns.push("\"interview_at\"");
+-        }
+-        if input.interviewer.is_some() {
+-            columns.push("\"interviewer\"");
+-        }
+-        if input.notes.is_some() {
+-            columns.push("\"notes\"");
+-        }
+-        if input.onboarding.is_some() {
+-            columns.push("\"onboarding\"");
+-        }
+-        if input.updated_by_subject.is_some() {
+-            columns.push("\"updated_by_subject\"");
+-        }
+-        if input.updated_by_email.is_some() {
+-            columns.push("\"updated_by_email\"");
+-        }
+-        if input.created_at.is_some() {
+-            columns.push("\"created_at\"");
+-        }
+-        if input.updated_at.is_some() {
+-            columns.push("\"updated_at\"");
+-        }
+-}
+-query.push(") VALUES (");
+-{
+-let mut values = query.separated(", " );
+-        values.push_bind(&input.application_id);
+-        if let Some(value) = input.status.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.interview_at.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.interviewer.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.notes.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.onboarding.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.updated_by_subject.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.updated_by_email.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.created_at.as_ref() {
+-            values.push_bind(value);
+-        }
+-        if let Some(value) = input.updated_at.as_ref() {
+-            values.push_bind(value);
+-        }
+-}
+-query.push(") RETURNING *");
+-query.build_query_as::<HrApplicationReviews>().fetch_one(pool).await
+-}
+-/// Applies a partial update to one `hr_application_reviews` row.
+-pub async fn update_hr_application_reviews(pool: &PgPool, id: String, input: PatchHrApplicationReviews) -> Result<Option<HrApplicationReviews>, sqlx::Error> {
+-if !(input.status.is_some() || input.interview_at.is_some() || input.interviewer.is_some() || input.notes.is_some() || input.onboarding.is_some() || input.updated_by_subject.is_some() || input.updated_by_email.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
+-return find_hr_application_reviews(pool, id).await;
+-}
+-
+-let mut query = QueryBuilder::<Postgres>::new("UPDATE \"hr_application_reviews\" SET ");
+-{
+-let mut set = query.separated(", " );
+-        if let Some(value) = input.status.as_ref() {
+-set.push("\"status\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.interview_at.as_ref() {
+-set.push("\"interview_at\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.interviewer.as_ref() {
+-set.push("\"interviewer\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.notes.as_ref() {
+-set.push("\"notes\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.onboarding.as_ref() {
+-set.push("\"onboarding\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.updated_by_subject.as_ref() {
+-set.push("\"updated_by_subject\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.updated_by_email.as_ref() {
+-set.push("\"updated_by_email\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.created_at.as_ref() {
+-set.push("\"created_at\" = ").push_bind_unseparated(value);
+-}
+-        if let Some(value) = input.updated_at.as_ref() {
+-set.push("\"updated_at\" = ").push_bind_unseparated(value);
+-}
+-}
+-query.push(" WHERE \"application_id\" = ").push_bind(id).push(" RETURNING *");
+-query.build_query_as::<HrApplicationReviews>().fetch_optional(pool).await
+-}
+-/// Deletes one `hr_application_reviews` row by primary key.
+-pub async fn delete_hr_application_reviews(pool: &PgPool, id: String) -> Result<bool, sqlx::Error> {
+-let result = sqlx::query("DELETE FROM \"hr_application_reviews\" WHERE \"application_id\" = $1").bind(id).execute(pool).await?;
+-Ok(result.rows_affected() > 0)
+-}
+-
+ /// Returns every row from `ibb_campaign_node_rules`.
+ pub async fn list_ibb_campaign_node_rules(pool: &PgPool) -> Result<Vec<IbbCampaignNodeRules>, sqlx::Error> {
+ sqlx::query_as::<_, IbbCampaignNodeRules>("SELECT * FROM \"ibb_campaign_node_rules\"").fetch_all(pool).await
+@@ -50511,6 +62400,376 @@ let result = sqlx::query("DELETE FROM \"job_logs\" WHERE \"id\" = $1").bind(id).
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `kr_funnel_metrics`.
++pub async fn list_kr_funnel_metrics(pool: &PgPool) -> Result<Vec<KrFunnelMetrics>, sqlx::Error> {
++sqlx::query_as::<_, KrFunnelMetrics>("SELECT * FROM \"kr_funnel_metrics\"").fetch_all(pool).await
++}
++
++/// Returns one `kr_funnel_metrics` row by primary key.
++pub async fn find_kr_funnel_metrics(pool: &PgPool, id: i32) -> Result<Option<KrFunnelMetrics>, sqlx::Error> {
++sqlx::query_as::<_, KrFunnelMetrics>("SELECT * FROM \"kr_funnel_metrics\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `kr_funnel_metrics` row and returns it.
++pub async fn create_kr_funnel_metrics(pool: &PgPool, input: NewKrFunnelMetrics) -> Result<KrFunnelMetrics, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, KrFunnelMetrics>("INSERT INTO \"kr_funnel_metrics\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"kr_funnel_metrics\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"kr_name\"");
++        columns.push("\"metric_date\"");
++        if input.funnel_name.is_some() {
++            columns.push("\"funnel_name\"");
++        }
++        if input.funnel_starts.is_some() {
++            columns.push("\"funnel_starts\"");
++        }
++        if input.tripwire_showns.is_some() {
++            columns.push("\"tripwire_showns\"");
++        }
++        if input.tripwire_converted.is_some() {
++            columns.push("\"tripwire_converted\"");
++        }
++        if input.upsell_showns.is_some() {
++            columns.push("\"upsell_showns\"");
++        }
++        if input.upsell_converted.is_some() {
++            columns.push("\"upsell_converted\"");
++        }
++        if input.full_sale_completed.is_some() {
++            columns.push("\"full_sale_completed\"");
++        }
++        if input.tripwire_conversion_rate.is_some() {
++            columns.push("\"tripwire_conversion_rate\"");
++        }
++        if input.upsell_conversion_rate.is_some() {
++            columns.push("\"upsell_conversion_rate\"");
++        }
++        if input.overall_conversion_rate.is_some() {
++            columns.push("\"overall_conversion_rate\"");
++        }
++        if input.total_revenue_cents.is_some() {
++            columns.push("\"total_revenue_cents\"");
++        }
++        if input.average_order_value_cents.is_some() {
++            columns.push("\"average_order_value_cents\"");
++        }
++        if input.automated_touchpoints.is_some() {
++            columns.push("\"automated_touchpoints\"");
++        }
++        if input.human_touchpoints.is_some() {
++            columns.push("\"human_touchpoints\"");
++        }
++        if input.no_human_interaction_rate.is_some() {
++            columns.push("\"no_human_interaction_rate\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++        if input.onboarding_completed.is_some() {
++            columns.push("\"onboarding_completed\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.kr_name);
++        values.push_bind(&input.metric_date);
++        if let Some(value) = input.funnel_name.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.funnel_starts.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tripwire_showns.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tripwire_converted.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.upsell_showns.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.upsell_converted.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.full_sale_completed.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.tripwire_conversion_rate.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.upsell_conversion_rate.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.overall_conversion_rate.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.total_revenue_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.average_order_value_cents.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.automated_touchpoints.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.human_touchpoints.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.no_human_interaction_rate.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.onboarding_completed.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<KrFunnelMetrics>().fetch_one(pool).await
++}
++/// Applies a partial update to one `kr_funnel_metrics` row.
++pub async fn update_kr_funnel_metrics(pool: &PgPool, id: i32, input: PatchKrFunnelMetrics) -> Result<Option<KrFunnelMetrics>, sqlx::Error> {
++if !(input.kr_name.is_some() || input.metric_date.is_some() || input.funnel_name.is_some() || input.funnel_starts.is_some() || input.tripwire_showns.is_some() || input.tripwire_converted.is_some() || input.upsell_showns.is_some() || input.upsell_converted.is_some() || input.full_sale_completed.is_some() || input.tripwire_conversion_rate.is_some() || input.upsell_conversion_rate.is_some() || input.overall_conversion_rate.is_some() || input.total_revenue_cents.is_some() || input.average_order_value_cents.is_some() || input.automated_touchpoints.is_some() || input.human_touchpoints.is_some() || input.no_human_interaction_rate.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.onboarding_completed.is_some()) {
++return find_kr_funnel_metrics(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"kr_funnel_metrics\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.kr_name.as_ref() {
++set.push("\"kr_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metric_date.as_ref() {
++set.push("\"metric_date\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.funnel_name.as_ref() {
++set.push("\"funnel_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.funnel_starts.as_ref() {
++set.push("\"funnel_starts\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tripwire_showns.as_ref() {
++set.push("\"tripwire_showns\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tripwire_converted.as_ref() {
++set.push("\"tripwire_converted\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.upsell_showns.as_ref() {
++set.push("\"upsell_showns\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.upsell_converted.as_ref() {
++set.push("\"upsell_converted\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.full_sale_completed.as_ref() {
++set.push("\"full_sale_completed\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.tripwire_conversion_rate.as_ref() {
++set.push("\"tripwire_conversion_rate\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.upsell_conversion_rate.as_ref() {
++set.push("\"upsell_conversion_rate\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.overall_conversion_rate.as_ref() {
++set.push("\"overall_conversion_rate\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.total_revenue_cents.as_ref() {
++set.push("\"total_revenue_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.average_order_value_cents.as_ref() {
++set.push("\"average_order_value_cents\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.automated_touchpoints.as_ref() {
++set.push("\"automated_touchpoints\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.human_touchpoints.as_ref() {
++set.push("\"human_touchpoints\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.no_human_interaction_rate.as_ref() {
++set.push("\"no_human_interaction_rate\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.onboarding_completed.as_ref() {
++set.push("\"onboarding_completed\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<KrFunnelMetrics>().fetch_optional(pool).await
++}
++/// Deletes one `kr_funnel_metrics` row by primary key.
++pub async fn delete_kr_funnel_metrics(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"kr_funnel_metrics\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
++/// Returns every row from `kr_progress`.
++pub async fn list_kr_progress(pool: &PgPool) -> Result<Vec<KrProgress>, sqlx::Error> {
++sqlx::query_as::<_, KrProgress>("SELECT * FROM \"kr_progress\"").fetch_all(pool).await
++}
++
++/// Returns one `kr_progress` row by primary key.
++pub async fn find_kr_progress(pool: &PgPool, id: i32) -> Result<Option<KrProgress>, sqlx::Error> {
++sqlx::query_as::<_, KrProgress>("SELECT * FROM \"kr_progress\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `kr_progress` row and returns it.
++pub async fn create_kr_progress(pool: &PgPool, input: NewKrProgress) -> Result<KrProgress, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, KrProgress>("INSERT INTO \"kr_progress\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"kr_progress\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"kr_name\"");
++        if input.kr_description.is_some() {
++            columns.push("\"kr_description\"");
++        }
++        if input.target_value.is_some() {
++            columns.push("\"target_value\"");
++        }
++        if input.current_value.is_some() {
++            columns.push("\"current_value\"");
++        }
++        if input.baseline_value.is_some() {
++            columns.push("\"baseline_value\"");
++        }
++        if input.unit.is_some() {
++            columns.push("\"unit\"");
++        }
++        columns.push("\"category\"");
++        if input.last_calculated_at.is_some() {
++            columns.push("\"last_calculated_at\"");
++        }
++        if input.trend_data.is_some() {
++            columns.push("\"trend_data\"");
++        }
++        if input.metadata.is_some() {
++            columns.push("\"metadata\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.kr_name);
++        if let Some(value) = input.kr_description.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.target_value.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.current_value.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.baseline_value.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.unit.as_ref() {
++            values.push_bind(value);
++        }
++        values.push_bind(&input.category);
++        if let Some(value) = input.last_calculated_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.trend_data.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.metadata.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<KrProgress>().fetch_one(pool).await
++}
++/// Applies a partial update to one `kr_progress` row.
++pub async fn update_kr_progress(pool: &PgPool, id: i32, input: PatchKrProgress) -> Result<Option<KrProgress>, sqlx::Error> {
++if !(input.kr_name.is_some() || input.kr_description.is_some() || input.target_value.is_some() || input.current_value.is_some() || input.baseline_value.is_some() || input.unit.is_some() || input.category.is_some() || input.last_calculated_at.is_some() || input.trend_data.is_some() || input.metadata.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
++return find_kr_progress(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"kr_progress\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.kr_name.as_ref() {
++set.push("\"kr_name\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.kr_description.as_ref() {
++set.push("\"kr_description\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.target_value.as_ref() {
++set.push("\"target_value\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.current_value.as_ref() {
++set.push("\"current_value\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.baseline_value.as_ref() {
++set.push("\"baseline_value\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.unit.as_ref() {
++set.push("\"unit\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.category.as_ref() {
++set.push("\"category\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.last_calculated_at.as_ref() {
++set.push("\"last_calculated_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.trend_data.as_ref() {
++set.push("\"trend_data\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metadata.as_ref() {
++set.push("\"metadata\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<KrProgress>().fetch_optional(pool).await
++}
++/// Deletes one `kr_progress` row by primary key.
++pub async fn delete_kr_progress(pool: &PgPool, id: i32) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"kr_progress\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `kv_store`.
+ pub async fn list_kv_store(pool: &PgPool) -> Result<Vec<KvStore>, sqlx::Error> {
+ sqlx::query_as::<_, KvStore>("SELECT * FROM \"kv_store\"").fetch_all(pool).await
+@@ -50831,6 +63090,105 @@ let result = sqlx::query("DELETE FROM \"lead_custom_fields\" WHERE \"id\" = $1")
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `lead_high_value_zips`.
++pub async fn list_lead_high_value_zips(pool: &PgPool) -> Result<Vec<LeadHighValueZips>, sqlx::Error> {
++sqlx::query_as::<_, LeadHighValueZips>("SELECT * FROM \"lead_high_value_zips\"").fetch_all(pool).await
++}
++
++/// Returns one `lead_high_value_zips` row by primary key.
++pub async fn find_lead_high_value_zips(pool: &PgPool, id: i64) -> Result<Option<LeadHighValueZips>, sqlx::Error> {
++sqlx::query_as::<_, LeadHighValueZips>("SELECT * FROM \"lead_high_value_zips\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `lead_high_value_zips` row and returns it.
++pub async fn create_lead_high_value_zips(pool: &PgPool, input: NewLeadHighValueZips) -> Result<LeadHighValueZips, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, LeadHighValueZips>("INSERT INTO \"lead_high_value_zips\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"lead_high_value_zips\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"zip\"");
++        if input.city.is_some() {
++            columns.push("\"city\"");
++        }
++        if input.state.is_some() {
++            columns.push("\"state\"");
++        }
++        if input.value_tier.is_some() {
++            columns.push("\"value_tier\"");
++        }
++        if input.is_active.is_some() {
++            columns.push("\"is_active\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.zip);
++        if let Some(value) = input.city.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.state.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.value_tier.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.is_active.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<LeadHighValueZips>().fetch_one(pool).await
++}
++/// Applies a partial update to one `lead_high_value_zips` row.
++pub async fn update_lead_high_value_zips(pool: &PgPool, id: i64, input: PatchLeadHighValueZips) -> Result<Option<LeadHighValueZips>, sqlx::Error> {
++if !(input.zip.is_some() || input.city.is_some() || input.state.is_some() || input.value_tier.is_some() || input.is_active.is_some() || input.created_at.is_some()) {
++return find_lead_high_value_zips(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"lead_high_value_zips\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.zip.as_ref() {
++set.push("\"zip\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.city.as_ref() {
++set.push("\"city\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.state.as_ref() {
++set.push("\"state\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.value_tier.as_ref() {
++set.push("\"value_tier\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.is_active.as_ref() {
++set.push("\"is_active\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<LeadHighValueZips>().fetch_optional(pool).await
++}
++/// Deletes one `lead_high_value_zips` row by primary key.
++pub async fn delete_lead_high_value_zips(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"lead_high_value_zips\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `lead_ip_addresses`.
+ pub async fn list_lead_ip_addresses(pool: &PgPool) -> Result<Vec<LeadIpAddresses>, sqlx::Error> {
+ sqlx::query_as::<_, LeadIpAddresses>("SELECT * FROM \"lead_ip_addresses\"").fetch_all(pool).await
+@@ -51002,6 +63360,101 @@ let result = sqlx::query("DELETE FROM \"lead_marketing_tags\" WHERE \"id\" = $1"
+ Ok(result.rows_affected() > 0)
+ }
+ 
++/// Returns every row from `lead_qualification_config`.
++pub async fn list_lead_qualification_config(pool: &PgPool) -> Result<Vec<LeadQualificationConfig>, sqlx::Error> {
++sqlx::query_as::<_, LeadQualificationConfig>("SELECT * FROM \"lead_qualification_config\"").fetch_all(pool).await
++}
++
++/// Returns one `lead_qualification_config` row by primary key.
++pub async fn find_lead_qualification_config(pool: &PgPool, id: i64) -> Result<Option<LeadQualificationConfig>, sqlx::Error> {
++sqlx::query_as::<_, LeadQualificationConfig>("SELECT * FROM \"lead_qualification_config\" WHERE \"id\" = $1 LIMIT 1")
++.bind(id)
++.fetch_optional(pool)
++.await
++}
++
++/// Creates one `lead_qualification_config` row and returns it.
++pub async fn create_lead_qualification_config(pool: &PgPool, input: NewLeadQualificationConfig) -> Result<LeadQualificationConfig, sqlx::Error> {
++if !(true) {
++return sqlx::query_as::<_, LeadQualificationConfig>("INSERT INTO \"lead_qualification_config\" DEFAULT VALUES RETURNING *").fetch_one(pool).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("INSERT INTO \"lead_qualification_config\" (");
++{
++let mut columns = query.separated(", " );
++        columns.push("\"config_key\"");
++        columns.push("\"config_value\"");
++        if input.description.is_some() {
++            columns.push("\"description\"");
++        }
++        if input.is_active.is_some() {
++            columns.push("\"is_active\"");
++        }
++        if input.created_at.is_some() {
++            columns.push("\"created_at\"");
++        }
++        if input.updated_at.is_some() {
++            columns.push("\"updated_at\"");
++        }
++}
++query.push(") VALUES (");
++{
++let mut values = query.separated(", " );
++        values.push_bind(&input.config_key);
++        values.push_bind(&input.config_value);
++        if let Some(value) = input.description.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.is_active.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.created_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.updated_at.as_ref() {
++            values.push_bind(value);
++        }
++}
++query.push(") RETURNING *");
++query.build_query_as::<LeadQualificationConfig>().fetch_one(pool).await
++}
++/// Applies a partial update to one `lead_qualification_config` row.
++pub async fn update_lead_qualification_config(pool: &PgPool, id: i64, input: PatchLeadQualificationConfig) -> Result<Option<LeadQualificationConfig>, sqlx::Error> {
++if !(input.config_key.is_some() || input.config_value.is_some() || input.description.is_some() || input.is_active.is_some() || input.created_at.is_some() || input.updated_at.is_some()) {
++return find_lead_qualification_config(pool, id).await;
++}
++
++let mut query = QueryBuilder::<Postgres>::new("UPDATE \"lead_qualification_config\" SET ");
++{
++let mut set = query.separated(", " );
++        if let Some(value) = input.config_key.as_ref() {
++set.push("\"config_key\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.config_value.as_ref() {
++set.push("\"config_value\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.description.as_ref() {
++set.push("\"description\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.is_active.as_ref() {
++set.push("\"is_active\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.created_at.as_ref() {
++set.push("\"created_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.updated_at.as_ref() {
++set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++}
++query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
++query.build_query_as::<LeadQualificationConfig>().fetch_optional(pool).await
++}
++/// Deletes one `lead_qualification_config` row by primary key.
++pub async fn delete_lead_qualification_config(pool: &PgPool, id: i64) -> Result<bool, sqlx::Error> {
++let result = sqlx::query("DELETE FROM \"lead_qualification_config\" WHERE \"id\" = $1").bind(id).execute(pool).await?;
++Ok(result.rows_affected() > 0)
++}
++
+ /// Returns every row from `lead_qualifications`.
+ pub async fn list_lead_qualifications(pool: &PgPool) -> Result<Vec<LeadQualifications>, sqlx::Error> {
+ sqlx::query_as::<_, LeadQualifications>("SELECT * FROM \"lead_qualifications\"").fetch_all(pool).await
+@@ -51271,14 +63724,32 @@ let mut columns = query.separated(", " );
+         if input.updated_at.is_some() {
+             columns.push("\"updated_at\"");
+         }
++        if input.canonical_crm_lead_id.is_some() {
++            columns.push("\"canonical_crm_lead_id\"");
++        }
+         if input.journey_person_key.is_some() {
+             columns.push("\"journey_person_key\"");
+         }
+         if input.journey_session_key.is_some() {
+             columns.push("\"journey_session_key\"");
+         }
+-        if input.canonical_crm_lead_id.is_some() {
+-            columns.push("\"canonical_crm_lead_id\"");
++        if input.handoff_status.is_some() {
++            columns.push("\"handoff_status\"");
++        }
++        if input.presented_at.is_some() {
++            columns.push("\"presented_at\"");
++        }
++        if input.accepted_at.is_some() {
++            columns.push("\"accepted_at\"");
++        }
++        if input.declined_at.is_some() {
++            columns.push("\"declined_at\"");
++        }
++        if input.conversion_value.is_some() {
++            columns.push("\"conversion_value\"");
++        }
++        if input.metadata.is_some() {
++            columns.push("\"metadata\"");
+         }
+ }
+ query.push(") VALUES (");
+@@ -51315,13 +63786,31 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.updated_at.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.canonical_crm_lead_id.as_ref() {
++            values.push_bind(value);
++        }
+         if let Some(value) = input.journey_person_key.as_ref() {
+             values.push_bind(value);
+         }
+         if let Some(value) = input.journey_session_key.as_ref() {
+             values.push_bind(value);
+         }
+-        if let Some(value) = input.canonical_crm_lead_id.as_ref() {
++        if let Some(value) = input.handoff_status.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.presented_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.accepted_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.declined_at.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.conversion_value.as_ref() {
++            values.push_bind(value);
++        }
++        if let Some(value) = input.metadata.as_ref() {
+             values.push_bind(value);
+         }
+ }
+@@ -51330,7 +63819,7 @@ query.build_query_as::<LeadTripwireHandoffs>().fetch_one(pool).await
+ }
+ /// Applies a partial update to one `lead_tripwire_handoffs` row.
+ pub async fn update_lead_tripwire_handoffs(pool: &PgPool, id: i64, input: PatchLeadTripwireHandoffs) -> Result<Option<LeadTripwireHandoffs>, sqlx::Error> {
+-if !(input.lead_id.is_some() || input.crm_lead_id.is_some() || input.customer_id.is_some() || input.offer_id.is_some() || input.checkout_session_id.is_some() || input.status.is_some() || input.handed_off_at.is_some() || input.converted_at.is_some() || input.order_id.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some() || input.canonical_crm_lead_id.is_some()) {
++if !(input.lead_id.is_some() || input.crm_lead_id.is_some() || input.customer_id.is_some() || input.offer_id.is_some() || input.checkout_session_id.is_some() || input.status.is_some() || input.handed_off_at.is_some() || input.converted_at.is_some() || input.order_id.is_some() || input.created_at.is_some() || input.updated_at.is_some() || input.canonical_crm_lead_id.is_some() || input.journey_person_key.is_some() || input.journey_session_key.is_some() || input.handoff_status.is_some() || input.presented_at.is_some() || input.accepted_at.is_some() || input.declined_at.is_some() || input.conversion_value.is_some() || input.metadata.is_some()) {
+ return find_lead_tripwire_handoffs(pool, id).await;
+ }
+ 
+@@ -51369,6 +63858,9 @@ set.push("\"created_at\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.updated_at.as_ref() {
+ set.push("\"updated_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.canonical_crm_lead_id.as_ref() {
++set.push("\"canonical_crm_lead_id\" = ").push_bind_unseparated(value);
+ }
+         if let Some(value) = input.journey_person_key.as_ref() {
+ set.push("\"journey_person_key\" = ").push_bind_unseparated(value);
+@@ -51376,8 +63868,23 @@ set.push("\"journey_person_key\" = ").push_bind_unseparated(value);
+         if let Some(value) = input.journey_session_key.as_ref() {
+ set.push("\"journey_session_key\" = ").push_bind_unseparated(value);
+ }
+-        if let Some(value) = input.canonical_crm_lead_id.as_ref() {
+-set.push("\"canonical_crm_lead_id\" = ").push_bind_unseparated(value);
++        if let Some(value) = input.handoff_status.as_ref() {
++set.push("\"handoff_status\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.presented_at.as_ref() {
++set.push("\"presented_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.accepted_at.as_ref() {
++set.push("\"accepted_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.declined_at.as_ref() {
++set.push("\"declined_at\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.conversion_value.as_ref() {
++set.push("\"conversion_value\" = ").push_bind_unseparated(value);
++}
++        if let Some(value) = input.metadata.as_ref() {
++set.push("\"metadata\" = ").push_bind_unseparated(value);
+ }
+ }
+ query.push(" WHERE \"id\" = ").push_bind(id).push(" RETURNING *");
+@@ -51508,15 +64015,15 @@ let mut columns = query.separated(", " );
+         if input.converted_at.is_some() {
+             columns.push("\"converted_at\"");
+         }
++        if input.crm_lead_id.is_some() {
++            columns.push("\"crm_lead_id\"");
++        }
+         if input.journey_person_key.is_some() {
+             columns.push("\"journey_person_key\"");
+         }
+         if input.journey_session_key.is_some() {
+             columns.push("\"journey_session_key\"");
+         }
+-        if input.crm_lead_id.is_some() {
+-            columns.push("\"crm_lead_id\"");
+-        }
+ }
+ query.push(") VALUES (");
+ {
+@@ -51618,22 +64125,22 @@ let mut values = query.separated(", " );
+         if let Some(value) = input.converted_at.as_ref() {
+             values.push_bind(value);
+         }
++        if let Some(value) = input.crm_lead_id.as_ref() {
++            values.push_bind(value);
++        }
+         if let Some(value) = input.journey_person_key.as_ref() {
+             values.push_bind(value);
+         }

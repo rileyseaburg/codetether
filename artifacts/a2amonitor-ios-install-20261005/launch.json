@@ -1,0 +1,58 @@
+{
+  "info" : {
+    "arguments" : [
+      "devicectl",
+      "device",
+      "process",
+      "launch",
+      "--device",
+      "4745B27B-2B68-5164-A053-B869B07EE2CA",
+      "--timeout",
+      "45",
+      "--json-output",
+      "evidence/launch.json",
+      "com.a2a.monitor"
+    ],
+    "commandType" : "devicectl.device.process.launch",
+    "environment" : {
+
+    },
+    "jsonVersion" : 2,
+    "outcome" : "success",
+    "version" : "443.24"
+  },
+  "result" : {
+    "deviceIdentifier" : "4745B27B-2B68-5164-A053-B869B07EE2CA",
+    "launchOptions" : {
+      "activatedWhenStarted" : true,
+      "arguments" : [
+
+      ],
+      "environmentVariables" : {
+        "TERM" : "vt100"
+      },
+      "platformSpecificOptions" : {
+
+      },
+      "startStopped" : false,
+      "terminateExistingInstances" : false,
+      "user" : {
+        "active" : true
+      }
+    },
+    "process" : {
+      "auditToken" : [
+        4294967295,
+        501,
+        501,
+        501,
+        501,
+        27857,
+        0,
+        79694
+      ],
+      "executable" : "file:///private/var/containers/Bundle/Application/7CA03B0A-76B4-4EBB-848B-483AF2A985CC/A2AMonitor.app/A2AMonitor",
+      "processIdentifier" : 27857
+    }
+  }
+}

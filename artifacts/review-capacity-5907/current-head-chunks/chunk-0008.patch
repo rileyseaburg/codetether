@@ -1,0 +1,4473 @@
++async fn update_onboarding_email_queue(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchOnboardingEmailQueue>) -> Result<web::Json<OnboardingEmailQueue>, ApiError> {
++repositories::update_onboarding_email_queue(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingEmailQueue"))
++}
++
++/// `DELETE /api/onboarding_email_queue/{id}`
++async fn delete_onboarding_email_queue(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_onboarding_email_queue(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("OnboardingEmailQueue"))
++}
++}
++
++/// `GET /api/onboarding_email_templates`
++async fn list_onboarding_email_templates(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OnboardingEmailTemplates>>, ApiError> {
++Ok(web::Json(repositories::list_onboarding_email_templates(pool.get_ref()).await?))
++}
++
++/// `GET /api/onboarding_email_templates/{id}`
++async fn get_onboarding_email_templates(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<OnboardingEmailTemplates>, ApiError> {
++repositories::find_onboarding_email_templates(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingEmailTemplates"))
++}
++
++/// `POST /api/onboarding_email_templates`
++async fn create_onboarding_email_templates(pool: web::Data<PgPool>, input: web::Json<NewOnboardingEmailTemplates>) -> Result<(web::Json<OnboardingEmailTemplates>, StatusCode), ApiError> {
++let row = repositories::create_onboarding_email_templates(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/onboarding_email_templates/{id}`
++async fn update_onboarding_email_templates(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchOnboardingEmailTemplates>) -> Result<web::Json<OnboardingEmailTemplates>, ApiError> {
++repositories::update_onboarding_email_templates(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingEmailTemplates"))
++}
++
++/// `DELETE /api/onboarding_email_templates/{id}`
++async fn delete_onboarding_email_templates(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_onboarding_email_templates(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("OnboardingEmailTemplates"))
++}
++}
++
++/// `GET /api/onboarding_milestones`
++async fn list_onboarding_milestones(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OnboardingMilestones>>, ApiError> {
++Ok(web::Json(repositories::list_onboarding_milestones(pool.get_ref()).await?))
++}
++
++/// `GET /api/onboarding_milestones/{id}`
++async fn get_onboarding_milestones(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<OnboardingMilestones>, ApiError> {
++repositories::find_onboarding_milestones(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingMilestones"))
++}
++
++/// `POST /api/onboarding_milestones`
++async fn create_onboarding_milestones(pool: web::Data<PgPool>, input: web::Json<NewOnboardingMilestones>) -> Result<(web::Json<OnboardingMilestones>, StatusCode), ApiError> {
++let row = repositories::create_onboarding_milestones(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/onboarding_milestones/{id}`
++async fn update_onboarding_milestones(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchOnboardingMilestones>) -> Result<web::Json<OnboardingMilestones>, ApiError> {
++repositories::update_onboarding_milestones(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingMilestones"))
++}
++
++/// `DELETE /api/onboarding_milestones/{id}`
++async fn delete_onboarding_milestones(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_onboarding_milestones(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("OnboardingMilestones"))
++}
++}
++
++/// `GET /api/onboarding_sequences`
++async fn list_onboarding_sequences(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OnboardingSequences>>, ApiError> {
++Ok(web::Json(repositories::list_onboarding_sequences(pool.get_ref()).await?))
++}
++
++/// `GET /api/onboarding_sequences/{id}`
++async fn get_onboarding_sequences(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<OnboardingSequences>, ApiError> {
++repositories::find_onboarding_sequences(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingSequences"))
++}
++
++/// `POST /api/onboarding_sequences`
++async fn create_onboarding_sequences(pool: web::Data<PgPool>, input: web::Json<NewOnboardingSequences>) -> Result<(web::Json<OnboardingSequences>, StatusCode), ApiError> {
++let row = repositories::create_onboarding_sequences(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/onboarding_sequences/{id}`
++async fn update_onboarding_sequences(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchOnboardingSequences>) -> Result<web::Json<OnboardingSequences>, ApiError> {
++repositories::update_onboarding_sequences(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingSequences"))
++}
++
++/// `DELETE /api/onboarding_sequences/{id}`
++async fn delete_onboarding_sequences(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_onboarding_sequences(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("OnboardingSequences"))
++}
++}
++
++/// `GET /api/onboarding_service_config`
++async fn list_onboarding_service_config(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OnboardingServiceConfig>>, ApiError> {
++Ok(web::Json(repositories::list_onboarding_service_config(pool.get_ref()).await?))
++}
++
++/// `GET /api/onboarding_service_config/{id}`
++async fn get_onboarding_service_config(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<OnboardingServiceConfig>, ApiError> {
++repositories::find_onboarding_service_config(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingServiceConfig"))
++}
++
++/// `POST /api/onboarding_service_config`
++async fn create_onboarding_service_config(pool: web::Data<PgPool>, input: web::Json<NewOnboardingServiceConfig>) -> Result<(web::Json<OnboardingServiceConfig>, StatusCode), ApiError> {
++let row = repositories::create_onboarding_service_config(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/onboarding_service_config/{id}`
++async fn update_onboarding_service_config(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchOnboardingServiceConfig>) -> Result<web::Json<OnboardingServiceConfig>, ApiError> {
++repositories::update_onboarding_service_config(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingServiceConfig"))
++}
++
++/// `DELETE /api/onboarding_service_config/{id}`
++async fn delete_onboarding_service_config(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_onboarding_service_config(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("OnboardingServiceConfig"))
++}
++}
++
+ /// `GET /api/onboarding_sessions`
+ async fn list_onboarding_sessions(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OnboardingSessions>>, ApiError> {
+ Ok(web::Json(repositories::list_onboarding_sessions(pool.get_ref()).await?))
+@@ -16507,6 +19315,114 @@ Err(ApiError::NotFound("OnboardingSessions"))
+ }
+ }
+ 
++/// `GET /api/onboarding_step_history`
++async fn list_onboarding_step_history(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OnboardingStepHistory>>, ApiError> {
++Ok(web::Json(repositories::list_onboarding_step_history(pool.get_ref()).await?))
++}
++
++/// `GET /api/onboarding_step_history/{id}`
++async fn get_onboarding_step_history(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<OnboardingStepHistory>, ApiError> {
++repositories::find_onboarding_step_history(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingStepHistory"))
++}
++
++/// `POST /api/onboarding_step_history`
++async fn create_onboarding_step_history(pool: web::Data<PgPool>, input: web::Json<NewOnboardingStepHistory>) -> Result<(web::Json<OnboardingStepHistory>, StatusCode), ApiError> {
++let row = repositories::create_onboarding_step_history(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/onboarding_step_history/{id}`
++async fn update_onboarding_step_history(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchOnboardingStepHistory>) -> Result<web::Json<OnboardingStepHistory>, ApiError> {
++repositories::update_onboarding_step_history(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingStepHistory"))
++}
++
++/// `DELETE /api/onboarding_step_history/{id}`
++async fn delete_onboarding_step_history(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_onboarding_step_history(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("OnboardingStepHistory"))
++}
++}
++
++/// `GET /api/onboarding_steps`
++async fn list_onboarding_steps(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OnboardingSteps>>, ApiError> {
++Ok(web::Json(repositories::list_onboarding_steps(pool.get_ref()).await?))
++}
++
++/// `GET /api/onboarding_steps/{id}`
++async fn get_onboarding_steps(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<OnboardingSteps>, ApiError> {
++repositories::find_onboarding_steps(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingSteps"))
++}
++
++/// `POST /api/onboarding_steps`
++async fn create_onboarding_steps(pool: web::Data<PgPool>, input: web::Json<NewOnboardingSteps>) -> Result<(web::Json<OnboardingSteps>, StatusCode), ApiError> {
++let row = repositories::create_onboarding_steps(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/onboarding_steps/{id}`
++async fn update_onboarding_steps(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchOnboardingSteps>) -> Result<web::Json<OnboardingSteps>, ApiError> {
++repositories::update_onboarding_steps(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingSteps"))
++}
++
++/// `DELETE /api/onboarding_steps/{id}`
++async fn delete_onboarding_steps(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_onboarding_steps(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("OnboardingSteps"))
++}
++}
++
++/// `GET /api/onboarding_workflows`
++async fn list_onboarding_workflows(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OnboardingWorkflows>>, ApiError> {
++Ok(web::Json(repositories::list_onboarding_workflows(pool.get_ref()).await?))
++}
++
++/// `GET /api/onboarding_workflows/{id}`
++async fn get_onboarding_workflows(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<OnboardingWorkflows>, ApiError> {
++repositories::find_onboarding_workflows(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingWorkflows"))
++}
++
++/// `POST /api/onboarding_workflows`
++async fn create_onboarding_workflows(pool: web::Data<PgPool>, input: web::Json<NewOnboardingWorkflows>) -> Result<(web::Json<OnboardingWorkflows>, StatusCode), ApiError> {
++let row = repositories::create_onboarding_workflows(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/onboarding_workflows/{id}`
++async fn update_onboarding_workflows(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchOnboardingWorkflows>) -> Result<web::Json<OnboardingWorkflows>, ApiError> {
++repositories::update_onboarding_workflows(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OnboardingWorkflows"))
++}
++
++/// `DELETE /api/onboarding_workflows/{id}`
++async fn delete_onboarding_workflows(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_onboarding_workflows(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("OnboardingWorkflows"))
++}
++}
++
+ /// `GET /api/one_time_order_fulfillments`
+ async fn list_one_time_order_fulfillments(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OneTimeOrderFulfillments>>, ApiError> {
+ Ok(web::Json(repositories::list_one_time_order_fulfillments(pool.get_ref()).await?))
+@@ -16543,6 +19459,42 @@ Err(ApiError::NotFound("OneTimeOrderFulfillments"))
+ }
+ }
+ 
++/// `GET /api/openai_ads_events_log`
++async fn list_openai_ads_events_log(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OpenaiAdsEventsLog>>, ApiError> {
++Ok(web::Json(repositories::list_openai_ads_events_log(pool.get_ref()).await?))
++}
++
++/// `GET /api/openai_ads_events_log/{id}`
++async fn get_openai_ads_events_log(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<OpenaiAdsEventsLog>, ApiError> {
++repositories::find_openai_ads_events_log(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OpenaiAdsEventsLog"))
++}
++
++/// `POST /api/openai_ads_events_log`
++async fn create_openai_ads_events_log(pool: web::Data<PgPool>, input: web::Json<NewOpenaiAdsEventsLog>) -> Result<(web::Json<OpenaiAdsEventsLog>, StatusCode), ApiError> {
++let row = repositories::create_openai_ads_events_log(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/openai_ads_events_log/{id}`
++async fn update_openai_ads_events_log(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchOpenaiAdsEventsLog>) -> Result<web::Json<OpenaiAdsEventsLog>, ApiError> {
++repositories::update_openai_ads_events_log(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OpenaiAdsEventsLog"))
++}
++
++/// `DELETE /api/openai_ads_events_log/{id}`
++async fn delete_openai_ads_events_log(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_openai_ads_events_log(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("OpenaiAdsEventsLog"))
++}
++}
++
+ /// `GET /api/ops_capacity_policies`
+ async fn list_ops_capacity_policies(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OpsCapacityPolicies>>, ApiError> {
+ Ok(web::Json(repositories::list_ops_capacity_policies(pool.get_ref()).await?))
+@@ -16651,6 +19603,42 @@ Err(ApiError::NotFound("OptimalUpsellTimings"))
+ }
+ }
+ 
++/// `GET /api/order_confirmation_version_continue_control`
++async fn list_order_confirmation_version_continue_control(pool: web::Data<PgPool>) -> Result<web::Json<Vec<OrderConfirmationVersionContinueControl>>, ApiError> {
++Ok(web::Json(repositories::list_order_confirmation_version_continue_control(pool.get_ref()).await?))
++}
++
++/// `GET /api/order_confirmation_version_continue_control/{id}`
++async fn get_order_confirmation_version_continue_control(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<OrderConfirmationVersionContinueControl>, ApiError> {
++repositories::find_order_confirmation_version_continue_control(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OrderConfirmationVersionContinueControl"))
++}
++
++/// `POST /api/order_confirmation_version_continue_control`
++async fn create_order_confirmation_version_continue_control(pool: web::Data<PgPool>, input: web::Json<NewOrderConfirmationVersionContinueControl>) -> Result<(web::Json<OrderConfirmationVersionContinueControl>, StatusCode), ApiError> {
++let row = repositories::create_order_confirmation_version_continue_control(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/order_confirmation_version_continue_control/{id}`
++async fn update_order_confirmation_version_continue_control(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchOrderConfirmationVersionContinueControl>) -> Result<web::Json<OrderConfirmationVersionContinueControl>, ApiError> {
++repositories::update_order_confirmation_version_continue_control(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("OrderConfirmationVersionContinueControl"))
++}
++
++/// `DELETE /api/order_confirmation_version_continue_control/{id}`
++async fn delete_order_confirmation_version_continue_control(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_order_confirmation_version_continue_control(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("OrderConfirmationVersionContinueControl"))
++}
++}
++
+ /// `GET /api/org`
+ async fn list_org(pool: web::Data<PgPool>) -> Result<web::Json<Vec<Org>>, ApiError> {
+ Ok(web::Json(repositories::list_org(pool.get_ref()).await?))
+@@ -17047,6 +20035,42 @@ Err(ApiError::NotFound("Page"))
+ }
+ }
+ 
++/// `GET /api/page_aeo_audit`
++async fn list_page_aeo_audit(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PageAeoAudit>>, ApiError> {
++Ok(web::Json(repositories::list_page_aeo_audit(pool.get_ref()).await?))
++}
++
++/// `GET /api/page_aeo_audit/{id}`
++async fn get_page_aeo_audit(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<PageAeoAudit>, ApiError> {
++repositories::find_page_aeo_audit(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PageAeoAudit"))
++}
++
++/// `POST /api/page_aeo_audit`
++async fn create_page_aeo_audit(pool: web::Data<PgPool>, input: web::Json<NewPageAeoAudit>) -> Result<(web::Json<PageAeoAudit>, StatusCode), ApiError> {
++let row = repositories::create_page_aeo_audit(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/page_aeo_audit/{id}`
++async fn update_page_aeo_audit(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchPageAeoAudit>) -> Result<web::Json<PageAeoAudit>, ApiError> {
++repositories::update_page_aeo_audit(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PageAeoAudit"))
++}
++
++/// `DELETE /api/page_aeo_audit/{id}`
++async fn delete_page_aeo_audit(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_page_aeo_audit(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("PageAeoAudit"))
++}
++}
++
+ /// `GET /api/page_content`
+ async fn list_page_content(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PageContent>>, ApiError> {
+ Ok(web::Json(repositories::list_page_content(pool.get_ref()).await?))
+@@ -17371,6 +20395,42 @@ Err(ApiError::NotFound("PartnerMaterials"))
+ }
+ }
+ 
++/// `GET /api/partner_payout_reminder_log`
++async fn list_partner_payout_reminder_log(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PartnerPayoutReminderLog>>, ApiError> {
++Ok(web::Json(repositories::list_partner_payout_reminder_log(pool.get_ref()).await?))
++}
++
++/// `GET /api/partner_payout_reminder_log/{id}`
++async fn get_partner_payout_reminder_log(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<PartnerPayoutReminderLog>, ApiError> {
++repositories::find_partner_payout_reminder_log(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PartnerPayoutReminderLog"))
++}
++
++/// `POST /api/partner_payout_reminder_log`
++async fn create_partner_payout_reminder_log(pool: web::Data<PgPool>, input: web::Json<NewPartnerPayoutReminderLog>) -> Result<(web::Json<PartnerPayoutReminderLog>, StatusCode), ApiError> {
++let row = repositories::create_partner_payout_reminder_log(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/partner_payout_reminder_log/{id}`
++async fn update_partner_payout_reminder_log(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchPartnerPayoutReminderLog>) -> Result<web::Json<PartnerPayoutReminderLog>, ApiError> {
++repositories::update_partner_payout_reminder_log(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PartnerPayoutReminderLog"))
++}
++
++/// `DELETE /api/partner_payout_reminder_log/{id}`
++async fn delete_partner_payout_reminder_log(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_partner_payout_reminder_log(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("PartnerPayoutReminderLog"))
++}
++}
++
+ /// `GET /api/partner_payouts`
+ async fn list_partner_payouts(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PartnerPayouts>>, ApiError> {
+ Ok(web::Json(repositories::list_partner_payouts(pool.get_ref()).await?))
+@@ -17551,6 +20611,42 @@ Err(ApiError::NotFound("PaymentFailures"))
+ }
+ }
+ 
++/// `GET /api/payment_retries`
++async fn list_payment_retries(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PaymentRetries>>, ApiError> {
++Ok(web::Json(repositories::list_payment_retries(pool.get_ref()).await?))
++}
++
++/// `GET /api/payment_retries/{id}`
++async fn get_payment_retries(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<PaymentRetries>, ApiError> {
++repositories::find_payment_retries(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PaymentRetries"))
++}
++
++/// `POST /api/payment_retries`
++async fn create_payment_retries(pool: web::Data<PgPool>, input: web::Json<NewPaymentRetries>) -> Result<(web::Json<PaymentRetries>, StatusCode), ApiError> {
++let row = repositories::create_payment_retries(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/payment_retries/{id}`
++async fn update_payment_retries(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchPaymentRetries>) -> Result<web::Json<PaymentRetries>, ApiError> {
++repositories::update_payment_retries(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PaymentRetries"))
++}
++
++/// `DELETE /api/payment_retries/{id}`
++async fn delete_payment_retries(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_payment_retries(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("PaymentRetries"))
++}
++}
++
+ /// `GET /api/payment_retry_events`
+ async fn list_payment_retry_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PaymentRetryEvents>>, ApiError> {
+ Ok(web::Json(repositories::list_payment_retry_events(pool.get_ref()).await?))
+@@ -17587,6 +20683,42 @@ Err(ApiError::NotFound("PaymentRetryEvents"))
+ }
+ }
+ 
++/// `GET /api/pdf_import_sessions`
++async fn list_pdf_import_sessions(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PdfImportSessions>>, ApiError> {
++Ok(web::Json(repositories::list_pdf_import_sessions(pool.get_ref()).await?))
++}
++
++/// `GET /api/pdf_import_sessions/{id}`
++async fn get_pdf_import_sessions(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<PdfImportSessions>, ApiError> {
++repositories::find_pdf_import_sessions(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PdfImportSessions"))
++}
++
++/// `POST /api/pdf_import_sessions`
++async fn create_pdf_import_sessions(pool: web::Data<PgPool>, input: web::Json<NewPdfImportSessions>) -> Result<(web::Json<PdfImportSessions>, StatusCode), ApiError> {
++let row = repositories::create_pdf_import_sessions(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/pdf_import_sessions/{id}`
++async fn update_pdf_import_sessions(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchPdfImportSessions>) -> Result<web::Json<PdfImportSessions>, ApiError> {
++repositories::update_pdf_import_sessions(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PdfImportSessions"))
++}
++
++/// `DELETE /api/pdf_import_sessions/{id}`
++async fn delete_pdf_import_sessions(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_pdf_import_sessions(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("PdfImportSessions"))
++}
++}
++
+ /// `GET /api/permission`
+ async fn list_permission(pool: web::Data<PgPool>) -> Result<web::Json<Vec<Permission>>, ApiError> {
+ Ok(web::Json(repositories::list_permission(pool.get_ref()).await?))
+@@ -17695,6 +20827,42 @@ Err(ApiError::NotFound("PhoneCallRecordings"))
+ }
+ }
+ 
++/// `GET /api/plaid_integrations`
++async fn list_plaid_integrations(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PlaidIntegrations>>, ApiError> {
++Ok(web::Json(repositories::list_plaid_integrations(pool.get_ref()).await?))
++}
++
++/// `GET /api/plaid_integrations/{id}`
++async fn get_plaid_integrations(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<PlaidIntegrations>, ApiError> {
++repositories::find_plaid_integrations(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PlaidIntegrations"))
++}
++
++/// `POST /api/plaid_integrations`
++async fn create_plaid_integrations(pool: web::Data<PgPool>, input: web::Json<NewPlaidIntegrations>) -> Result<(web::Json<PlaidIntegrations>, StatusCode), ApiError> {
++let row = repositories::create_plaid_integrations(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/plaid_integrations/{id}`
++async fn update_plaid_integrations(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchPlaidIntegrations>) -> Result<web::Json<PlaidIntegrations>, ApiError> {
++repositories::update_plaid_integrations(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PlaidIntegrations"))
++}
++
++/// `DELETE /api/plaid_integrations/{id}`
++async fn delete_plaid_integrations(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_plaid_integrations(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("PlaidIntegrations"))
++}
++}
++
+ /// `GET /api/plan_analytics_daily`
+ async fn list_plan_analytics_daily(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PlanAnalyticsDaily>>, ApiError> {
+ Ok(web::Json(repositories::list_plan_analytics_daily(pool.get_ref()).await?))
+@@ -17731,6 +20899,42 @@ Err(ApiError::NotFound("PlanAnalyticsDaily"))
+ }
+ }
+ 
++/// `GET /api/plan_limits`
++async fn list_plan_limits(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PlanLimits>>, ApiError> {
++Ok(web::Json(repositories::list_plan_limits(pool.get_ref()).await?))
++}
++
++/// `GET /api/plan_limits/{id}`
++async fn get_plan_limits(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<web::Json<PlanLimits>, ApiError> {
++repositories::find_plan_limits(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PlanLimits"))
++}
++
++/// `POST /api/plan_limits`
++async fn create_plan_limits(pool: web::Data<PgPool>, input: web::Json<NewPlanLimits>) -> Result<(web::Json<PlanLimits>, StatusCode), ApiError> {
++let row = repositories::create_plan_limits(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/plan_limits/{id}`
++async fn update_plan_limits(pool: web::Data<PgPool>, id: web::Path<String>, input: web::Json<PatchPlanLimits>) -> Result<web::Json<PlanLimits>, ApiError> {
++repositories::update_plan_limits(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PlanLimits"))
++}
++
++/// `DELETE /api/plan_limits/{id}`
++async fn delete_plan_limits(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_plan_limits(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("PlanLimits"))
++}
++}
++
+ /// `GET /api/platform_trash_zone_mappings`
+ async fn list_platform_trash_zone_mappings(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PlatformTrashZoneMappings>>, ApiError> {
+ Ok(web::Json(repositories::list_platform_trash_zone_mappings(pool.get_ref()).await?))
+@@ -18055,6 +21259,42 @@ Err(ApiError::NotFound("Post"))
+ }
+ }
+ 
++/// `GET /api/post_aeo_audit`
++async fn list_post_aeo_audit(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PostAeoAudit>>, ApiError> {
++Ok(web::Json(repositories::list_post_aeo_audit(pool.get_ref()).await?))
++}
++
++/// `GET /api/post_aeo_audit/{id}`
++async fn get_post_aeo_audit(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<PostAeoAudit>, ApiError> {
++repositories::find_post_aeo_audit(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PostAeoAudit"))
++}
++
++/// `POST /api/post_aeo_audit`
++async fn create_post_aeo_audit(pool: web::Data<PgPool>, input: web::Json<NewPostAeoAudit>) -> Result<(web::Json<PostAeoAudit>, StatusCode), ApiError> {
++let row = repositories::create_post_aeo_audit(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/post_aeo_audit/{id}`
++async fn update_post_aeo_audit(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchPostAeoAudit>) -> Result<web::Json<PostAeoAudit>, ApiError> {
++repositories::update_post_aeo_audit(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PostAeoAudit"))
++}
++
++/// `DELETE /api/post_aeo_audit/{id}`
++async fn delete_post_aeo_audit(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_post_aeo_audit(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("PostAeoAudit"))
++}
++}
++
+ /// `GET /api/post_categories`
+ async fn list_post_categories(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PostCategories>>, ApiError> {
+ Ok(web::Json(repositories::list_post_categories(pool.get_ref()).await?))
+@@ -18091,42 +21331,6 @@ Err(ApiError::NotFound("PostCategories"))
+ }
+ }
+ 
+-/// `GET /api/post_redirects`
+-async fn list_post_redirects(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PostRedirects>>, ApiError> {
+-Ok(web::Json(repositories::list_post_redirects(pool.get_ref()).await?))
+-}
+-
+-/// `GET /api/post_redirects/{id}`
+-async fn get_post_redirects(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<PostRedirects>, ApiError> {
+-repositories::find_post_redirects(pool.get_ref(), id.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("PostRedirects"))
+-}
+-
+-/// `POST /api/post_redirects`
+-async fn create_post_redirects(pool: web::Data<PgPool>, input: web::Json<NewPostRedirects>) -> Result<(web::Json<PostRedirects>, StatusCode), ApiError> {
+-let row = repositories::create_post_redirects(pool.get_ref(), input.into_inner()).await?;
+-Ok((web::Json(row), StatusCode::CREATED))
+-}
+-
+-/// `PATCH /api/post_redirects/{id}`
+-async fn update_post_redirects(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchPostRedirects>) -> Result<web::Json<PostRedirects>, ApiError> {
+-repositories::update_post_redirects(pool.get_ref(), id.into_inner(), input.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("PostRedirects"))
+-}
+-
+-/// `DELETE /api/post_redirects/{id}`
+-async fn delete_post_redirects(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
+-if repositories::delete_post_redirects(pool.get_ref(), id.into_inner()).await? {
+-Ok(HttpResponse::NoContent().finish())
+-} else {
+-Err(ApiError::NotFound("PostRedirects"))
+-}
+-}
+-
+ /// `GET /api/postcard_designs`
+ async fn list_postcard_designs(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PostcardDesigns>>, ApiError> {
+ Ok(web::Json(repositories::list_postcard_designs(pool.get_ref()).await?))
+@@ -18595,6 +21799,42 @@ Err(ApiError::NotFound("PublishLogs"))
+ }
+ }
+ 
++/// `GET /api/purchase_events`
++async fn list_purchase_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<PurchaseEvents>>, ApiError> {
++Ok(web::Json(repositories::list_purchase_events(pool.get_ref()).await?))
++}
++
++/// `GET /api/purchase_events/{id}`
++async fn get_purchase_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<PurchaseEvents>, ApiError> {
++repositories::find_purchase_events(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PurchaseEvents"))
++}
++
++/// `POST /api/purchase_events`
++async fn create_purchase_events(pool: web::Data<PgPool>, input: web::Json<NewPurchaseEvents>) -> Result<(web::Json<PurchaseEvents>, StatusCode), ApiError> {
++let row = repositories::create_purchase_events(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/purchase_events/{id}`
++async fn update_purchase_events(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchPurchaseEvents>) -> Result<web::Json<PurchaseEvents>, ApiError> {
++repositories::update_purchase_events(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("PurchaseEvents"))
++}
++
++/// `DELETE /api/purchase_events/{id}`
++async fn delete_purchase_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_purchase_events(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("PurchaseEvents"))
++}
++}
++
+ /// `GET /api/purchases`
+ async fn list_purchases(pool: web::Data<PgPool>) -> Result<web::Json<Vec<Purchases>>, ApiError> {
+ Ok(web::Json(repositories::list_purchases(pool.get_ref()).await?))
+@@ -18739,6 +21979,42 @@ Err(ApiError::NotFound("QrFeaturedProducts"))
+ }
+ }
+ 
++/// `GET /api/qr_revenue_snapshots`
++async fn list_qr_revenue_snapshots(pool: web::Data<PgPool>) -> Result<web::Json<Vec<QrRevenueSnapshots>>, ApiError> {
++Ok(web::Json(repositories::list_qr_revenue_snapshots(pool.get_ref()).await?))
++}
++
++/// `GET /api/qr_revenue_snapshots/{id}`
++async fn get_qr_revenue_snapshots(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<QrRevenueSnapshots>, ApiError> {
++repositories::find_qr_revenue_snapshots(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("QrRevenueSnapshots"))
++}
++
++/// `POST /api/qr_revenue_snapshots`
++async fn create_qr_revenue_snapshots(pool: web::Data<PgPool>, input: web::Json<NewQrRevenueSnapshots>) -> Result<(web::Json<QrRevenueSnapshots>, StatusCode), ApiError> {
++let row = repositories::create_qr_revenue_snapshots(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/qr_revenue_snapshots/{id}`
++async fn update_qr_revenue_snapshots(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchQrRevenueSnapshots>) -> Result<web::Json<QrRevenueSnapshots>, ApiError> {
++repositories::update_qr_revenue_snapshots(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("QrRevenueSnapshots"))
++}
++
++/// `DELETE /api/qr_revenue_snapshots/{id}`
++async fn delete_qr_revenue_snapshots(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_qr_revenue_snapshots(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("QrRevenueSnapshots"))
++}
++}
++
+ /// `GET /api/qr_zones`
+ async fn list_qr_zones(pool: web::Data<PgPool>) -> Result<web::Json<Vec<QrZones>>, ApiError> {
+ Ok(web::Json(repositories::list_qr_zones(pool.get_ref()).await?))
+@@ -19099,6 +22375,42 @@ Err(ApiError::NotFound("Recordings"))
+ }
+ }
+ 
++/// `GET /api/recurring_revenue_accounts`
++async fn list_recurring_revenue_accounts(pool: web::Data<PgPool>) -> Result<web::Json<Vec<RecurringRevenueAccounts>>, ApiError> {
++Ok(web::Json(repositories::list_recurring_revenue_accounts(pool.get_ref()).await?))
++}
++
++/// `GET /api/recurring_revenue_accounts/{id}`
++async fn get_recurring_revenue_accounts(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<RecurringRevenueAccounts>, ApiError> {
++repositories::find_recurring_revenue_accounts(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("RecurringRevenueAccounts"))
++}
++
++/// `POST /api/recurring_revenue_accounts`
++async fn create_recurring_revenue_accounts(pool: web::Data<PgPool>, input: web::Json<NewRecurringRevenueAccounts>) -> Result<(web::Json<RecurringRevenueAccounts>, StatusCode), ApiError> {
++let row = repositories::create_recurring_revenue_accounts(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/recurring_revenue_accounts/{id}`
++async fn update_recurring_revenue_accounts(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchRecurringRevenueAccounts>) -> Result<web::Json<RecurringRevenueAccounts>, ApiError> {
++repositories::update_recurring_revenue_accounts(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("RecurringRevenueAccounts"))
++}
++
++/// `DELETE /api/recurring_revenue_accounts/{id}`
++async fn delete_recurring_revenue_accounts(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_recurring_revenue_accounts(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("RecurringRevenueAccounts"))
++}
++}
++
+ /// `GET /api/referral_clicks`
+ async fn list_referral_clicks(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ReferralClicks>>, ApiError> {
+ Ok(web::Json(repositories::list_referral_clicks(pool.get_ref()).await?))
+@@ -19207,6 +22519,42 @@ Err(ApiError::NotFound("ReferralConversionTriggers"))
+ }
+ }
+ 
++/// `GET /api/referral_daily_metrics`
++async fn list_referral_daily_metrics(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ReferralDailyMetrics>>, ApiError> {
++Ok(web::Json(repositories::list_referral_daily_metrics(pool.get_ref()).await?))
++}
++
++/// `GET /api/referral_daily_metrics/{id}`
++async fn get_referral_daily_metrics(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<ReferralDailyMetrics>, ApiError> {
++repositories::find_referral_daily_metrics(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ReferralDailyMetrics"))
++}
++
++/// `POST /api/referral_daily_metrics`
++async fn create_referral_daily_metrics(pool: web::Data<PgPool>, input: web::Json<NewReferralDailyMetrics>) -> Result<(web::Json<ReferralDailyMetrics>, StatusCode), ApiError> {
++let row = repositories::create_referral_daily_metrics(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/referral_daily_metrics/{id}`
++async fn update_referral_daily_metrics(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchReferralDailyMetrics>) -> Result<web::Json<ReferralDailyMetrics>, ApiError> {
++repositories::update_referral_daily_metrics(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ReferralDailyMetrics"))
++}
++
++/// `DELETE /api/referral_daily_metrics/{id}`
++async fn delete_referral_daily_metrics(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_referral_daily_metrics(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("ReferralDailyMetrics"))
++}
++}
++
+ /// `GET /api/referral_leaderboard`
+ async fn list_referral_leaderboard(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ReferralLeaderboard>>, ApiError> {
+ Ok(web::Json(repositories::list_referral_leaderboard(pool.get_ref()).await?))
+@@ -20071,6 +23419,78 @@ Err(ApiError::NotFound("RouteChallenges"))
+ }
+ }
+ 
++/// `GET /api/route_cost_configs`
++async fn list_route_cost_configs(pool: web::Data<PgPool>) -> Result<web::Json<Vec<RouteCostConfigs>>, ApiError> {
++Ok(web::Json(repositories::list_route_cost_configs(pool.get_ref()).await?))
++}
++
++/// `GET /api/route_cost_configs/{id}`
++async fn get_route_cost_configs(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<RouteCostConfigs>, ApiError> {
++repositories::find_route_cost_configs(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("RouteCostConfigs"))
++}
++
++/// `POST /api/route_cost_configs`
++async fn create_route_cost_configs(pool: web::Data<PgPool>, input: web::Json<NewRouteCostConfigs>) -> Result<(web::Json<RouteCostConfigs>, StatusCode), ApiError> {
++let row = repositories::create_route_cost_configs(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/route_cost_configs/{id}`
++async fn update_route_cost_configs(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchRouteCostConfigs>) -> Result<web::Json<RouteCostConfigs>, ApiError> {
++repositories::update_route_cost_configs(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("RouteCostConfigs"))
++}
++
++/// `DELETE /api/route_cost_configs/{id}`
++async fn delete_route_cost_configs(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_route_cost_configs(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("RouteCostConfigs"))
++}
++}
++
++/// `GET /api/route_density_metrics_log`
++async fn list_route_density_metrics_log(pool: web::Data<PgPool>) -> Result<web::Json<Vec<RouteDensityMetricsLog>>, ApiError> {
++Ok(web::Json(repositories::list_route_density_metrics_log(pool.get_ref()).await?))
++}
++
++/// `GET /api/route_density_metrics_log/{id}`
++async fn get_route_density_metrics_log(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<RouteDensityMetricsLog>, ApiError> {
++repositories::find_route_density_metrics_log(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("RouteDensityMetricsLog"))
++}
++
++/// `POST /api/route_density_metrics_log`
++async fn create_route_density_metrics_log(pool: web::Data<PgPool>, input: web::Json<NewRouteDensityMetricsLog>) -> Result<(web::Json<RouteDensityMetricsLog>, StatusCode), ApiError> {
++let row = repositories::create_route_density_metrics_log(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/route_density_metrics_log/{id}`
++async fn update_route_density_metrics_log(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchRouteDensityMetricsLog>) -> Result<web::Json<RouteDensityMetricsLog>, ApiError> {
++repositories::update_route_density_metrics_log(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("RouteDensityMetricsLog"))
++}
++
++/// `DELETE /api/route_density_metrics_log/{id}`
++async fn delete_route_density_metrics_log(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_route_density_metrics_log(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("RouteDensityMetricsLog"))
++}
++}
++
+ /// `GET /api/route_density_tiers`
+ async fn list_route_density_tiers(pool: web::Data<PgPool>) -> Result<web::Json<Vec<RouteDensityTiers>>, ApiError> {
+ Ok(web::Json(repositories::list_route_density_tiers(pool.get_ref()).await?))
+@@ -20287,6 +23707,42 @@ Err(ApiError::NotFound("RouteProfitabilitySnapshots"))
+ }
+ }
+ 
++/// `GET /api/route_rebalancing_changes`
++async fn list_route_rebalancing_changes(pool: web::Data<PgPool>) -> Result<web::Json<Vec<RouteRebalancingChanges>>, ApiError> {
++Ok(web::Json(repositories::list_route_rebalancing_changes(pool.get_ref()).await?))
++}
++
++/// `GET /api/route_rebalancing_changes/{id}`
++async fn get_route_rebalancing_changes(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<RouteRebalancingChanges>, ApiError> {
++repositories::find_route_rebalancing_changes(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("RouteRebalancingChanges"))
++}
++
++/// `POST /api/route_rebalancing_changes`
++async fn create_route_rebalancing_changes(pool: web::Data<PgPool>, input: web::Json<NewRouteRebalancingChanges>) -> Result<(web::Json<RouteRebalancingChanges>, StatusCode), ApiError> {
++let row = repositories::create_route_rebalancing_changes(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/route_rebalancing_changes/{id}`
++async fn update_route_rebalancing_changes(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchRouteRebalancingChanges>) -> Result<web::Json<RouteRebalancingChanges>, ApiError> {
++repositories::update_route_rebalancing_changes(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("RouteRebalancingChanges"))
++}
++
++/// `DELETE /api/route_rebalancing_changes/{id}`
++async fn delete_route_rebalancing_changes(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_route_rebalancing_changes(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("RouteRebalancingChanges"))
++}
++}
++
+ /// `GET /api/route_rebalancing_config`
+ async fn list_route_rebalancing_config(pool: web::Data<PgPool>) -> Result<web::Json<Vec<RouteRebalancingConfig>>, ApiError> {
+ Ok(web::Json(repositories::list_route_rebalancing_config(pool.get_ref()).await?))
+@@ -20359,39 +23815,75 @@ Err(ApiError::NotFound("RouteRebalancingHistory"))
+ }
+ }
+ 
+-/// `GET /api/route_stop_assignment_invariant_migration_state`
+-async fn list_route_stop_assignment_invariant_migration_state(pool: web::Data<PgPool>) -> Result<web::Json<Vec<RouteStopAssignmentInvariantMigrationState>>, ApiError> {
+-Ok(web::Json(repositories::list_route_stop_assignment_invariant_migration_state(pool.get_ref()).await?))
++/// `GET /api/route_rebalancing_runs`
++async fn list_route_rebalancing_runs(pool: web::Data<PgPool>) -> Result<web::Json<Vec<RouteRebalancingRuns>>, ApiError> {
++Ok(web::Json(repositories::list_route_rebalancing_runs(pool.get_ref()).await?))
+ }
+ 
+-/// `GET /api/route_stop_assignment_invariant_migration_state/{id}`
+-async fn get_route_stop_assignment_invariant_migration_state(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<web::Json<RouteStopAssignmentInvariantMigrationState>, ApiError> {
+-repositories::find_route_stop_assignment_invariant_migration_state(pool.get_ref(), id.into_inner())
++/// `GET /api/route_rebalancing_runs/{id}`
++async fn get_route_rebalancing_runs(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<RouteRebalancingRuns>, ApiError> {
++repositories::find_route_rebalancing_runs(pool.get_ref(), id.into_inner())
+ .await?
+ .map(web::Json)
+-.ok_or(ApiError::NotFound("RouteStopAssignmentInvariantMigrationState"))
++.ok_or(ApiError::NotFound("RouteRebalancingRuns"))
+ }
+ 
+-/// `POST /api/route_stop_assignment_invariant_migration_state`
+-async fn create_route_stop_assignment_invariant_migration_state(pool: web::Data<PgPool>, input: web::Json<NewRouteStopAssignmentInvariantMigrationState>) -> Result<(web::Json<RouteStopAssignmentInvariantMigrationState>, StatusCode), ApiError> {
+-let row = repositories::create_route_stop_assignment_invariant_migration_state(pool.get_ref(), input.into_inner()).await?;
++/// `POST /api/route_rebalancing_runs`
++async fn create_route_rebalancing_runs(pool: web::Data<PgPool>, input: web::Json<NewRouteRebalancingRuns>) -> Result<(web::Json<RouteRebalancingRuns>, StatusCode), ApiError> {
++let row = repositories::create_route_rebalancing_runs(pool.get_ref(), input.into_inner()).await?;
+ Ok((web::Json(row), StatusCode::CREATED))
+ }
+ 
+-/// `PATCH /api/route_stop_assignment_invariant_migration_state/{id}`
+-async fn update_route_stop_assignment_invariant_migration_state(pool: web::Data<PgPool>, id: web::Path<String>, input: web::Json<PatchRouteStopAssignmentInvariantMigrationState>) -> Result<web::Json<RouteStopAssignmentInvariantMigrationState>, ApiError> {
+-repositories::update_route_stop_assignment_invariant_migration_state(pool.get_ref(), id.into_inner(), input.into_inner())
++/// `PATCH /api/route_rebalancing_runs/{id}`
++async fn update_route_rebalancing_runs(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchRouteRebalancingRuns>) -> Result<web::Json<RouteRebalancingRuns>, ApiError> {
++repositories::update_route_rebalancing_runs(pool.get_ref(), id.into_inner(), input.into_inner())
+ .await?
+ .map(web::Json)
+-.ok_or(ApiError::NotFound("RouteStopAssignmentInvariantMigrationState"))
++.ok_or(ApiError::NotFound("RouteRebalancingRuns"))
+ }
+ 
+-/// `DELETE /api/route_stop_assignment_invariant_migration_state/{id}`
+-async fn delete_route_stop_assignment_invariant_migration_state(pool: web::Data<PgPool>, id: web::Path<String>) -> Result<HttpResponse, ApiError> {
+-if repositories::delete_route_stop_assignment_invariant_migration_state(pool.get_ref(), id.into_inner()).await? {
++/// `DELETE /api/route_rebalancing_runs/{id}`
++async fn delete_route_rebalancing_runs(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_route_rebalancing_runs(pool.get_ref(), id.into_inner()).await? {
+ Ok(HttpResponse::NoContent().finish())
+ } else {
+-Err(ApiError::NotFound("RouteStopAssignmentInvariantMigrationState"))
++Err(ApiError::NotFound("RouteRebalancingRuns"))
++}
++}
++
++/// `GET /api/route_scaling_metrics`
++async fn list_route_scaling_metrics(pool: web::Data<PgPool>) -> Result<web::Json<Vec<RouteScalingMetrics>>, ApiError> {
++Ok(web::Json(repositories::list_route_scaling_metrics(pool.get_ref()).await?))
++}
++
++/// `GET /api/route_scaling_metrics/{id}`
++async fn get_route_scaling_metrics(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<RouteScalingMetrics>, ApiError> {
++repositories::find_route_scaling_metrics(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("RouteScalingMetrics"))
++}
++
++/// `POST /api/route_scaling_metrics`
++async fn create_route_scaling_metrics(pool: web::Data<PgPool>, input: web::Json<NewRouteScalingMetrics>) -> Result<(web::Json<RouteScalingMetrics>, StatusCode), ApiError> {
++let row = repositories::create_route_scaling_metrics(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/route_scaling_metrics/{id}`
++async fn update_route_scaling_metrics(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchRouteScalingMetrics>) -> Result<web::Json<RouteScalingMetrics>, ApiError> {
++repositories::update_route_scaling_metrics(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("RouteScalingMetrics"))
++}
++
++/// `DELETE /api/route_scaling_metrics/{id}`
++async fn delete_route_scaling_metrics(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_route_scaling_metrics(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("RouteScalingMetrics"))
+ }
+ }
+ 
+@@ -20539,6 +24031,42 @@ Err(ApiError::NotFound("RrwebEvents"))
+ }
+ }
+ 
++/// `GET /api/sales_automation_events`
++async fn list_sales_automation_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SalesAutomationEvents>>, ApiError> {
++Ok(web::Json(repositories::list_sales_automation_events(pool.get_ref()).await?))
++}
++
++/// `GET /api/sales_automation_events/{id}`
++async fn get_sales_automation_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<SalesAutomationEvents>, ApiError> {
++repositories::find_sales_automation_events(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SalesAutomationEvents"))
++}
++
++/// `POST /api/sales_automation_events`
++async fn create_sales_automation_events(pool: web::Data<PgPool>, input: web::Json<NewSalesAutomationEvents>) -> Result<(web::Json<SalesAutomationEvents>, StatusCode), ApiError> {
++let row = repositories::create_sales_automation_events(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/sales_automation_events/{id}`
++async fn update_sales_automation_events(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchSalesAutomationEvents>) -> Result<web::Json<SalesAutomationEvents>, ApiError> {
++repositories::update_sales_automation_events(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SalesAutomationEvents"))
++}
++
++/// `DELETE /api/sales_automation_events/{id}`
++async fn delete_sales_automation_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_sales_automation_events(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("SalesAutomationEvents"))
++}
++}
++
+ /// `GET /api/sales_dialer_call_activities`
+ async fn list_sales_dialer_call_activities(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SalesDialerCallActivities>>, ApiError> {
+ Ok(web::Json(repositories::list_sales_dialer_call_activities(pool.get_ref()).await?))
+@@ -20683,6 +24211,42 @@ Err(ApiError::NotFound("ScanEvents"))
+ }
+ }
+ 
++/// `GET /api/scheduled_sms`
++async fn list_scheduled_sms(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ScheduledSms>>, ApiError> {
++Ok(web::Json(repositories::list_scheduled_sms(pool.get_ref()).await?))
++}
++
++/// `GET /api/scheduled_sms/{id}`
++async fn get_scheduled_sms(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<ScheduledSms>, ApiError> {
++repositories::find_scheduled_sms(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ScheduledSms"))
++}
++
++/// `POST /api/scheduled_sms`
++async fn create_scheduled_sms(pool: web::Data<PgPool>, input: web::Json<NewScheduledSms>) -> Result<(web::Json<ScheduledSms>, StatusCode), ApiError> {
++let row = repositories::create_scheduled_sms(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/scheduled_sms/{id}`
++async fn update_scheduled_sms(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchScheduledSms>) -> Result<web::Json<ScheduledSms>, ApiError> {
++repositories::update_scheduled_sms(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ScheduledSms"))
++}
++
++/// `DELETE /api/scheduled_sms/{id}`
++async fn delete_scheduled_sms(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_scheduled_sms(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("ScheduledSms"))
++}
++}
++
+ /// `GET /api/seamless_checkout_drafts`
+ async fn list_seamless_checkout_drafts(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SeamlessCheckoutDrafts>>, ApiError> {
+ Ok(web::Json(repositories::list_seamless_checkout_drafts(pool.get_ref()).await?))
+@@ -21151,6 +24715,114 @@ Err(ApiError::NotFound("Secrets"))
+ }
+ }
+ 
++/// `GET /api/secure_action_audit_events`
++async fn list_secure_action_audit_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SecureActionAuditEvents>>, ApiError> {
++Ok(web::Json(repositories::list_secure_action_audit_events(pool.get_ref()).await?))
++}
++
++/// `GET /api/secure_action_audit_events/{id}`
++async fn get_secure_action_audit_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<SecureActionAuditEvents>, ApiError> {
++repositories::find_secure_action_audit_events(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SecureActionAuditEvents"))
++}
++
++/// `POST /api/secure_action_audit_events`
++async fn create_secure_action_audit_events(pool: web::Data<PgPool>, input: web::Json<NewSecureActionAuditEvents>) -> Result<(web::Json<SecureActionAuditEvents>, StatusCode), ApiError> {
++let row = repositories::create_secure_action_audit_events(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/secure_action_audit_events/{id}`
++async fn update_secure_action_audit_events(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchSecureActionAuditEvents>) -> Result<web::Json<SecureActionAuditEvents>, ApiError> {
++repositories::update_secure_action_audit_events(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SecureActionAuditEvents"))
++}
++
++/// `DELETE /api/secure_action_audit_events/{id}`
++async fn delete_secure_action_audit_events(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_secure_action_audit_events(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("SecureActionAuditEvents"))
++}
++}
++
++/// `GET /api/secure_action_capabilities`
++async fn list_secure_action_capabilities(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SecureActionCapabilities>>, ApiError> {
++Ok(web::Json(repositories::list_secure_action_capabilities(pool.get_ref()).await?))
++}
++
++/// `GET /api/secure_action_capabilities/{id}`
++async fn get_secure_action_capabilities(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<SecureActionCapabilities>, ApiError> {
++repositories::find_secure_action_capabilities(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SecureActionCapabilities"))
++}
++
++/// `POST /api/secure_action_capabilities`
++async fn create_secure_action_capabilities(pool: web::Data<PgPool>, input: web::Json<NewSecureActionCapabilities>) -> Result<(web::Json<SecureActionCapabilities>, StatusCode), ApiError> {
++let row = repositories::create_secure_action_capabilities(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/secure_action_capabilities/{id}`
++async fn update_secure_action_capabilities(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchSecureActionCapabilities>) -> Result<web::Json<SecureActionCapabilities>, ApiError> {
++repositories::update_secure_action_capabilities(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SecureActionCapabilities"))
++}
++
++/// `DELETE /api/secure_action_capabilities/{id}`
++async fn delete_secure_action_capabilities(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_secure_action_capabilities(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("SecureActionCapabilities"))
++}
++}
++
++/// `GET /api/secure_action_commands`
++async fn list_secure_action_commands(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SecureActionCommands>>, ApiError> {
++Ok(web::Json(repositories::list_secure_action_commands(pool.get_ref()).await?))
++}
++
++/// `GET /api/secure_action_commands/{id}`
++async fn get_secure_action_commands(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<SecureActionCommands>, ApiError> {
++repositories::find_secure_action_commands(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SecureActionCommands"))
++}
++
++/// `POST /api/secure_action_commands`
++async fn create_secure_action_commands(pool: web::Data<PgPool>, input: web::Json<NewSecureActionCommands>) -> Result<(web::Json<SecureActionCommands>, StatusCode), ApiError> {
++let row = repositories::create_secure_action_commands(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/secure_action_commands/{id}`
++async fn update_secure_action_commands(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchSecureActionCommands>) -> Result<web::Json<SecureActionCommands>, ApiError> {
++repositories::update_secure_action_commands(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SecureActionCommands"))
++}
++
++/// `DELETE /api/secure_action_commands/{id}`
++async fn delete_secure_action_commands(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_secure_action_commands(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("SecureActionCommands"))
++}
++}
++
+ /// `GET /api/seed_assignment`
+ async fn list_seed_assignment(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SeedAssignment>>, ApiError> {
+ Ok(web::Json(repositories::list_seed_assignment(pool.get_ref()).await?))
+@@ -21187,6 +24859,42 @@ Err(ApiError::NotFound("SeedAssignment"))
+ }
+ }
+ 
++/// `GET /api/segment_offer_mappings`
++async fn list_segment_offer_mappings(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SegmentOfferMappings>>, ApiError> {
++Ok(web::Json(repositories::list_segment_offer_mappings(pool.get_ref()).await?))
++}
++
++/// `GET /api/segment_offer_mappings/{id}`
++async fn get_segment_offer_mappings(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<SegmentOfferMappings>, ApiError> {
++repositories::find_segment_offer_mappings(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SegmentOfferMappings"))
++}
++
++/// `POST /api/segment_offer_mappings`
++async fn create_segment_offer_mappings(pool: web::Data<PgPool>, input: web::Json<NewSegmentOfferMappings>) -> Result<(web::Json<SegmentOfferMappings>, StatusCode), ApiError> {
++let row = repositories::create_segment_offer_mappings(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/segment_offer_mappings/{id}`
++async fn update_segment_offer_mappings(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchSegmentOfferMappings>) -> Result<web::Json<SegmentOfferMappings>, ApiError> {
++repositories::update_segment_offer_mappings(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SegmentOfferMappings"))
++}
++
++/// `DELETE /api/segment_offer_mappings/{id}`
++async fn delete_segment_offer_mappings(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_segment_offer_mappings(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("SegmentOfferMappings"))
++}
++}
++
+ /// `GET /api/segments`
+ async fn list_segments(pool: web::Data<PgPool>) -> Result<web::Json<Vec<Segments>>, ApiError> {
+ Ok(web::Json(repositories::list_segments(pool.get_ref()).await?))
+@@ -21619,6 +25327,150 @@ Err(ApiError::NotFound("ServiceBookings"))
+ }
+ }
+ 
++/// `GET /api/service_calendar_charge_acknowledgment`
++async fn list_service_calendar_charge_acknowledgment(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ServiceCalendarChargeAcknowledgment>>, ApiError> {
++Ok(web::Json(repositories::list_service_calendar_charge_acknowledgment(pool.get_ref()).await?))
++}
++
++/// `GET /api/service_calendar_charge_acknowledgment/{id}`
++async fn get_service_calendar_charge_acknowledgment(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<ServiceCalendarChargeAcknowledgment>, ApiError> {
++repositories::find_service_calendar_charge_acknowledgment(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ServiceCalendarChargeAcknowledgment"))
++}
++
++/// `POST /api/service_calendar_charge_acknowledgment`
++async fn create_service_calendar_charge_acknowledgment(pool: web::Data<PgPool>, input: web::Json<NewServiceCalendarChargeAcknowledgment>) -> Result<(web::Json<ServiceCalendarChargeAcknowledgment>, StatusCode), ApiError> {
++let row = repositories::create_service_calendar_charge_acknowledgment(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/service_calendar_charge_acknowledgment/{id}`
++async fn update_service_calendar_charge_acknowledgment(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchServiceCalendarChargeAcknowledgment>) -> Result<web::Json<ServiceCalendarChargeAcknowledgment>, ApiError> {
++repositories::update_service_calendar_charge_acknowledgment(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ServiceCalendarChargeAcknowledgment"))
++}
++
++/// `DELETE /api/service_calendar_charge_acknowledgment/{id}`
++async fn delete_service_calendar_charge_acknowledgment(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_service_calendar_charge_acknowledgment(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("ServiceCalendarChargeAcknowledgment"))
++}
++}
++
++/// `GET /api/service_checklist_templates`
++async fn list_service_checklist_templates(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ServiceChecklistTemplates>>, ApiError> {
++Ok(web::Json(repositories::list_service_checklist_templates(pool.get_ref()).await?))
++}
++
++/// `GET /api/service_checklist_templates/{id}`
++async fn get_service_checklist_templates(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<ServiceChecklistTemplates>, ApiError> {
++repositories::find_service_checklist_templates(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ServiceChecklistTemplates"))
++}
++
++/// `POST /api/service_checklist_templates`
++async fn create_service_checklist_templates(pool: web::Data<PgPool>, input: web::Json<NewServiceChecklistTemplates>) -> Result<(web::Json<ServiceChecklistTemplates>, StatusCode), ApiError> {
++let row = repositories::create_service_checklist_templates(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/service_checklist_templates/{id}`
++async fn update_service_checklist_templates(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchServiceChecklistTemplates>) -> Result<web::Json<ServiceChecklistTemplates>, ApiError> {
++repositories::update_service_checklist_templates(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ServiceChecklistTemplates"))
++}
++
++/// `DELETE /api/service_checklist_templates/{id}`
++async fn delete_service_checklist_templates(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_service_checklist_templates(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("ServiceChecklistTemplates"))
++}
++}
++
++/// `GET /api/service_follow_ups`
++async fn list_service_follow_ups(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ServiceFollowUps>>, ApiError> {
++Ok(web::Json(repositories::list_service_follow_ups(pool.get_ref()).await?))
++}
++
++/// `GET /api/service_follow_ups/{id}`
++async fn get_service_follow_ups(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<ServiceFollowUps>, ApiError> {
++repositories::find_service_follow_ups(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ServiceFollowUps"))
++}
++
++/// `POST /api/service_follow_ups`
++async fn create_service_follow_ups(pool: web::Data<PgPool>, input: web::Json<NewServiceFollowUps>) -> Result<(web::Json<ServiceFollowUps>, StatusCode), ApiError> {
++let row = repositories::create_service_follow_ups(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/service_follow_ups/{id}`
++async fn update_service_follow_ups(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchServiceFollowUps>) -> Result<web::Json<ServiceFollowUps>, ApiError> {
++repositories::update_service_follow_ups(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ServiceFollowUps"))
++}
++
++/// `DELETE /api/service_follow_ups/{id}`
++async fn delete_service_follow_ups(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_service_follow_ups(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("ServiceFollowUps"))
++}
++}
++
++/// `GET /api/service_issues`
++async fn list_service_issues(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ServiceIssues>>, ApiError> {
++Ok(web::Json(repositories::list_service_issues(pool.get_ref()).await?))
++}
++
++/// `GET /api/service_issues/{id}`
++async fn get_service_issues(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<ServiceIssues>, ApiError> {
++repositories::find_service_issues(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ServiceIssues"))
++}
++
++/// `POST /api/service_issues`
++async fn create_service_issues(pool: web::Data<PgPool>, input: web::Json<NewServiceIssues>) -> Result<(web::Json<ServiceIssues>, StatusCode), ApiError> {
++let row = repositories::create_service_issues(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/service_issues/{id}`
++async fn update_service_issues(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchServiceIssues>) -> Result<web::Json<ServiceIssues>, ApiError> {
++repositories::update_service_issues(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ServiceIssues"))
++}
++
++/// `DELETE /api/service_issues/{id}`
++async fn delete_service_issues(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_service_issues(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("ServiceIssues"))
++}
++}
++
+ /// `GET /api/service_municipalities`
+ async fn list_service_municipalities(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ServiceMunicipalities>>, ApiError> {
+ Ok(web::Json(repositories::list_service_municipalities(pool.get_ref()).await?))
+@@ -21763,6 +25615,42 @@ Err(ApiError::NotFound("ServiceRoutes"))
+ }
+ }
+ 
++/// `GET /api/service_signatures`
++async fn list_service_signatures(pool: web::Data<PgPool>) -> Result<web::Json<Vec<ServiceSignatures>>, ApiError> {
++Ok(web::Json(repositories::list_service_signatures(pool.get_ref()).await?))
++}
++
++/// `GET /api/service_signatures/{id}`
++async fn get_service_signatures(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<ServiceSignatures>, ApiError> {
++repositories::find_service_signatures(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ServiceSignatures"))
++}
++
++/// `POST /api/service_signatures`
++async fn create_service_signatures(pool: web::Data<PgPool>, input: web::Json<NewServiceSignatures>) -> Result<(web::Json<ServiceSignatures>, StatusCode), ApiError> {
++let row = repositories::create_service_signatures(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/service_signatures/{id}`
++async fn update_service_signatures(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchServiceSignatures>) -> Result<web::Json<ServiceSignatures>, ApiError> {
++repositories::update_service_signatures(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("ServiceSignatures"))
++}
++
++/// `DELETE /api/service_signatures/{id}`
++async fn delete_service_signatures(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_service_signatures(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("ServiceSignatures"))
++}
++}
++
+ /// `GET /api/session`
+ async fn list_session(pool: web::Data<PgPool>) -> Result<web::Json<Vec<Session>>, ApiError> {
+ Ok(web::Json(repositories::list_session(pool.get_ref()).await?))
+@@ -22591,6 +26479,42 @@ Err(ApiError::NotFound("SmsKeywordLog"))
+ }
+ }
+ 
++/// `GET /api/sms_log`
++async fn list_sms_log(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SmsLog>>, ApiError> {
++Ok(web::Json(repositories::list_sms_log(pool.get_ref()).await?))
++}
++
++/// `GET /api/sms_log/{id}`
++async fn get_sms_log(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<SmsLog>, ApiError> {
++repositories::find_sms_log(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SmsLog"))
++}
++
++/// `POST /api/sms_log`
++async fn create_sms_log(pool: web::Data<PgPool>, input: web::Json<NewSmsLog>) -> Result<(web::Json<SmsLog>, StatusCode), ApiError> {
++let row = repositories::create_sms_log(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/sms_log/{id}`
++async fn update_sms_log(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchSmsLog>) -> Result<web::Json<SmsLog>, ApiError> {
++repositories::update_sms_log(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SmsLog"))
++}
++
++/// `DELETE /api/sms_log/{id}`
++async fn delete_sms_log(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_sms_log(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("SmsLog"))
++}
++}
++
+ /// `GET /api/sms_message_media`
+ async fn list_sms_message_media(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SmsMessageMedia>>, ApiError> {
+ Ok(web::Json(repositories::list_sms_message_media(pool.get_ref()).await?))
+@@ -22735,6 +26659,42 @@ Err(ApiError::NotFound("SmsSends"))
+ }
+ }
+ 
++/// `GET /api/sms_sequence_jobs`
++async fn list_sms_sequence_jobs(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SmsSequenceJobs>>, ApiError> {
++Ok(web::Json(repositories::list_sms_sequence_jobs(pool.get_ref()).await?))
++}
++
++/// `GET /api/sms_sequence_jobs/{id}`
++async fn get_sms_sequence_jobs(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<SmsSequenceJobs>, ApiError> {
++repositories::find_sms_sequence_jobs(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SmsSequenceJobs"))
++}
++
++/// `POST /api/sms_sequence_jobs`
++async fn create_sms_sequence_jobs(pool: web::Data<PgPool>, input: web::Json<NewSmsSequenceJobs>) -> Result<(web::Json<SmsSequenceJobs>, StatusCode), ApiError> {
++let row = repositories::create_sms_sequence_jobs(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/sms_sequence_jobs/{id}`
++async fn update_sms_sequence_jobs(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchSmsSequenceJobs>) -> Result<web::Json<SmsSequenceJobs>, ApiError> {
++repositories::update_sms_sequence_jobs(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SmsSequenceJobs"))
++}
++
++/// `DELETE /api/sms_sequence_jobs/{id}`
++async fn delete_sms_sequence_jobs(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_sms_sequence_jobs(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("SmsSequenceJobs"))
++}
++}
++
+ /// `GET /api/sms_short_links`
+ async fn list_sms_short_links(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SmsShortLinks>>, ApiError> {
+ Ok(web::Json(repositories::list_sms_short_links(pool.get_ref()).await?))
+@@ -23239,6 +27199,42 @@ Err(ApiError::NotFound("Subscription"))
+ }
+ }
+ 
++/// `GET /api/subscription_churn_signals`
++async fn list_subscription_churn_signals(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SubscriptionChurnSignals>>, ApiError> {
++Ok(web::Json(repositories::list_subscription_churn_signals(pool.get_ref()).await?))
++}
++
++/// `GET /api/subscription_churn_signals/{id}`
++async fn get_subscription_churn_signals(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<SubscriptionChurnSignals>, ApiError> {
++repositories::find_subscription_churn_signals(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SubscriptionChurnSignals"))
++}
++
++/// `POST /api/subscription_churn_signals`
++async fn create_subscription_churn_signals(pool: web::Data<PgPool>, input: web::Json<NewSubscriptionChurnSignals>) -> Result<(web::Json<SubscriptionChurnSignals>, StatusCode), ApiError> {
++let row = repositories::create_subscription_churn_signals(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/subscription_churn_signals/{id}`
++async fn update_subscription_churn_signals(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchSubscriptionChurnSignals>) -> Result<web::Json<SubscriptionChurnSignals>, ApiError> {
++repositories::update_subscription_churn_signals(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SubscriptionChurnSignals"))
++}
++
++/// `DELETE /api/subscription_churn_signals/{id}`
++async fn delete_subscription_churn_signals(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_subscription_churn_signals(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("SubscriptionChurnSignals"))
++}
++}
++
+ /// `GET /api/subscription_events`
+ async fn list_subscription_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SubscriptionEvents>>, ApiError> {
+ Ok(web::Json(repositories::list_subscription_events(pool.get_ref()).await?))
+@@ -23275,6 +27271,78 @@ Err(ApiError::NotFound("SubscriptionEvents"))
+ }
+ }
+ 
++/// `GET /api/subscription_onboarding_sessions`
++async fn list_subscription_onboarding_sessions(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SubscriptionOnboardingSessions>>, ApiError> {
++Ok(web::Json(repositories::list_subscription_onboarding_sessions(pool.get_ref()).await?))
++}
++
++/// `GET /api/subscription_onboarding_sessions/{id}`
++async fn get_subscription_onboarding_sessions(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<SubscriptionOnboardingSessions>, ApiError> {
++repositories::find_subscription_onboarding_sessions(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SubscriptionOnboardingSessions"))
++}
++
++/// `POST /api/subscription_onboarding_sessions`
++async fn create_subscription_onboarding_sessions(pool: web::Data<PgPool>, input: web::Json<NewSubscriptionOnboardingSessions>) -> Result<(web::Json<SubscriptionOnboardingSessions>, StatusCode), ApiError> {
++let row = repositories::create_subscription_onboarding_sessions(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/subscription_onboarding_sessions/{id}`
++async fn update_subscription_onboarding_sessions(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchSubscriptionOnboardingSessions>) -> Result<web::Json<SubscriptionOnboardingSessions>, ApiError> {
++repositories::update_subscription_onboarding_sessions(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SubscriptionOnboardingSessions"))
++}
++
++/// `DELETE /api/subscription_onboarding_sessions/{id}`
++async fn delete_subscription_onboarding_sessions(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_subscription_onboarding_sessions(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("SubscriptionOnboardingSessions"))
++}
++}
++
++/// `GET /api/subscription_onboarding_steps`
++async fn list_subscription_onboarding_steps(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SubscriptionOnboardingSteps>>, ApiError> {
++Ok(web::Json(repositories::list_subscription_onboarding_steps(pool.get_ref()).await?))
++}
++
++/// `GET /api/subscription_onboarding_steps/{id}`
++async fn get_subscription_onboarding_steps(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<SubscriptionOnboardingSteps>, ApiError> {
++repositories::find_subscription_onboarding_steps(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SubscriptionOnboardingSteps"))
++}
++
++/// `POST /api/subscription_onboarding_steps`
++async fn create_subscription_onboarding_steps(pool: web::Data<PgPool>, input: web::Json<NewSubscriptionOnboardingSteps>) -> Result<(web::Json<SubscriptionOnboardingSteps>, StatusCode), ApiError> {
++let row = repositories::create_subscription_onboarding_steps(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/subscription_onboarding_steps/{id}`
++async fn update_subscription_onboarding_steps(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchSubscriptionOnboardingSteps>) -> Result<web::Json<SubscriptionOnboardingSteps>, ApiError> {
++repositories::update_subscription_onboarding_steps(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SubscriptionOnboardingSteps"))
++}
++
++/// `DELETE /api/subscription_onboarding_steps/{id}`
++async fn delete_subscription_onboarding_steps(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_subscription_onboarding_steps(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("SubscriptionOnboardingSteps"))
++}
++}
++
+ /// `GET /api/subscription_plan_changes`
+ async fn list_subscription_plan_changes(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SubscriptionPlanChanges>>, ApiError> {
+ Ok(web::Json(repositories::list_subscription_plan_changes(pool.get_ref()).await?))
+@@ -23347,6 +27415,42 @@ Err(ApiError::NotFound("SubscriptionPlans"))
+ }
+ }
+ 
++/// `GET /api/subscription_upgrade_tracking`
++async fn list_subscription_upgrade_tracking(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SubscriptionUpgradeTracking>>, ApiError> {
++Ok(web::Json(repositories::list_subscription_upgrade_tracking(pool.get_ref()).await?))
++}
++
++/// `GET /api/subscription_upgrade_tracking/{id}`
++async fn get_subscription_upgrade_tracking(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<SubscriptionUpgradeTracking>, ApiError> {
++repositories::find_subscription_upgrade_tracking(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SubscriptionUpgradeTracking"))
++}
++
++/// `POST /api/subscription_upgrade_tracking`
++async fn create_subscription_upgrade_tracking(pool: web::Data<PgPool>, input: web::Json<NewSubscriptionUpgradeTracking>) -> Result<(web::Json<SubscriptionUpgradeTracking>, StatusCode), ApiError> {
++let row = repositories::create_subscription_upgrade_tracking(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/subscription_upgrade_tracking/{id}`
++async fn update_subscription_upgrade_tracking(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchSubscriptionUpgradeTracking>) -> Result<web::Json<SubscriptionUpgradeTracking>, ApiError> {
++repositories::update_subscription_upgrade_tracking(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("SubscriptionUpgradeTracking"))
++}
++
++/// `DELETE /api/subscription_upgrade_tracking/{id}`
++async fn delete_subscription_upgrade_tracking(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_subscription_upgrade_tracking(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("SubscriptionUpgradeTracking"))
++}
++}
++
+ /// `GET /api/suno_clips`
+ async fn list_suno_clips(pool: web::Data<PgPool>) -> Result<web::Json<Vec<SunoClips>>, ApiError> {
+ Ok(web::Json(repositories::list_suno_clips(pool.get_ref()).await?))
+@@ -23923,6 +28027,42 @@ Err(ApiError::NotFound("TenantOauthCredentials"))
+ }
+ }
+ 
++/// `GET /api/tenant_usage`
++async fn list_tenant_usage(pool: web::Data<PgPool>) -> Result<web::Json<Vec<TenantUsage>>, ApiError> {
++Ok(web::Json(repositories::list_tenant_usage(pool.get_ref()).await?))
++}
++
++/// `GET /api/tenant_usage/{id}`
++async fn get_tenant_usage(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<TenantUsage>, ApiError> {
++repositories::find_tenant_usage(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("TenantUsage"))
++}
++
++/// `POST /api/tenant_usage`
++async fn create_tenant_usage(pool: web::Data<PgPool>, input: web::Json<NewTenantUsage>) -> Result<(web::Json<TenantUsage>, StatusCode), ApiError> {
++let row = repositories::create_tenant_usage(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/tenant_usage/{id}`
++async fn update_tenant_usage(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchTenantUsage>) -> Result<web::Json<TenantUsage>, ApiError> {
++repositories::update_tenant_usage(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("TenantUsage"))
++}
++
++/// `DELETE /api/tenant_usage/{id}`
++async fn delete_tenant_usage(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_tenant_usage(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("TenantUsage"))
++}
++}
++
+ /// `GET /api/tenants`
+ async fn list_tenants(pool: web::Data<PgPool>) -> Result<web::Json<Vec<Tenants>>, ApiError> {
+ Ok(web::Json(repositories::list_tenants(pool.get_ref()).await?))
+@@ -24103,6 +28243,78 @@ Err(ApiError::NotFound("TierChangeNotifications"))
+ }
+ }
+ 
++/// `GET /api/tier_upgrade_offers`
++async fn list_tier_upgrade_offers(pool: web::Data<PgPool>) -> Result<web::Json<Vec<TierUpgradeOffers>>, ApiError> {
++Ok(web::Json(repositories::list_tier_upgrade_offers(pool.get_ref()).await?))
++}
++
++/// `GET /api/tier_upgrade_offers/{id}`
++async fn get_tier_upgrade_offers(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<TierUpgradeOffers>, ApiError> {
++repositories::find_tier_upgrade_offers(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("TierUpgradeOffers"))
++}
++
++/// `POST /api/tier_upgrade_offers`
++async fn create_tier_upgrade_offers(pool: web::Data<PgPool>, input: web::Json<NewTierUpgradeOffers>) -> Result<(web::Json<TierUpgradeOffers>, StatusCode), ApiError> {
++let row = repositories::create_tier_upgrade_offers(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/tier_upgrade_offers/{id}`
++async fn update_tier_upgrade_offers(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchTierUpgradeOffers>) -> Result<web::Json<TierUpgradeOffers>, ApiError> {
++repositories::update_tier_upgrade_offers(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("TierUpgradeOffers"))
++}
++
++/// `DELETE /api/tier_upgrade_offers/{id}`
++async fn delete_tier_upgrade_offers(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_tier_upgrade_offers(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("TierUpgradeOffers"))
++}
++}
++
++/// `GET /api/tier_upsell_triggers`
++async fn list_tier_upsell_triggers(pool: web::Data<PgPool>) -> Result<web::Json<Vec<TierUpsellTriggers>>, ApiError> {
++Ok(web::Json(repositories::list_tier_upsell_triggers(pool.get_ref()).await?))
++}
++
++/// `GET /api/tier_upsell_triggers/{id}`
++async fn get_tier_upsell_triggers(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<TierUpsellTriggers>, ApiError> {
++repositories::find_tier_upsell_triggers(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("TierUpsellTriggers"))
++}
++
++/// `POST /api/tier_upsell_triggers`
++async fn create_tier_upsell_triggers(pool: web::Data<PgPool>, input: web::Json<NewTierUpsellTriggers>) -> Result<(web::Json<TierUpsellTriggers>, StatusCode), ApiError> {
++let row = repositories::create_tier_upsell_triggers(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/tier_upsell_triggers/{id}`
++async fn update_tier_upsell_triggers(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchTierUpsellTriggers>) -> Result<web::Json<TierUpsellTriggers>, ApiError> {
++repositories::update_tier_upsell_triggers(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("TierUpsellTriggers"))
++}
++
++/// `DELETE /api/tier_upsell_triggers/{id}`
++async fn delete_tier_upsell_triggers(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_tier_upsell_triggers(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("TierUpsellTriggers"))
++}
++}
++
+ /// `GET /api/tiktok_access_tokens`
+ async fn list_tiktok_access_tokens(pool: web::Data<PgPool>) -> Result<web::Json<Vec<TiktokAccessTokens>>, ApiError> {
+ Ok(web::Json(repositories::list_tiktok_access_tokens(pool.get_ref()).await?))
+@@ -24715,6 +28927,78 @@ Err(ApiError::NotFound("TrialCustomer"))
+ }
+ }
+ 
++/// `GET /api/tripwire_offer_records`
++async fn list_tripwire_offer_records(pool: web::Data<PgPool>) -> Result<web::Json<Vec<TripwireOfferRecords>>, ApiError> {
++Ok(web::Json(repositories::list_tripwire_offer_records(pool.get_ref()).await?))
++}
++
++/// `GET /api/tripwire_offer_records/{id}`
++async fn get_tripwire_offer_records(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<TripwireOfferRecords>, ApiError> {
++repositories::find_tripwire_offer_records(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("TripwireOfferRecords"))
++}
++
++/// `POST /api/tripwire_offer_records`
++async fn create_tripwire_offer_records(pool: web::Data<PgPool>, input: web::Json<NewTripwireOfferRecords>) -> Result<(web::Json<TripwireOfferRecords>, StatusCode), ApiError> {
++let row = repositories::create_tripwire_offer_records(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/tripwire_offer_records/{id}`
++async fn update_tripwire_offer_records(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchTripwireOfferRecords>) -> Result<web::Json<TripwireOfferRecords>, ApiError> {
++repositories::update_tripwire_offer_records(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("TripwireOfferRecords"))
++}
++
++/// `DELETE /api/tripwire_offer_records/{id}`
++async fn delete_tripwire_offer_records(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_tripwire_offer_records(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("TripwireOfferRecords"))
++}
++}
++
++/// `GET /api/tripwire_upsell_offers`
++async fn list_tripwire_upsell_offers(pool: web::Data<PgPool>) -> Result<web::Json<Vec<TripwireUpsellOffers>>, ApiError> {
++Ok(web::Json(repositories::list_tripwire_upsell_offers(pool.get_ref()).await?))
++}
++
++/// `GET /api/tripwire_upsell_offers/{id}`
++async fn get_tripwire_upsell_offers(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<TripwireUpsellOffers>, ApiError> {
++repositories::find_tripwire_upsell_offers(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("TripwireUpsellOffers"))
++}
++
++/// `POST /api/tripwire_upsell_offers`
++async fn create_tripwire_upsell_offers(pool: web::Data<PgPool>, input: web::Json<NewTripwireUpsellOffers>) -> Result<(web::Json<TripwireUpsellOffers>, StatusCode), ApiError> {
++let row = repositories::create_tripwire_upsell_offers(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/tripwire_upsell_offers/{id}`
++async fn update_tripwire_upsell_offers(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchTripwireUpsellOffers>) -> Result<web::Json<TripwireUpsellOffers>, ApiError> {
++repositories::update_tripwire_upsell_offers(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("TripwireUpsellOffers"))
++}
++
++/// `DELETE /api/tripwire_upsell_offers/{id}`
++async fn delete_tripwire_upsell_offers(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_tripwire_upsell_offers(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("TripwireUpsellOffers"))
++}
++}
++
+ /// `GET /api/unified_audiences`
+ async fn list_unified_audiences(pool: web::Data<PgPool>) -> Result<web::Json<Vec<UnifiedAudiences>>, ApiError> {
+ Ok(web::Json(repositories::list_unified_audiences(pool.get_ref()).await?))
+@@ -24823,6 +29107,222 @@ Err(ApiError::NotFound("UpsellAcceptanceTokens"))
+ }
+ }
+ 
++/// `GET /api/upsell_analytics`
++async fn list_upsell_analytics(pool: web::Data<PgPool>) -> Result<web::Json<Vec<UpsellAnalytics>>, ApiError> {
++Ok(web::Json(repositories::list_upsell_analytics(pool.get_ref()).await?))
++}
++
++/// `GET /api/upsell_analytics/{id}`
++async fn get_upsell_analytics(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<UpsellAnalytics>, ApiError> {
++repositories::find_upsell_analytics(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UpsellAnalytics"))
++}
++
++/// `POST /api/upsell_analytics`
++async fn create_upsell_analytics(pool: web::Data<PgPool>, input: web::Json<NewUpsellAnalytics>) -> Result<(web::Json<UpsellAnalytics>, StatusCode), ApiError> {
++let row = repositories::create_upsell_analytics(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/upsell_analytics/{id}`
++async fn update_upsell_analytics(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchUpsellAnalytics>) -> Result<web::Json<UpsellAnalytics>, ApiError> {
++repositories::update_upsell_analytics(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UpsellAnalytics"))
++}
++
++/// `DELETE /api/upsell_analytics/{id}`
++async fn delete_upsell_analytics(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_upsell_analytics(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("UpsellAnalytics"))
++}
++}
++
++/// `GET /api/upsell_events`
++async fn list_upsell_events(pool: web::Data<PgPool>) -> Result<web::Json<Vec<UpsellEvents>>, ApiError> {
++Ok(web::Json(repositories::list_upsell_events(pool.get_ref()).await?))
++}
++
++/// `GET /api/upsell_events/{id}`
++async fn get_upsell_events(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<UpsellEvents>, ApiError> {
++repositories::find_upsell_events(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UpsellEvents"))
++}
++
++/// `POST /api/upsell_events`
++async fn create_upsell_events(pool: web::Data<PgPool>, input: web::Json<NewUpsellEvents>) -> Result<(web::Json<UpsellEvents>, StatusCode), ApiError> {
++let row = repositories::create_upsell_events(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/upsell_events/{id}`
++async fn update_upsell_events(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchUpsellEvents>) -> Result<web::Json<UpsellEvents>, ApiError> {
++repositories::update_upsell_events(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UpsellEvents"))
++}
++
++/// `DELETE /api/upsell_events/{id}`
++async fn delete_upsell_events(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_upsell_events(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("UpsellEvents"))
++}
++}
++
++/// `GET /api/upsell_sales_locks`
++async fn list_upsell_sales_locks(pool: web::Data<PgPool>) -> Result<web::Json<Vec<UpsellSalesLocks>>, ApiError> {
++Ok(web::Json(repositories::list_upsell_sales_locks(pool.get_ref()).await?))
++}
++
++/// `GET /api/upsell_sales_locks/{id}`
++async fn get_upsell_sales_locks(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<UpsellSalesLocks>, ApiError> {
++repositories::find_upsell_sales_locks(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UpsellSalesLocks"))
++}
++
++/// `POST /api/upsell_sales_locks`
++async fn create_upsell_sales_locks(pool: web::Data<PgPool>, input: web::Json<NewUpsellSalesLocks>) -> Result<(web::Json<UpsellSalesLocks>, StatusCode), ApiError> {
++let row = repositories::create_upsell_sales_locks(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/upsell_sales_locks/{id}`
++async fn update_upsell_sales_locks(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchUpsellSalesLocks>) -> Result<web::Json<UpsellSalesLocks>, ApiError> {
++repositories::update_upsell_sales_locks(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UpsellSalesLocks"))
++}
++
++/// `DELETE /api/upsell_sales_locks/{id}`
++async fn delete_upsell_sales_locks(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_upsell_sales_locks(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("UpsellSalesLocks"))
++}
++}
++
++/// `GET /api/upsell_timing_rules`
++async fn list_upsell_timing_rules(pool: web::Data<PgPool>) -> Result<web::Json<Vec<UpsellTimingRules>>, ApiError> {
++Ok(web::Json(repositories::list_upsell_timing_rules(pool.get_ref()).await?))
++}
++
++/// `GET /api/upsell_timing_rules/{id}`
++async fn get_upsell_timing_rules(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<UpsellTimingRules>, ApiError> {
++repositories::find_upsell_timing_rules(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UpsellTimingRules"))
++}
++
++/// `POST /api/upsell_timing_rules`
++async fn create_upsell_timing_rules(pool: web::Data<PgPool>, input: web::Json<NewUpsellTimingRules>) -> Result<(web::Json<UpsellTimingRules>, StatusCode), ApiError> {
++let row = repositories::create_upsell_timing_rules(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/upsell_timing_rules/{id}`
++async fn update_upsell_timing_rules(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchUpsellTimingRules>) -> Result<web::Json<UpsellTimingRules>, ApiError> {
++repositories::update_upsell_timing_rules(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UpsellTimingRules"))
++}
++
++/// `DELETE /api/upsell_timing_rules/{id}`
++async fn delete_upsell_timing_rules(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_upsell_timing_rules(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("UpsellTimingRules"))
++}
++}
++
++/// `GET /api/upsell_triggers`
++async fn list_upsell_triggers(pool: web::Data<PgPool>) -> Result<web::Json<Vec<UpsellTriggers>>, ApiError> {
++Ok(web::Json(repositories::list_upsell_triggers(pool.get_ref()).await?))
++}
++
++/// `GET /api/upsell_triggers/{id}`
++async fn get_upsell_triggers(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<UpsellTriggers>, ApiError> {
++repositories::find_upsell_triggers(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UpsellTriggers"))
++}
++
++/// `POST /api/upsell_triggers`
++async fn create_upsell_triggers(pool: web::Data<PgPool>, input: web::Json<NewUpsellTriggers>) -> Result<(web::Json<UpsellTriggers>, StatusCode), ApiError> {
++let row = repositories::create_upsell_triggers(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/upsell_triggers/{id}`
++async fn update_upsell_triggers(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchUpsellTriggers>) -> Result<web::Json<UpsellTriggers>, ApiError> {
++repositories::update_upsell_triggers(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UpsellTriggers"))
++}
++
++/// `DELETE /api/upsell_triggers/{id}`
++async fn delete_upsell_triggers(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_upsell_triggers(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("UpsellTriggers"))
++}
++}
++
++/// `GET /api/upsell_window_config`
++async fn list_upsell_window_config(pool: web::Data<PgPool>) -> Result<web::Json<Vec<UpsellWindowConfig>>, ApiError> {
++Ok(web::Json(repositories::list_upsell_window_config(pool.get_ref()).await?))
++}
++
++/// `GET /api/upsell_window_config/{id}`
++async fn get_upsell_window_config(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<web::Json<UpsellWindowConfig>, ApiError> {
++repositories::find_upsell_window_config(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UpsellWindowConfig"))
++}
++
++/// `POST /api/upsell_window_config`
++async fn create_upsell_window_config(pool: web::Data<PgPool>, input: web::Json<NewUpsellWindowConfig>) -> Result<(web::Json<UpsellWindowConfig>, StatusCode), ApiError> {
++let row = repositories::create_upsell_window_config(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/upsell_window_config/{id}`
++async fn update_upsell_window_config(pool: web::Data<PgPool>, id: web::Path<i32>, input: web::Json<PatchUpsellWindowConfig>) -> Result<web::Json<UpsellWindowConfig>, ApiError> {
++repositories::update_upsell_window_config(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UpsellWindowConfig"))
++}
++
++/// `DELETE /api/upsell_window_config/{id}`
++async fn delete_upsell_window_config(pool: web::Data<PgPool>, id: web::Path<i32>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_upsell_window_config(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("UpsellWindowConfig"))
++}
++}
++
+ /// `GET /api/url_clicks`
+ async fn list_url_clicks(pool: web::Data<PgPool>) -> Result<web::Json<Vec<UrlClicks>>, ApiError> {
+ Ok(web::Json(repositories::list_url_clicks(pool.get_ref()).await?))
+@@ -25039,6 +29539,42 @@ Err(ApiError::NotFound("UserAuthToken"))
+ }
+ }
+ 
++/// `GET /api/user_behavior_signals`
++async fn list_user_behavior_signals(pool: web::Data<PgPool>) -> Result<web::Json<Vec<UserBehaviorSignals>>, ApiError> {
++Ok(web::Json(repositories::list_user_behavior_signals(pool.get_ref()).await?))
++}
++
++/// `GET /api/user_behavior_signals/{id}`
++async fn get_user_behavior_signals(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<web::Json<UserBehaviorSignals>, ApiError> {
++repositories::find_user_behavior_signals(pool.get_ref(), id.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UserBehaviorSignals"))
++}
++
++/// `POST /api/user_behavior_signals`
++async fn create_user_behavior_signals(pool: web::Data<PgPool>, input: web::Json<NewUserBehaviorSignals>) -> Result<(web::Json<UserBehaviorSignals>, StatusCode), ApiError> {
++let row = repositories::create_user_behavior_signals(pool.get_ref(), input.into_inner()).await?;
++Ok((web::Json(row), StatusCode::CREATED))
++}
++
++/// `PATCH /api/user_behavior_signals/{id}`
++async fn update_user_behavior_signals(pool: web::Data<PgPool>, id: web::Path<i64>, input: web::Json<PatchUserBehaviorSignals>) -> Result<web::Json<UserBehaviorSignals>, ApiError> {
++repositories::update_user_behavior_signals(pool.get_ref(), id.into_inner(), input.into_inner())
++.await?
++.map(web::Json)
++.ok_or(ApiError::NotFound("UserBehaviorSignals"))
++}
++
++/// `DELETE /api/user_behavior_signals/{id}`
++async fn delete_user_behavior_signals(pool: web::Data<PgPool>, id: web::Path<i64>) -> Result<HttpResponse, ApiError> {
++if repositories::delete_user_behavior_signals(pool.get_ref(), id.into_inner()).await? {
++Ok(HttpResponse::NoContent().finish())
++} else {
++Err(ApiError::NotFound("UserBehaviorSignals"))
++}
++}
++
+ /// `GET /api/user_external_session`
+ async fn list_user_external_session(pool: web::Data<PgPool>) -> Result<web::Json<Vec<UserExternalSession>>, ApiError> {
+ Ok(web::Json(repositories::list_user_external_session(pool.get_ref()).await?))
+@@ -25255,42 +29791,6 @@ Err(ApiError::NotFound("VideoAssets"))
+ }
+ }
+ 
+-/// `GET /api/video_audits`
+-async fn list_video_audits(pool: web::Data<PgPool>) -> Result<web::Json<Vec<VideoAudits>>, ApiError> {
+-Ok(web::Json(repositories::list_video_audits(pool.get_ref()).await?))
+-}
+-
+-/// `GET /api/video_audits/{id}`
+-async fn get_video_audits(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<web::Json<VideoAudits>, ApiError> {
+-repositories::find_video_audits(pool.get_ref(), id.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("VideoAudits"))
+-}
+-
+-/// `POST /api/video_audits`
+-async fn create_video_audits(pool: web::Data<PgPool>, input: web::Json<NewVideoAudits>) -> Result<(web::Json<VideoAudits>, StatusCode), ApiError> {
+-let row = repositories::create_video_audits(pool.get_ref(), input.into_inner()).await?;
+-Ok((web::Json(row), StatusCode::CREATED))
+-}
+-
+-/// `PATCH /api/video_audits/{id}`
+-async fn update_video_audits(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>, input: web::Json<PatchVideoAudits>) -> Result<web::Json<VideoAudits>, ApiError> {
+-repositories::update_video_audits(pool.get_ref(), id.into_inner(), input.into_inner())
+-.await?
+-.map(web::Json)
+-.ok_or(ApiError::NotFound("VideoAudits"))
+-}
+-
+-/// `DELETE /api/video_audits/{id}`
+-async fn delete_video_audits(pool: web::Data<PgPool>, id: web::Path<sqlx::types::Uuid>) -> Result<HttpResponse, ApiError> {
+-if repositories::delete_video_audits(pool.get_ref(), id.into_inner()).await? {
+-Ok(HttpResponse::NoContent().finish())
+-} else {
+-Err(ApiError::NotFound("VideoAudits"))
+-}
+-}
+-
+ /// `GET /api/video_conversion_funnel`
+ async fn list_video_conversion_funnel(pool: web::Data<PgPool>) -> Result<web::Json<Vec<VideoConversionFunnel>>, ApiError> {
+ Ok(web::Json(repositories::list_video_conversion_funnel(pool.get_ref()).await?))
+@@ -26626,8 +31126,9 @@ Err(ApiError::NotFound("Zones"))
+ /// Registers every generated CRUD procedure below `/api`.
+ pub fn configure_generated(cfg: &mut web::ServiceConfig) {
+ cfg.service(web::scope("/api")
+-        .configure(configure_rustyroad_history)
+         .configure(configure_rustyroad_migrations)
++        .configure(configure_ab_campaign_actions)
++        .configure(configure_ab_campaign_links)
+         .configure(configure_ab_events)
+         .configure(configure_ab_scale_ledger)
+         .configure(configure_ab_test_analysis_results)
+@@ -26641,17 +31142,33 @@ cfg.service(web::scope("/api")
+         .configure(configure_ab_variant_ads)
+         .configure(configure_abandoned_cart_campaign_stats)
+         .configure(configure_abandoned_cart_drip_log)
++        .configure(configure_acquisition_events)
++        .configure(configure_acquisition_flows)
++        .configure(configure_acquisition_journeys)
++        .configure(configure_acquisition_states)
++        .configure(configure_acquisition_transition_rules)
+         .configure(configure_action_triggers)
+         .configure(configure_active_local_offers)
+         .configure(configure_ad_campaign_funnels)
++        .configure(configure_ad_click_sessions)
++        .configure(configure_ad_conversion_events)
++        .configure(configure_ad_creative_offer_mappings)
++        .configure(configure_ad_creative_variant_mappings)
+         .configure(configure_ad_creatives)
+         .configure(configure_ad_performance)
++        .configure(configure_ad_placement_asset_requirements)
++        .configure(configure_ad_placement_format_rules)
+         .configure(configure_ad_platform_conversions)
++        .configure(configure_ad_platform_lead_qualification_links)
+         .configure(configure_ad_platform_lead_sms_qualifications)
+         .configure(configure_ad_platform_leads)
++        .configure(configure_ad_platform_pixels)
+         .configure(configure_ad_rotation_config)
+         .configure(configure_ad_rotation_log)
+         .configure(configure_ad_set_ads)
++        .configure(configure_ad_source_landing_mappings)
++        .configure(configure_ad_tripwire_automation_log)
++        .configure(configure_ad_tripwire_config)
+         .configure(configure_address_parcels)
+         .configure(configure_addresses)
+         .configure(configure_admin_page_schema_steps)
+@@ -26669,6 +31186,9 @@ cfg.service(web::scope("/api")
+         .configure(configure_alert_rule_tag)
+         .configure(configure_alert_rule_version)
+         .configure(configure_alerts)
++        .configure(configure_ambassador_activities)
++        .configure(configure_ambassador_referrals)
++        .configure(configure_ambassadors)
+         .configure(configure_analytics_events)
+         .configure(configure_annotation)
+         .configure(configure_annotation_tag)
+@@ -26680,23 +31200,32 @@ cfg.service(web::scope("/api")
+         .configure(configure_at_risk_subscribers)
+         .configure(configure_attribution_touchpoints)
+         .configure(configure_attribution_weights)
++        .configure(configure_audience_budget_allocation)
+         .configure(configure_audience_budget_recommendations)
+         .configure(configure_audience_event_rules)
++        .configure(configure_audience_exclusion_lists)
+         .configure(configure_audience_expansion)
++        .configure(configure_audience_optimizer_actions)
+         .configure(configure_audience_performance)
+         .configure(configure_automation_activity_deliveries)
+         .configure(configure_automation_direct_deliveries)
+         .configure(configure_automation_enrollments)
+         .configure(configure_automation_execution_logs)
++        .configure(configure_automation_run_logs)
++        .configure(configure_automation_run_summaries)
+         .configure(configure_automation_runs)
+         .configure(configure_automation_scheduled_steps)
++        .configure(configure_automation_success_log)
++        .configure(configure_automation_targets)
+         .configure(configure_automation_temporal_activity_evidence)
+         .configure(configure_automation_temporal_outbox)
++        .configure(configure_automation_triggers)
+         .configure(configure_automation_versions)
+         .configure(configure_automations)
+         .configure(configure_autopilot_activity_log)
+         .configure(configure_autopilot_daily_limits)
+         .configure(configure_autopilot_decisions)
++        .configure(configure_bandit_campaign_traces)
+         .configure(configure_bandit_decisions)
+         .configure(configure_bandit_regret)
+         .configure(configure_batch_generated_content)
+@@ -26706,7 +31235,6 @@ cfg.service(web::scope("/api")
+         .configure(configure_booking_capacity_overrides)
+         .configure(configure_booking_capacity_pools)
+         .configure(configure_booking_operating_windows)
+-        .configure(configure_brand_strategies)
+         .configure(configure_bridge_person_identity)
+         .configure(configure_budget_change_log)
+         .configure(configure_builtin_role)
+@@ -26749,18 +31277,27 @@ cfg.service(web::scope("/api")
+         .configure(configure_chat_session_messages)
+         .configure(configure_chat_sessions)
+         .configure(configure_chat_threads)
++        .configure(configure_checkout_email_queue)
++        .configure(configure_checkout_orders)
++        .configure(configure_checkout_sessions)
+         .configure(configure_churn_events)
+         .configure(configure_churn_risk_assessments)
+         .configure(configure_cloud_migration_resource)
+         .configure(configure_cloud_migration_session)
+         .configure(configure_cloud_migration_snapshot)
+         .configure(configure_cloudflare_stream_webhook_events)
++        .configure(configure_clustering_metrics)
++        .configure(configure_codetether_automation_run_events)
++        .configure(configure_codetether_automation_runs)
++        .configure(configure_codetether_automation_schedule_events)
++        .configure(configure_codetether_automation_schedules)
+         .configure(configure_codetether_insights)
+         .configure(configure_cohort_metrics)
+         .configure(configure_collection_areas)
+         .configure(configure_collection_schedules)
+         .configure(configure_collection_sources)
+         .configure(configure_collection_territories)
++        .configure(configure_commercial_outreach_leads)
+         .configure(configure_competitor_ad_spend)
+         .configure(configure_competitor_ads)
+         .configure(configure_competitor_alerts)
+@@ -26772,8 +31309,8 @@ cfg.service(web::scope("/api")
+         .configure(configure_component_config_legacy_aliases)
+         .configure(configure_component_container_child_rules)
+         .configure(configure_component_cross_field_rules)
+-        .configure(configure_component_definitions)
+         .configure(configure_component_examples)
++        .configure(configure_component_field_data_dependencies)
+         .configure(configure_component_json_schema_keywords)
+         .configure(configure_component_legacy_definition_archive)
+         .configure(configure_component_personalization_tokens)
+@@ -26781,13 +31318,13 @@ cfg.service(web::scope("/api")
+         .configure(configure_component_step_type_rules)
+         .configure(configure_component_template_sources)
+         .configure(configure_component_theme_presets)
+-        .configure(configure_component_theme_radius_values)
+         .configure(configure_component_theme_token_variables)
+         .configure(configure_component_type_field_defaults)
+         .configure(configure_component_type_registry)
+         .configure(configure_component_usage_metadata)
+         .configure(configure_component_version_editor_contracts)
+         .configure(configure_component_version_field_dependencies)
++        .configure(configure_component_version_field_metadata)
+         .configure(configure_component_version_field_relations)
+         .configure(configure_component_version_fields)
+         .configure(configure_component_version_purchase_options)
+@@ -26807,7 +31344,6 @@ cfg.service(web::scope("/api")
+         .configure(configure_create_facebook_ad_set_metrics)
+         .configure(configure_create_google_auth_tokens_table)
+         .configure(configure_create_job_logs)
+-        .configure(configure_create_media_library)
+         .configure(configure_create_personalization_contexts_table)
+         .configure(configure_create_seo_generated_content)
+         .configure(configure_create_seo_schedules)
+@@ -26830,17 +31366,26 @@ cfg.service(web::scope("/api")
+         .configure(configure_crm_notes)
+         .configure(configure_crm_phone_call_history)
+         .configure(configure_crm_tasks)
++        .configure(configure_cross_sell_offers)
+         .configure(configure_customer)
+         .configure(configure_customer_automation_source_outbox)
+         .configure(configure_customer_behavioral_signals)
+         .configure(configure_customer_contact_lists)
++        .configure(configure_customer_features)
+         .configure(configure_customer_funnel_states)
+         .configure(configure_customer_neighborhoods)
++        .configure(configure_customer_onboarding)
++        .configure(configure_customer_onboarding_progress)
+         .configure(configure_customer_plan_preferences)
++        .configure(configure_customer_preferences)
+         .configure(configure_customer_routes)
++        .configure(configure_customer_service_dates)
+         .configure(configure_customer_streets)
+         .configure(configure_customer_subscriptions)
++        .configure(configure_customer_support_tickets)
++        .configure(configure_customer_upsell_events)
+         .configure(configure_customer_upsell_history)
++        .configure(configure_customer_upsell_status)
+         .configure(configure_daily_summaries)
+         .configure(configure_dashboard)
+         .configure(configure_dashboard_acl)
+@@ -26867,23 +31412,28 @@ cfg.service(web::scope("/api")
+         .configure(configure_door_hanger_routes)
+         .configure(configure_driver_availability_submissions)
+         .configure(configure_driver_capacity_windows)
++        .configure(configure_driver_devices)
+         .configure(configure_driver_locations)
+         .configure(configure_driver_performance_metrics)
+         .configure(configure_driver_performance_ratings)
+         .configure(configure_driver_shift_events)
+         .configure(configure_driver_shifts)
++        .configure(configure_driver_tasks)
+         .configure(configure_driver_zone_assignments)
+         .configure(configure_dunning_email_log)
++        .configure(configure_dunning_emails)
+         .configure(configure_dunning_sequences)
+         .configure(configure_dynamic_pricing_log)
+         .configure(configure_email_campaigns)
+         .configure(configure_email_follow_up_log)
+         .configure(configure_email_retarget_steps)
+         .configure(configure_email_sends)
++        .configure(configure_email_sequence_jobs)
+         .configure(configure_email_sequences)
+         .configure(configure_email_suppression_list)
+         .configure(configure_email_templates)
+         .configure(configure_email_workflow_edges)
++        .configure(configure_email_workflow_event_waits)
+         .configure(configure_email_workflow_folders)
+         .configure(configure_email_workflow_node_executions)
+         .configure(configure_email_workflow_node_registry)
+@@ -26891,6 +31441,7 @@ cfg.service(web::scope("/api")
+         .configure(configure_email_workflow_nodes)
+         .configure(configure_email_workflow_runs)
+         .configure(configure_email_workflow_scheduled_steps)
++        .configure(configure_email_workflow_split_test_results)
+         .configure(configure_email_workflows)
+         .configure(configure_emails)
+         .configure(configure_entity_event)
+@@ -26908,7 +31459,13 @@ cfg.service(web::scope("/api")
+         .configure(configure_facebook_ad_accounts)
+         .configure(configure_facebook_ad_metrics)
+         .configure(configure_facebook_ad_set_metrics)
++        .configure(configure_facebook_bulk_ad_set_templates)
++        .configure(configure_facebook_bulk_creative_assets)
++        .configure(configure_facebook_bulk_input_sets)
++        .configure(configure_facebook_bulk_text_variations)
++        .configure(configure_facebook_bulk_upload_requests)
+         .configure(configure_facebook_campaign_insights)
++        .configure(configure_facebook_daily_metrics)
+         .configure(configure_facebook_events_log)
+         .configure(configure_facebook_inventory_cache)
+         .configure(configure_facebook_neighborhood_mappings)
+@@ -26923,10 +31480,18 @@ cfg.service(web::scope("/api")
+         .configure(configure_folder)
+         .configure(configure_form_submissions)
+         .configure(configure_forms)
++        .configure(configure_funnel_analytics)
+         .configure(configure_funnel_builder_layouts)
++        .configure(configure_funnel_circuit_breaker_config)
++        .configure(configure_funnel_consistency_checks)
++        .configure(configure_funnel_conversion_events)
+         .configure(configure_funnel_events)
+         .configure(configure_funnel_lifecycle_revisions)
++        .configure(configure_funnel_orchestration)
+         .configure(configure_funnel_payment_state)
++        .configure(configure_funnel_retry_policy)
++        .configure(configure_funnel_stage_events)
++        .configure(configure_funnel_state_log)
+         .configure(configure_funnel_step_components)
+         .configure(configure_funnel_step_content)
+         .configure(configure_funnel_step_transitions)
+@@ -26963,7 +31528,6 @@ cfg.service(web::scope("/api")
+         .configure(configure_heatmaps)
+         .configure(configure_hoa_board_meetings)
+         .configure(configure_hourly_conversion_rates)
+-        .configure(configure_hr_application_reviews)
+         .configure(configure_ibb_campaign_node_rules)
+         .configure(configure_ibb_plan_stages)
+         .configure(configure_ibb_plans)
+@@ -26984,11 +31548,15 @@ cfg.service(web::scope("/api")
+         .configure(configure_industry_templates)
+         .configure(configure_interest_targeting_catalog)
+         .configure(configure_job_logs)
++        .configure(configure_kr_funnel_metrics)
++        .configure(configure_kr_progress)
+         .configure(configure_kv_store)
+         .configure(configure_lead_custom_field_values)
+         .configure(configure_lead_custom_fields)
++        .configure(configure_lead_high_value_zips)
+         .configure(configure_lead_ip_addresses)
+         .configure(configure_lead_marketing_tags)
++        .configure(configure_lead_qualification_config)
+         .configure(configure_lead_qualifications)
+         .configure(configure_lead_tripwire_handoffs)
+         .configure(configure_lead_video_engagement)
+@@ -27003,6 +31571,7 @@ cfg.service(web::scope("/api")
+         .configure(configure_ltv_predictions)
+         .configure(configure_manager_devices)
+         .configure(configure_manager_presence)
++        .configure(configure_manual_intervention_log)
+         .configure(configure_marketing_campaign_audiences)
+         .configure(configure_marketing_campaign_channels)
+         .configure(configure_marketing_campaign_creatives)
+@@ -27013,6 +31582,7 @@ cfg.service(web::scope("/api")
+         .configure(configure_marketing_design_tests)
+         .configure(configure_marketing_material_batches)
+         .configure(configure_marketing_materials)
++        .configure(configure_marketing_outcome_events)
+         .configure(configure_marketing_qr_scan_events)
+         .configure(configure_marketing_tags)
+         .configure(configure_mcp_audits)
+@@ -27025,6 +31595,7 @@ cfg.service(web::scope("/api")
+         .configure(configure_menu_items)
+         .configure(configure_menus)
+         .configure(configure_message_read_receipts)
++        .configure(configure_messenger_ad_launches)
+         .configure(configure_messenger_conversation_replies)
+         .configure(configure_messenger_conversations)
+         .configure(configure_messenger_idempotency_keys)
+@@ -27033,6 +31604,7 @@ cfg.service(web::scope("/api")
+         .configure(configure_messenger_offer_flows)
+         .configure(configure_messenger_webhook_jobs)
+         .configure(configure_meta_conversions)
++        .configure(configure_migration_20260718010500_ownership)
+         .configure(configure_migration_log)
+         .configure(configure_ml_models)
+         .configure(configure_ml_pca_models)
+@@ -27048,7 +31620,6 @@ cfg.service(web::scope("/api")
+         .configure(configure_mvt_tests)
+         .configure(configure_neighborhood_customer_counts)
+         .configure(configure_neighborhood_price_history)
+-        .configure(configure_neighborhood_pricing)
+         .configure(configure_neighborhood_referrals)
+         .configure(configure_neighborhood_stats)
+         .configure(configure_neighborhood_video_specs)
+@@ -27082,11 +31653,23 @@ cfg.service(web::scope("/api")
+         .configure(configure_offline_campaign_neighborhoods)
+         .configure(configure_offline_campaigns)
+         .configure(configure_offline_marketing_daily_stats)
++        .configure(configure_onboarding_config_queue)
++        .configure(configure_onboarding_email_logs)
++        .configure(configure_onboarding_email_queue)
++        .configure(configure_onboarding_email_templates)
++        .configure(configure_onboarding_milestones)
++        .configure(configure_onboarding_sequences)
++        .configure(configure_onboarding_service_config)
+         .configure(configure_onboarding_sessions)
++        .configure(configure_onboarding_step_history)
++        .configure(configure_onboarding_steps)
++        .configure(configure_onboarding_workflows)
+         .configure(configure_one_time_order_fulfillments)
++        .configure(configure_openai_ads_events_log)
+         .configure(configure_ops_capacity_policies)
+         .configure(configure_ops_capacity_snapshots)
+         .configure(configure_optimal_upsell_timings)
++        .configure(configure_order_confirmation_version_continue_control)
+         .configure(configure_org)
+         .configure(configure_org_user)
+         .configure(configure_organization_contracts)
+@@ -27098,6 +31681,7 @@ cfg.service(web::scope("/api")
+         .configure(configure_organization_proposals)
+         .configure(configure_organizations)
+         .configure(configure_page)
++        .configure(configure_page_aeo_audit)
+         .configure(configure_page_content)
+         .configure(configure_page_renders)
+         .configure(configure_page_slots)
+@@ -27107,16 +31691,21 @@ cfg.service(web::scope("/api")
+         .configure(configure_partner_activity_log)
+         .configure(configure_partner_commission_tiers)
+         .configure(configure_partner_materials)
++        .configure(configure_partner_payout_reminder_log)
+         .configure(configure_partner_payouts)
+         .configure(configure_partner_referrals)
+         .configure(configure_partners)
+         .configure(configure_passkeys)
+         .configure(configure_payment_failures)
++        .configure(configure_payment_retries)
+         .configure(configure_payment_retry_events)
++        .configure(configure_pdf_import_sessions)
+         .configure(configure_permission)
+         .configure(configure_personalization_contexts)
+         .configure(configure_phone_call_recordings)
++        .configure(configure_plaid_integrations)
+         .configure(configure_plan_analytics_daily)
++        .configure(configure_plan_limits)
+         .configure(configure_platform_trash_zone_mappings)
+         .configure(configure_playlist)
+         .configure(configure_playlist_item)
+@@ -27126,8 +31715,8 @@ cfg.service(web::scope("/api")
+         .configure(configure_podcast_recordings)
+         .configure(configure_podcasts)
+         .configure(configure_post)
++        .configure(configure_post_aeo_audit)
+         .configure(configure_post_categories)
+-        .configure(configure_post_redirects)
+         .configure(configure_postcard_designs)
+         .configure(configure_preferences)
+         .configure(configure_preview_tokens)
+@@ -27141,10 +31730,12 @@ cfg.service(web::scope("/api")
+         .configure(configure_provisional_orders)
+         .configure(configure_public_funnel_route_aliases)
+         .configure(configure_publish_logs)
++        .configure(configure_purchase_events)
+         .configure(configure_purchases)
+         .configure(configure_qr_codes)
+         .configure(configure_qr_conversions)
+         .configure(configure_qr_featured_products)
++        .configure(configure_qr_revenue_snapshots)
+         .configure(configure_qr_zones)
+         .configure(configure_query_history)
+         .configure(configure_query_history_details)
+@@ -27155,9 +31746,11 @@ cfg.service(web::scope("/api")
+         .configure(configure_rawhtml)
+         .configure(configure_receipts)
+         .configure(configure_recordings)
++        .configure(configure_recurring_revenue_accounts)
+         .configure(configure_referral_clicks)
+         .configure(configure_referral_config)
+         .configure(configure_referral_conversion_triggers)
++        .configure(configure_referral_daily_metrics)
+         .configure(configure_referral_leaderboard)
+         .configure(configure_referral_reminders)
+         .configure(configure_referral_rewards)
+@@ -27182,23 +31775,29 @@ cfg.service(web::scope("/api")
+         .configure(configure_route_assignment_email_outbox)
+         .configure(configure_route_capacity)
+         .configure(configure_route_challenges)
++        .configure(configure_route_cost_configs)
++        .configure(configure_route_density_metrics_log)
+         .configure(configure_route_density_tiers)
+         .configure(configure_route_discount_history)
+         .configure(configure_route_notifications)
+         .configure(configure_route_optimization_configs)
+         .configure(configure_route_optimization_snapshots)
+         .configure(configure_route_profitability_snapshots)
++        .configure(configure_route_rebalancing_changes)
+         .configure(configure_route_rebalancing_config)
+         .configure(configure_route_rebalancing_history)
+-        .configure(configure_route_stop_assignment_invariant_migration_state)
++        .configure(configure_route_rebalancing_runs)
++        .configure(configure_route_scaling_metrics)
+         .configure(configure_route_stop_upsell_recommendations)
+         .configure(configure_route_stops)
+         .configure(configure_routes)
+         .configure(configure_rrweb_events)
++        .configure(configure_sales_automation_events)
+         .configure(configure_sales_dialer_call_activities)
+         .configure(configure_sales_dialer_contacts)
+         .configure(configure_saved_videos)
+         .configure(configure_scan_events)
++        .configure(configure_scheduled_sms)
+         .configure(configure_seamless_checkout_drafts)
+         .configure(configure_seasonal_availability)
+         .configure(configure_seasonal_bundles)
+@@ -27212,7 +31811,11 @@ cfg.service(web::scope("/api")
+         .configure(configure_secret_migration_log)
+         .configure(configure_secret_secure_value)
+         .configure(configure_secrets)
++        .configure(configure_secure_action_audit_events)
++        .configure(configure_secure_action_capabilities)
++        .configure(configure_secure_action_commands)
+         .configure(configure_seed_assignment)
++        .configure(configure_segment_offer_mappings)
+         .configure(configure_segments)
+         .configure(configure_seo_generated_content)
+         .configure(configure_seo_schedules)
+@@ -27225,10 +31828,15 @@ cfg.service(web::scope("/api")
+         .configure(configure_service_booking_payments)
+         .configure(configure_service_booking_status_events)
+         .configure(configure_service_bookings)
++        .configure(configure_service_calendar_charge_acknowledgment)
++        .configure(configure_service_checklist_templates)
++        .configure(configure_service_follow_ups)
++        .configure(configure_service_issues)
+         .configure(configure_service_municipalities)
+         .configure(configure_service_offerings)
+         .configure(configure_service_photos)
+         .configure(configure_service_routes)
++        .configure(configure_service_signatures)
+         .configure(configure_session)
+         .configure(configure_session_annotations)
+         .configure(configure_session_logs)
+@@ -27252,10 +31860,12 @@ cfg.service(web::scope("/api")
+         .configure(configure_sms_consent)
+         .configure(configure_sms_consent_audit)
+         .configure(configure_sms_keyword_log)
++        .configure(configure_sms_log)
+         .configure(configure_sms_message_media)
+         .configure(configure_sms_messages)
+         .configure(configure_sms_quiet_hours)
+         .configure(configure_sms_sends)
++        .configure(configure_sms_sequence_jobs)
+         .configure(configure_sms_short_links)
+         .configure(configure_social_content_post_media)
+         .configure(configure_social_content_posts)
+@@ -27270,9 +31880,13 @@ cfg.service(web::scope("/api")
+         .configure(configure_street_groups)
+         .configure(configure_stripe_payments)
+         .configure(configure_subscription)
++        .configure(configure_subscription_churn_signals)
+         .configure(configure_subscription_events)
++        .configure(configure_subscription_onboarding_sessions)
++        .configure(configure_subscription_onboarding_steps)
+         .configure(configure_subscription_plan_changes)
+         .configure(configure_subscription_plans)
++        .configure(configure_subscription_upgrade_tracking)
+         .configure(configure_suno_clips)
+         .configure(configure_suno_generations)
+         .configure(configure_suno_tokens)
+@@ -27289,11 +31903,14 @@ cfg.service(web::scope("/api")
+         .configure(configure_templates)
+         .configure(configure_tenant_brand_config)
+         .configure(configure_tenant_oauth_credentials)
++        .configure(configure_tenant_usage)
+         .configure(configure_tenants)
+         .configure(configure_test_data)
+         .configure(configure_test_results)
+         .configure(configure_test_variants)
+         .configure(configure_tier_change_notifications)
++        .configure(configure_tier_upgrade_offers)
++        .configure(configure_tier_upsell_triggers)
+         .configure(configure_tiktok_access_tokens)
+         .configure(configure_tiktok_ad_insights)
+         .configure(configure_tiktok_ad_metrics)
+@@ -27311,22 +31928,30 @@ cfg.service(web::scope("/api")
+         .configure(configure_trash_zone_zip_codes)
+         .configure(configure_trash_zones)
+         .configure(configure_trial_customer)
++        .configure(configure_tripwire_offer_records)
++        .configure(configure_tripwire_upsell_offers)
+         .configure(configure_unified_audiences)
+         .configure(configure_unified_campaigns)
+         .configure(configure_upsell_acceptance_tokens)
++        .configure(configure_upsell_analytics)
++        .configure(configure_upsell_events)
++        .configure(configure_upsell_sales_locks)
++        .configure(configure_upsell_timing_rules)
++        .configure(configure_upsell_triggers)
++        .configure(configure_upsell_window_config)
+         .configure(configure_url_clicks)
+         .configure(configure_user)
+         .configure(configure_user_activity)
+         .configure(configure_user_api_keys)
+         .configure(configure_user_auth)
+         .configure(configure_user_auth_token)
++        .configure(configure_user_behavior_signals)
+         .configure(configure_user_external_session)
+         .configure(configure_user_role)
+         .configure(configure_user_stream_keys)
+         .configure(configure_user_test_assignments)
+         .configure(configure_users)
+         .configure(configure_video_assets)
+-        .configure(configure_video_audits)
+         .configure(configure_video_conversion_funnel)
+         .configure(configure_video_cta_submissions)
+         .configure(configure_video_ctas)
+@@ -27366,20 +31991,6 @@ cfg.service(web::scope("/api")
+         .configure(configure_zones));
+ }
+ 
+-fn configure_rustyroad_history(cfg: &mut web::ServiceConfig) {
+-cfg.service(
+-web::resource("/_rustyroad_history")
+-.route(web::get().to(list_rustyroad_history))
+-.route(web::post().to(create_rustyroad_history)),
+-)
+-.service(
+-web::resource("/_rustyroad_history/{id}")
+-.route(web::get().to(get_rustyroad_history))
+-.route(web::patch().to(update_rustyroad_history))
+-.route(web::delete().to(delete_rustyroad_history)),
+-);
+-}
+-
+ fn configure_rustyroad_migrations(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/_rustyroad_migrations")
+@@ -27394,6 +32005,34 @@ web::resource("/_rustyroad_migrations/{id}")
+ );
+ }
+ 
++fn configure_ab_campaign_actions(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ab_campaign_actions")
++.route(web::get().to(list_ab_campaign_actions))
++.route(web::post().to(create_ab_campaign_actions)),
++)
++.service(
++web::resource("/ab_campaign_actions/{id}")
++.route(web::get().to(get_ab_campaign_actions))
++.route(web::patch().to(update_ab_campaign_actions))
++.route(web::delete().to(delete_ab_campaign_actions)),
++);
++}
++
++fn configure_ab_campaign_links(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ab_campaign_links")
++.route(web::get().to(list_ab_campaign_links))
++.route(web::post().to(create_ab_campaign_links)),
++)
++.service(
++web::resource("/ab_campaign_links/{id}")
++.route(web::get().to(get_ab_campaign_links))
++.route(web::patch().to(update_ab_campaign_links))
++.route(web::delete().to(delete_ab_campaign_links)),
++);
++}
++
+ fn configure_ab_events(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/ab_events")
+@@ -27576,6 +32215,76 @@ web::resource("/abandoned_cart_drip_log/{id}")
+ );
+ }
+ 
++fn configure_acquisition_events(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/acquisition_events")
++.route(web::get().to(list_acquisition_events))
++.route(web::post().to(create_acquisition_events)),
++)
++.service(
++web::resource("/acquisition_events/{id}")
++.route(web::get().to(get_acquisition_events))
++.route(web::patch().to(update_acquisition_events))
++.route(web::delete().to(delete_acquisition_events)),
++);
++}
++
++fn configure_acquisition_flows(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/acquisition_flows")
++.route(web::get().to(list_acquisition_flows))
++.route(web::post().to(create_acquisition_flows)),
++)
++.service(
++web::resource("/acquisition_flows/{id}")
++.route(web::get().to(get_acquisition_flows))
++.route(web::patch().to(update_acquisition_flows))
++.route(web::delete().to(delete_acquisition_flows)),
++);
++}
++
++fn configure_acquisition_journeys(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/acquisition_journeys")
++.route(web::get().to(list_acquisition_journeys))
++.route(web::post().to(create_acquisition_journeys)),
++)
++.service(
++web::resource("/acquisition_journeys/{id}")
++.route(web::get().to(get_acquisition_journeys))
++.route(web::patch().to(update_acquisition_journeys))
++.route(web::delete().to(delete_acquisition_journeys)),
++);
++}
++
++fn configure_acquisition_states(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/acquisition_states")
++.route(web::get().to(list_acquisition_states))
++.route(web::post().to(create_acquisition_states)),
++)
++.service(
++web::resource("/acquisition_states/{id}")
++.route(web::get().to(get_acquisition_states))
++.route(web::patch().to(update_acquisition_states))
++.route(web::delete().to(delete_acquisition_states)),
++);
++}
++
++fn configure_acquisition_transition_rules(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/acquisition_transition_rules")
++.route(web::get().to(list_acquisition_transition_rules))
++.route(web::post().to(create_acquisition_transition_rules)),
++)
++.service(
++web::resource("/acquisition_transition_rules/{id}")
++.route(web::get().to(get_acquisition_transition_rules))
++.route(web::patch().to(update_acquisition_transition_rules))
++.route(web::delete().to(delete_acquisition_transition_rules)),
++);
++}
++
+ fn configure_action_triggers(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/action_triggers")
+@@ -27618,6 +32327,62 @@ web::resource("/ad_campaign_funnels/{id}")
+ );
+ }
+ 
++fn configure_ad_click_sessions(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ad_click_sessions")
++.route(web::get().to(list_ad_click_sessions))
++.route(web::post().to(create_ad_click_sessions)),
++)
++.service(
++web::resource("/ad_click_sessions/{id}")
++.route(web::get().to(get_ad_click_sessions))
++.route(web::patch().to(update_ad_click_sessions))
++.route(web::delete().to(delete_ad_click_sessions)),
++);
++}
++
++fn configure_ad_conversion_events(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ad_conversion_events")
++.route(web::get().to(list_ad_conversion_events))
++.route(web::post().to(create_ad_conversion_events)),
++)
++.service(
++web::resource("/ad_conversion_events/{id}")
++.route(web::get().to(get_ad_conversion_events))
++.route(web::patch().to(update_ad_conversion_events))
++.route(web::delete().to(delete_ad_conversion_events)),
++);
++}
++
++fn configure_ad_creative_offer_mappings(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ad_creative_offer_mappings")
++.route(web::get().to(list_ad_creative_offer_mappings))
++.route(web::post().to(create_ad_creative_offer_mappings)),
++)
++.service(
++web::resource("/ad_creative_offer_mappings/{id}")
++.route(web::get().to(get_ad_creative_offer_mappings))
++.route(web::patch().to(update_ad_creative_offer_mappings))
++.route(web::delete().to(delete_ad_creative_offer_mappings)),
++);
++}
++
++fn configure_ad_creative_variant_mappings(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ad_creative_variant_mappings")
++.route(web::get().to(list_ad_creative_variant_mappings))
++.route(web::post().to(create_ad_creative_variant_mappings)),
++)
++.service(
++web::resource("/ad_creative_variant_mappings/{id}")
++.route(web::get().to(get_ad_creative_variant_mappings))
++.route(web::patch().to(update_ad_creative_variant_mappings))
++.route(web::delete().to(delete_ad_creative_variant_mappings)),
++);
++}
++
+ fn configure_ad_creatives(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/ad_creatives")
+@@ -27646,6 +32411,34 @@ web::resource("/ad_performance/{id}")
+ );
+ }
+ 
++fn configure_ad_placement_asset_requirements(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ad_placement_asset_requirements")
++.route(web::get().to(list_ad_placement_asset_requirements))
++.route(web::post().to(create_ad_placement_asset_requirements)),
++)
++.service(
++web::resource("/ad_placement_asset_requirements/{id}")
++.route(web::get().to(get_ad_placement_asset_requirements))
++.route(web::patch().to(update_ad_placement_asset_requirements))
++.route(web::delete().to(delete_ad_placement_asset_requirements)),
++);
++}
++
++fn configure_ad_placement_format_rules(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ad_placement_format_rules")
++.route(web::get().to(list_ad_placement_format_rules))
++.route(web::post().to(create_ad_placement_format_rules)),
++)
++.service(
++web::resource("/ad_placement_format_rules/{id}")
++.route(web::get().to(get_ad_placement_format_rules))
++.route(web::patch().to(update_ad_placement_format_rules))
++.route(web::delete().to(delete_ad_placement_format_rules)),
++);
++}
++
+ fn configure_ad_platform_conversions(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/ad_platform_conversions")
+@@ -27660,6 +32453,20 @@ web::resource("/ad_platform_conversions/{id}")
+ );
+ }
+ 
++fn configure_ad_platform_lead_qualification_links(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ad_platform_lead_qualification_links")
++.route(web::get().to(list_ad_platform_lead_qualification_links))
++.route(web::post().to(create_ad_platform_lead_qualification_links)),
++)
++.service(
++web::resource("/ad_platform_lead_qualification_links/{id}")
++.route(web::get().to(get_ad_platform_lead_qualification_links))
++.route(web::patch().to(update_ad_platform_lead_qualification_links))
++.route(web::delete().to(delete_ad_platform_lead_qualification_links)),
++);
++}
++
+ fn configure_ad_platform_lead_sms_qualifications(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/ad_platform_lead_sms_qualifications")
+@@ -27688,6 +32495,20 @@ web::resource("/ad_platform_leads/{id}")
+ );
+ }
+ 
++fn configure_ad_platform_pixels(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ad_platform_pixels")
++.route(web::get().to(list_ad_platform_pixels))
++.route(web::post().to(create_ad_platform_pixels)),
++)
++.service(
++web::resource("/ad_platform_pixels/{id}")
++.route(web::get().to(get_ad_platform_pixels))
++.route(web::patch().to(update_ad_platform_pixels))
++.route(web::delete().to(delete_ad_platform_pixels)),
++);
++}
++
+ fn configure_ad_rotation_config(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/ad_rotation_config")
+@@ -27730,6 +32551,48 @@ web::resource("/ad_set_ads/{id}")
+ );
+ }
+ 
++fn configure_ad_source_landing_mappings(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ad_source_landing_mappings")
++.route(web::get().to(list_ad_source_landing_mappings))
++.route(web::post().to(create_ad_source_landing_mappings)),
++)
++.service(
++web::resource("/ad_source_landing_mappings/{id}")
++.route(web::get().to(get_ad_source_landing_mappings))
++.route(web::patch().to(update_ad_source_landing_mappings))
++.route(web::delete().to(delete_ad_source_landing_mappings)),
++);
++}
++
++fn configure_ad_tripwire_automation_log(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ad_tripwire_automation_log")
++.route(web::get().to(list_ad_tripwire_automation_log))
++.route(web::post().to(create_ad_tripwire_automation_log)),
++)
++.service(
++web::resource("/ad_tripwire_automation_log/{id}")
++.route(web::get().to(get_ad_tripwire_automation_log))
++.route(web::patch().to(update_ad_tripwire_automation_log))
++.route(web::delete().to(delete_ad_tripwire_automation_log)),
++);
++}
++
++fn configure_ad_tripwire_config(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ad_tripwire_config")
++.route(web::get().to(list_ad_tripwire_config))
++.route(web::post().to(create_ad_tripwire_config)),
++)
++.service(
++web::resource("/ad_tripwire_config/{id}")
++.route(web::get().to(get_ad_tripwire_config))
++.route(web::patch().to(update_ad_tripwire_config))
++.route(web::delete().to(delete_ad_tripwire_config)),
++);
++}
++
+ fn configure_address_parcels(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/address_parcels")
+@@ -27968,6 +32831,48 @@ web::resource("/alerts/{id}")
+ );
+ }
+ 
++fn configure_ambassador_activities(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ambassador_activities")
++.route(web::get().to(list_ambassador_activities))
++.route(web::post().to(create_ambassador_activities)),
++)
++.service(
++web::resource("/ambassador_activities/{id}")
++.route(web::get().to(get_ambassador_activities))
++.route(web::patch().to(update_ambassador_activities))
++.route(web::delete().to(delete_ambassador_activities)),
++);
++}
++
++fn configure_ambassador_referrals(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ambassador_referrals")
++.route(web::get().to(list_ambassador_referrals))
++.route(web::post().to(create_ambassador_referrals)),
++)
++.service(
++web::resource("/ambassador_referrals/{id}")
++.route(web::get().to(get_ambassador_referrals))
++.route(web::patch().to(update_ambassador_referrals))
++.route(web::delete().to(delete_ambassador_referrals)),
++);
++}
++
++fn configure_ambassadors(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/ambassadors")
++.route(web::get().to(list_ambassadors))
++.route(web::post().to(create_ambassadors)),
++)
++.service(
++web::resource("/ambassadors/{id}")
++.route(web::get().to(get_ambassadors))
++.route(web::patch().to(update_ambassadors))
++.route(web::delete().to(delete_ambassadors)),
++);
++}
++
+ fn configure_analytics_events(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/analytics_events")
+@@ -28122,6 +33027,20 @@ web::resource("/attribution_weights/{id}")
+ );
+ }
+ 
++fn configure_audience_budget_allocation(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/audience_budget_allocation")
++.route(web::get().to(list_audience_budget_allocation))
++.route(web::post().to(create_audience_budget_allocation)),
++)
++.service(
++web::resource("/audience_budget_allocation/{id}")
++.route(web::get().to(get_audience_budget_allocation))
++.route(web::patch().to(update_audience_budget_allocation))
++.route(web::delete().to(delete_audience_budget_allocation)),
++);
++}
++
+ fn configure_audience_budget_recommendations(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/audience_budget_recommendations")
+@@ -28150,6 +33069,20 @@ web::resource("/audience_event_rules/{id}")
+ );
+ }
+ 
++fn configure_audience_exclusion_lists(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/audience_exclusion_lists")
++.route(web::get().to(list_audience_exclusion_lists))
++.route(web::post().to(create_audience_exclusion_lists)),
++)
++.service(
++web::resource("/audience_exclusion_lists/{id}")
++.route(web::get().to(get_audience_exclusion_lists))
++.route(web::patch().to(update_audience_exclusion_lists))
++.route(web::delete().to(delete_audience_exclusion_lists)),
++);
++}
++
+ fn configure_audience_expansion(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/audience_expansion")
+@@ -28164,6 +33097,20 @@ web::resource("/audience_expansion/{id}")
+ );
+ }
+ 
++fn configure_audience_optimizer_actions(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/audience_optimizer_actions")
++.route(web::get().to(list_audience_optimizer_actions))
++.route(web::post().to(create_audience_optimizer_actions)),
++)
++.service(
++web::resource("/audience_optimizer_actions/{id}")
++.route(web::get().to(get_audience_optimizer_actions))
++.route(web::patch().to(update_audience_optimizer_actions))
++.route(web::delete().to(delete_audience_optimizer_actions)),
++);
++}
++
+ fn configure_audience_performance(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/audience_performance")
+@@ -28234,6 +33181,34 @@ web::resource("/automation_execution_logs/{id}")
+ );
+ }
+ 
++fn configure_automation_run_logs(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/automation_run_logs")
++.route(web::get().to(list_automation_run_logs))
++.route(web::post().to(create_automation_run_logs)),
++)
++.service(
++web::resource("/automation_run_logs/{id}")
++.route(web::get().to(get_automation_run_logs))
++.route(web::patch().to(update_automation_run_logs))
++.route(web::delete().to(delete_automation_run_logs)),
++);
++}
++
++fn configure_automation_run_summaries(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/automation_run_summaries")
++.route(web::get().to(list_automation_run_summaries))
++.route(web::post().to(create_automation_run_summaries)),
++)
++.service(
++web::resource("/automation_run_summaries/{id}")
++.route(web::get().to(get_automation_run_summaries))
++.route(web::patch().to(update_automation_run_summaries))
++.route(web::delete().to(delete_automation_run_summaries)),
++);
++}
++
+ fn configure_automation_runs(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/automation_runs")
+@@ -28262,6 +33237,34 @@ web::resource("/automation_scheduled_steps/{id}")
+ );
+ }
+ 
++fn configure_automation_success_log(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/automation_success_log")
++.route(web::get().to(list_automation_success_log))
++.route(web::post().to(create_automation_success_log)),
++)
++.service(
++web::resource("/automation_success_log/{id}")
++.route(web::get().to(get_automation_success_log))
++.route(web::patch().to(update_automation_success_log))
++.route(web::delete().to(delete_automation_success_log)),
++);
++}
++
++fn configure_automation_targets(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/automation_targets")
++.route(web::get().to(list_automation_targets))
++.route(web::post().to(create_automation_targets)),
++)
++.service(
++web::resource("/automation_targets/{id}")
++.route(web::get().to(get_automation_targets))
++.route(web::patch().to(update_automation_targets))
++.route(web::delete().to(delete_automation_targets)),
++);
++}
++
+ fn configure_automation_temporal_activity_evidence(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/automation_temporal_activity_evidence")
+@@ -28290,6 +33293,20 @@ web::resource("/automation_temporal_outbox/{id}")
+ );
+ }
+ 
++fn configure_automation_triggers(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/automation_triggers")
++.route(web::get().to(list_automation_triggers))
++.route(web::post().to(create_automation_triggers)),
++)
++.service(
++web::resource("/automation_triggers/{id}")
++.route(web::get().to(get_automation_triggers))
++.route(web::patch().to(update_automation_triggers))
++.route(web::delete().to(delete_automation_triggers)),
++);
++}
++
+ fn configure_automation_versions(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/automation_versions")
+@@ -28360,6 +33377,20 @@ web::resource("/autopilot_decisions/{id}")
+ );
+ }
+ 
++fn configure_bandit_campaign_traces(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/bandit_campaign_traces")
++.route(web::get().to(list_bandit_campaign_traces))
++.route(web::post().to(create_bandit_campaign_traces)),
++)
++.service(
++web::resource("/bandit_campaign_traces/{id}")
++.route(web::get().to(get_bandit_campaign_traces))
++.route(web::patch().to(update_bandit_campaign_traces))
++.route(web::delete().to(delete_bandit_campaign_traces)),
++);
++}
++
+ fn configure_bandit_decisions(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/bandit_decisions")
+@@ -28486,20 +33517,6 @@ web::resource("/booking_operating_windows/{id}")
+ );
+ }
+ 
+-fn configure_brand_strategies(cfg: &mut web::ServiceConfig) {
+-cfg.service(
+-web::resource("/brand_strategies")
+-.route(web::get().to(list_brand_strategies))
+-.route(web::post().to(create_brand_strategies)),
+-)
+-.service(
+-web::resource("/brand_strategies/{id}")
+-.route(web::get().to(get_brand_strategies))
+-.route(web::patch().to(update_brand_strategies))
+-.route(web::delete().to(delete_brand_strategies)),
+-);
+-}
+-
+ fn configure_bridge_person_identity(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/bridge_person_identity")
+@@ -29088,6 +34105,48 @@ web::resource("/chat_threads/{id}")
+ );
+ }
+ 
++fn configure_checkout_email_queue(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/checkout_email_queue")
++.route(web::get().to(list_checkout_email_queue))
++.route(web::post().to(create_checkout_email_queue)),
++)
++.service(
++web::resource("/checkout_email_queue/{id}")
++.route(web::get().to(get_checkout_email_queue))
++.route(web::patch().to(update_checkout_email_queue))
++.route(web::delete().to(delete_checkout_email_queue)),
++);
++}
++
++fn configure_checkout_orders(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/checkout_orders")
++.route(web::get().to(list_checkout_orders))
++.route(web::post().to(create_checkout_orders)),
++)
++.service(
++web::resource("/checkout_orders/{id}")
++.route(web::get().to(get_checkout_orders))
++.route(web::patch().to(update_checkout_orders))
++.route(web::delete().to(delete_checkout_orders)),
++);
++}
++
++fn configure_checkout_sessions(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/checkout_sessions")
++.route(web::get().to(list_checkout_sessions))
++.route(web::post().to(create_checkout_sessions)),
++)
++.service(
++web::resource("/checkout_sessions/{id}")
++.route(web::get().to(get_checkout_sessions))
++.route(web::patch().to(update_checkout_sessions))
++.route(web::delete().to(delete_checkout_sessions)),
++);
++}
++
+ fn configure_churn_events(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/churn_events")
+@@ -29172,6 +34231,76 @@ web::resource("/cloudflare_stream_webhook_events/{id}")
+ );
+ }
+ 
++fn configure_clustering_metrics(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/clustering_metrics")
++.route(web::get().to(list_clustering_metrics))
++.route(web::post().to(create_clustering_metrics)),
++)
++.service(
++web::resource("/clustering_metrics/{id}")
++.route(web::get().to(get_clustering_metrics))
++.route(web::patch().to(update_clustering_metrics))
++.route(web::delete().to(delete_clustering_metrics)),
++);
++}
++
++fn configure_codetether_automation_run_events(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/codetether_automation_run_events")
++.route(web::get().to(list_codetether_automation_run_events))
++.route(web::post().to(create_codetether_automation_run_events)),
++)
++.service(
++web::resource("/codetether_automation_run_events/{id}")
++.route(web::get().to(get_codetether_automation_run_events))
++.route(web::patch().to(update_codetether_automation_run_events))
++.route(web::delete().to(delete_codetether_automation_run_events)),
++);
++}
++
++fn configure_codetether_automation_runs(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/codetether_automation_runs")
++.route(web::get().to(list_codetether_automation_runs))
++.route(web::post().to(create_codetether_automation_runs)),
++)
++.service(
++web::resource("/codetether_automation_runs/{id}")
++.route(web::get().to(get_codetether_automation_runs))
++.route(web::patch().to(update_codetether_automation_runs))
++.route(web::delete().to(delete_codetether_automation_runs)),
++);
++}
++
++fn configure_codetether_automation_schedule_events(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/codetether_automation_schedule_events")
++.route(web::get().to(list_codetether_automation_schedule_events))
++.route(web::post().to(create_codetether_automation_schedule_events)),
++)
++.service(
++web::resource("/codetether_automation_schedule_events/{id}")
++.route(web::get().to(get_codetether_automation_schedule_events))
++.route(web::patch().to(update_codetether_automation_schedule_events))
++.route(web::delete().to(delete_codetether_automation_schedule_events)),
++);
++}
++
++fn configure_codetether_automation_schedules(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/codetether_automation_schedules")
++.route(web::get().to(list_codetether_automation_schedules))
++.route(web::post().to(create_codetether_automation_schedules)),
++)
++.service(
++web::resource("/codetether_automation_schedules/{id}")
++.route(web::get().to(get_codetether_automation_schedules))
++.route(web::patch().to(update_codetether_automation_schedules))
++.route(web::delete().to(delete_codetether_automation_schedules)),
++);
++}
++
+ fn configure_codetether_insights(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/codetether_insights")
+@@ -29256,6 +34385,20 @@ web::resource("/collection_territories/{id}")
+ );
+ }
+ 
++fn configure_commercial_outreach_leads(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/commercial_outreach_leads")
++.route(web::get().to(list_commercial_outreach_leads))
++.route(web::post().to(create_commercial_outreach_leads)),
++)
++.service(
++web::resource("/commercial_outreach_leads/{id}")
++.route(web::get().to(get_commercial_outreach_leads))
++.route(web::patch().to(update_commercial_outreach_leads))
++.route(web::delete().to(delete_commercial_outreach_leads)),
++);
++}
++
+ fn configure_competitor_ad_spend(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/competitor_ad_spend")
+@@ -29410,20 +34553,6 @@ web::resource("/component_cross_field_rules/{id}")
+ );
+ }
+ 
+-fn configure_component_definitions(cfg: &mut web::ServiceConfig) {
+-cfg.service(
+-web::resource("/component_definitions")
+-.route(web::get().to(list_component_definitions))
+-.route(web::post().to(create_component_definitions)),
+-)
+-.service(
+-web::resource("/component_definitions/{id}")
+-.route(web::get().to(get_component_definitions))
+-.route(web::patch().to(update_component_definitions))
+-.route(web::delete().to(delete_component_definitions)),
+-);
+-}
+-
+ fn configure_component_examples(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/component_examples")
+@@ -29438,6 +34567,20 @@ web::resource("/component_examples/{id}")
+ );
+ }
+ 
++fn configure_component_field_data_dependencies(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/component_field_data_dependencies")
++.route(web::get().to(list_component_field_data_dependencies))
++.route(web::post().to(create_component_field_data_dependencies)),
++)
++.service(
++web::resource("/component_field_data_dependencies/{id}")
++.route(web::get().to(get_component_field_data_dependencies))
++.route(web::patch().to(update_component_field_data_dependencies))
++.route(web::delete().to(delete_component_field_data_dependencies)),
++);
++}
++
+ fn configure_component_json_schema_keywords(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/component_json_schema_keywords")
+@@ -29536,20 +34679,6 @@ web::resource("/component_theme_presets/{id}")
+ );
+ }
+ 
+-fn configure_component_theme_radius_values(cfg: &mut web::ServiceConfig) {
+-cfg.service(
+-web::resource("/component_theme_radius_values")
+-.route(web::get().to(list_component_theme_radius_values))
+-.route(web::post().to(create_component_theme_radius_values)),
+-)
+-.service(
+-web::resource("/component_theme_radius_values/{id}")
+-.route(web::get().to(get_component_theme_radius_values))
+-.route(web::patch().to(update_component_theme_radius_values))
+-.route(web::delete().to(delete_component_theme_radius_values)),
+-);
+-}
+-
+ fn configure_component_theme_token_variables(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/component_theme_token_variables")
+@@ -29634,6 +34763,20 @@ web::resource("/component_version_field_dependencies/{id}")
+ );
+ }
+ 
++fn configure_component_version_field_metadata(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/component_version_field_metadata")
++.route(web::get().to(list_component_version_field_metadata))
++.route(web::post().to(create_component_version_field_metadata)),
++)
++.service(
++web::resource("/component_version_field_metadata/{id}")
++.route(web::get().to(get_component_version_field_metadata))
++.route(web::patch().to(update_component_version_field_metadata))
++.route(web::delete().to(delete_component_version_field_metadata)),
++);
++}
++
+ fn configure_component_version_field_relations(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/component_version_field_relations")
+@@ -29900,20 +35043,6 @@ web::resource("/create_job_logs/{id}")
+ );
+ }
+ 
+-fn configure_create_media_library(cfg: &mut web::ServiceConfig) {
+-cfg.service(
+-web::resource("/create_media_library")
+-.route(web::get().to(list_create_media_library))
+-.route(web::post().to(create_create_media_library)),
+-)
+-.service(
+-web::resource("/create_media_library/{id}")
+-.route(web::get().to(get_create_media_library))
+-.route(web::patch().to(update_create_media_library))
+-.route(web::delete().to(delete_create_media_library)),
+-);
+-}
+-
+ fn configure_create_personalization_contexts_table(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/create_personalization_contexts_table")
+@@ -30222,6 +35351,20 @@ web::resource("/crm_tasks/{id}")
+ );
+ }
+ 
++fn configure_cross_sell_offers(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/cross_sell_offers")
++.route(web::get().to(list_cross_sell_offers))
++.route(web::post().to(create_cross_sell_offers)),
++)
++.service(
++web::resource("/cross_sell_offers/{id}")
++.route(web::get().to(get_cross_sell_offers))
++.route(web::patch().to(update_cross_sell_offers))
++.route(web::delete().to(delete_cross_sell_offers)),
++);
++}
++
+ fn configure_customer(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/customer")
+@@ -30278,6 +35421,20 @@ web::resource("/customer_contact_lists/{id}")
+ );
+ }
+ 
++fn configure_customer_features(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/customer_features")
++.route(web::get().to(list_customer_features))
++.route(web::post().to(create_customer_features)),
++)
++.service(
++web::resource("/customer_features/{id}")
++.route(web::get().to(get_customer_features))
++.route(web::patch().to(update_customer_features))
++.route(web::delete().to(delete_customer_features)),
++);
++}
++
+ fn configure_customer_funnel_states(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/customer_funnel_states")
+@@ -30306,6 +35463,34 @@ web::resource("/customer_neighborhoods/{id}")
+ );
+ }
+ 
++fn configure_customer_onboarding(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/customer_onboarding")
++.route(web::get().to(list_customer_onboarding))
++.route(web::post().to(create_customer_onboarding)),
++)
++.service(
++web::resource("/customer_onboarding/{id}")
++.route(web::get().to(get_customer_onboarding))
++.route(web::patch().to(update_customer_onboarding))
++.route(web::delete().to(delete_customer_onboarding)),
++);
++}
++
++fn configure_customer_onboarding_progress(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/customer_onboarding_progress")
++.route(web::get().to(list_customer_onboarding_progress))
++.route(web::post().to(create_customer_onboarding_progress)),
++)
++.service(
++web::resource("/customer_onboarding_progress/{id}")
++.route(web::get().to(get_customer_onboarding_progress))
++.route(web::patch().to(update_customer_onboarding_progress))
++.route(web::delete().to(delete_customer_onboarding_progress)),
++);
++}
++
+ fn configure_customer_plan_preferences(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/customer_plan_preferences")
+@@ -30320,6 +35505,20 @@ web::resource("/customer_plan_preferences/{id}")
+ );
+ }
+ 
++fn configure_customer_preferences(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/customer_preferences")
++.route(web::get().to(list_customer_preferences))
++.route(web::post().to(create_customer_preferences)),
++)
++.service(
++web::resource("/customer_preferences/{id}")
++.route(web::get().to(get_customer_preferences))
++.route(web::patch().to(update_customer_preferences))
++.route(web::delete().to(delete_customer_preferences)),
++);
++}
++
+ fn configure_customer_routes(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/customer_routes")
+@@ -30334,6 +35533,20 @@ web::resource("/customer_routes/{id}")
+ );
+ }
+ 
++fn configure_customer_service_dates(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/customer_service_dates")
++.route(web::get().to(list_customer_service_dates))
++.route(web::post().to(create_customer_service_dates)),
++)
++.service(
++web::resource("/customer_service_dates/{id}")
++.route(web::get().to(get_customer_service_dates))
++.route(web::patch().to(update_customer_service_dates))
++.route(web::delete().to(delete_customer_service_dates)),
++);
++}
++
+ fn configure_customer_streets(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/customer_streets")
+@@ -30362,6 +35575,34 @@ web::resource("/customer_subscriptions/{id}")
+ );
+ }
+ 
++fn configure_customer_support_tickets(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/customer_support_tickets")
++.route(web::get().to(list_customer_support_tickets))
++.route(web::post().to(create_customer_support_tickets)),
++)
++.service(
++web::resource("/customer_support_tickets/{id}")
++.route(web::get().to(get_customer_support_tickets))
++.route(web::patch().to(update_customer_support_tickets))
++.route(web::delete().to(delete_customer_support_tickets)),
++);
++}
++
++fn configure_customer_upsell_events(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/customer_upsell_events")
++.route(web::get().to(list_customer_upsell_events))
++.route(web::post().to(create_customer_upsell_events)),
++)
++.service(
++web::resource("/customer_upsell_events/{id}")
++.route(web::get().to(get_customer_upsell_events))
++.route(web::patch().to(update_customer_upsell_events))
++.route(web::delete().to(delete_customer_upsell_events)),
++);
++}
++
+ fn configure_customer_upsell_history(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/customer_upsell_history")
+@@ -30376,6 +35617,20 @@ web::resource("/customer_upsell_history/{id}")
+ );
+ }
+ 
++fn configure_customer_upsell_status(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/customer_upsell_status")
++.route(web::get().to(list_customer_upsell_status))
++.route(web::post().to(create_customer_upsell_status)),
++)
++.service(
++web::resource("/customer_upsell_status/{id}")
++.route(web::get().to(get_customer_upsell_status))
++.route(web::patch().to(update_customer_upsell_status))
++.route(web::delete().to(delete_customer_upsell_status)),
++);
++}
++
+ fn configure_daily_summaries(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/daily_summaries")
+@@ -30740,6 +35995,20 @@ web::resource("/driver_capacity_windows/{id}")
+ );
+ }
+ 
++fn configure_driver_devices(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/driver_devices")
++.route(web::get().to(list_driver_devices))
++.route(web::post().to(create_driver_devices)),
++)
++.service(
++web::resource("/driver_devices/{id}")
++.route(web::get().to(get_driver_devices))
++.route(web::patch().to(update_driver_devices))
++.route(web::delete().to(delete_driver_devices)),
++);
++}
++
+ fn configure_driver_locations(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/driver_locations")
+@@ -30810,6 +36079,20 @@ web::resource("/driver_shifts/{id}")
+ );
+ }
+ 
++fn configure_driver_tasks(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/driver_tasks")
++.route(web::get().to(list_driver_tasks))
++.route(web::post().to(create_driver_tasks)),
++)
++.service(
++web::resource("/driver_tasks/{id}")
++.route(web::get().to(get_driver_tasks))
++.route(web::patch().to(update_driver_tasks))
++.route(web::delete().to(delete_driver_tasks)),
++);
++}
++
+ fn configure_driver_zone_assignments(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/driver_zone_assignments")
+@@ -30838,6 +36121,20 @@ web::resource("/dunning_email_log/{id}")
+ );
+ }
+ 
++fn configure_dunning_emails(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/dunning_emails")
++.route(web::get().to(list_dunning_emails))
++.route(web::post().to(create_dunning_emails)),
++)
++.service(
++web::resource("/dunning_emails/{id}")
++.route(web::get().to(get_dunning_emails))
++.route(web::patch().to(update_dunning_emails))
++.route(web::delete().to(delete_dunning_emails)),
++);
++}
++
+ fn configure_dunning_sequences(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/dunning_sequences")
+@@ -30922,6 +36219,20 @@ web::resource("/email_sends/{id}")
+ );
+ }
+ 
++fn configure_email_sequence_jobs(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/email_sequence_jobs")
++.route(web::get().to(list_email_sequence_jobs))
++.route(web::post().to(create_email_sequence_jobs)),
++)
++.service(
++web::resource("/email_sequence_jobs/{id}")
++.route(web::get().to(get_email_sequence_jobs))
++.route(web::patch().to(update_email_sequence_jobs))
++.route(web::delete().to(delete_email_sequence_jobs)),
++);
++}
++
+ fn configure_email_sequences(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/email_sequences")
+@@ -30978,6 +36289,20 @@ web::resource("/email_workflow_edges/{id}")
+ );
+ }
+ 
++fn configure_email_workflow_event_waits(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/email_workflow_event_waits")
++.route(web::get().to(list_email_workflow_event_waits))
++.route(web::post().to(create_email_workflow_event_waits)),
++)
++.service(
++web::resource("/email_workflow_event_waits/{id}")
++.route(web::get().to(get_email_workflow_event_waits))
++.route(web::patch().to(update_email_workflow_event_waits))
++.route(web::delete().to(delete_email_workflow_event_waits)),
++);
++}
++
+ fn configure_email_workflow_folders(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/email_workflow_folders")
+@@ -31076,6 +36401,20 @@ web::resource("/email_workflow_scheduled_steps/{id}")
+ );
+ }
+ 
++fn configure_email_workflow_split_test_results(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/email_workflow_split_test_results")
++.route(web::get().to(list_email_workflow_split_test_results))
++.route(web::post().to(create_email_workflow_split_test_results)),
++)
++.service(
++web::resource("/email_workflow_split_test_results/{id}")
++.route(web::get().to(get_email_workflow_split_test_results))
++.route(web::patch().to(update_email_workflow_split_test_results))
++.route(web::delete().to(delete_email_workflow_split_test_results)),
++);
++}
++
+ fn configure_email_workflows(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/email_workflows")
+@@ -31314,6 +36653,76 @@ web::resource("/facebook_ad_set_metrics/{id}")
+ );
+ }
+ 
++fn configure_facebook_bulk_ad_set_templates(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/facebook_bulk_ad_set_templates")
++.route(web::get().to(list_facebook_bulk_ad_set_templates))
++.route(web::post().to(create_facebook_bulk_ad_set_templates)),
++)
++.service(
++web::resource("/facebook_bulk_ad_set_templates/{id}")
++.route(web::get().to(get_facebook_bulk_ad_set_templates))
++.route(web::patch().to(update_facebook_bulk_ad_set_templates))
++.route(web::delete().to(delete_facebook_bulk_ad_set_templates)),
++);
++}
++
++fn configure_facebook_bulk_creative_assets(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/facebook_bulk_creative_assets")
++.route(web::get().to(list_facebook_bulk_creative_assets))
++.route(web::post().to(create_facebook_bulk_creative_assets)),
++)
++.service(
++web::resource("/facebook_bulk_creative_assets/{id}")
++.route(web::get().to(get_facebook_bulk_creative_assets))
++.route(web::patch().to(update_facebook_bulk_creative_assets))
++.route(web::delete().to(delete_facebook_bulk_creative_assets)),
++);
++}
++
++fn configure_facebook_bulk_input_sets(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/facebook_bulk_input_sets")
++.route(web::get().to(list_facebook_bulk_input_sets))
++.route(web::post().to(create_facebook_bulk_input_sets)),
++)
++.service(
++web::resource("/facebook_bulk_input_sets/{id}")
++.route(web::get().to(get_facebook_bulk_input_sets))
++.route(web::patch().to(update_facebook_bulk_input_sets))
++.route(web::delete().to(delete_facebook_bulk_input_sets)),
++);
++}
++
++fn configure_facebook_bulk_text_variations(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/facebook_bulk_text_variations")
++.route(web::get().to(list_facebook_bulk_text_variations))
++.route(web::post().to(create_facebook_bulk_text_variations)),
++)
++.service(
++web::resource("/facebook_bulk_text_variations/{id}")
++.route(web::get().to(get_facebook_bulk_text_variations))
++.route(web::patch().to(update_facebook_bulk_text_variations))
++.route(web::delete().to(delete_facebook_bulk_text_variations)),
++);
++}
++
++fn configure_facebook_bulk_upload_requests(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/facebook_bulk_upload_requests")
++.route(web::get().to(list_facebook_bulk_upload_requests))
++.route(web::post().to(create_facebook_bulk_upload_requests)),
++)
++.service(
++web::resource("/facebook_bulk_upload_requests/{id}")
++.route(web::get().to(get_facebook_bulk_upload_requests))
++.route(web::patch().to(update_facebook_bulk_upload_requests))
++.route(web::delete().to(delete_facebook_bulk_upload_requests)),
++);
++}
++
+ fn configure_facebook_campaign_insights(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/facebook_campaign_insights")
+@@ -31328,6 +36737,20 @@ web::resource("/facebook_campaign_insights/{id}")
+ );
+ }
+ 
++fn configure_facebook_daily_metrics(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/facebook_daily_metrics")
++.route(web::get().to(list_facebook_daily_metrics))
++.route(web::post().to(create_facebook_daily_metrics)),
++)
++.service(
++web::resource("/facebook_daily_metrics/{id}")
++.route(web::get().to(get_facebook_daily_metrics))
++.route(web::patch().to(update_facebook_daily_metrics))
++.route(web::delete().to(delete_facebook_daily_metrics)),
++);
++}
++
+ fn configure_facebook_events_log(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/facebook_events_log")
+@@ -31524,6 +36947,20 @@ web::resource("/forms/{id}")
+ );
+ }
+ 
++fn configure_funnel_analytics(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/funnel_analytics")
++.route(web::get().to(list_funnel_analytics))
++.route(web::post().to(create_funnel_analytics)),
++)
++.service(
++web::resource("/funnel_analytics/{id}")
++.route(web::get().to(get_funnel_analytics))
++.route(web::patch().to(update_funnel_analytics))
++.route(web::delete().to(delete_funnel_analytics)),
++);
++}
++
+ fn configure_funnel_builder_layouts(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/funnel_builder_layouts")
+@@ -31538,6 +36975,48 @@ web::resource("/funnel_builder_layouts/{id}")
+ );
+ }
+ 
++fn configure_funnel_circuit_breaker_config(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/funnel_circuit_breaker_config")
++.route(web::get().to(list_funnel_circuit_breaker_config))
++.route(web::post().to(create_funnel_circuit_breaker_config)),
++)
++.service(
++web::resource("/funnel_circuit_breaker_config/{id}")
++.route(web::get().to(get_funnel_circuit_breaker_config))
++.route(web::patch().to(update_funnel_circuit_breaker_config))
++.route(web::delete().to(delete_funnel_circuit_breaker_config)),
++);
++}
++
++fn configure_funnel_consistency_checks(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/funnel_consistency_checks")
++.route(web::get().to(list_funnel_consistency_checks))
++.route(web::post().to(create_funnel_consistency_checks)),
++)
++.service(
++web::resource("/funnel_consistency_checks/{id}")
++.route(web::get().to(get_funnel_consistency_checks))
++.route(web::patch().to(update_funnel_consistency_checks))
++.route(web::delete().to(delete_funnel_consistency_checks)),
++);
++}
++
++fn configure_funnel_conversion_events(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/funnel_conversion_events")
++.route(web::get().to(list_funnel_conversion_events))
++.route(web::post().to(create_funnel_conversion_events)),
++)
++.service(
++web::resource("/funnel_conversion_events/{id}")
++.route(web::get().to(get_funnel_conversion_events))
++.route(web::patch().to(update_funnel_conversion_events))
++.route(web::delete().to(delete_funnel_conversion_events)),
++);
++}
++
+ fn configure_funnel_events(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/funnel_events")
+@@ -31566,6 +37045,20 @@ web::resource("/funnel_lifecycle_revisions/{id}")
+ );
+ }
+ 
++fn configure_funnel_orchestration(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/funnel_orchestration")
++.route(web::get().to(list_funnel_orchestration))
++.route(web::post().to(create_funnel_orchestration)),
++)
++.service(
++web::resource("/funnel_orchestration/{id}")
++.route(web::get().to(get_funnel_orchestration))
++.route(web::patch().to(update_funnel_orchestration))
++.route(web::delete().to(delete_funnel_orchestration)),
++);
++}
++
+ fn configure_funnel_payment_state(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/funnel_payment_state")
+@@ -31580,6 +37073,48 @@ web::resource("/funnel_payment_state/{id}")
+ );
+ }
+ 
++fn configure_funnel_retry_policy(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/funnel_retry_policy")
++.route(web::get().to(list_funnel_retry_policy))
++.route(web::post().to(create_funnel_retry_policy)),
++)
++.service(
++web::resource("/funnel_retry_policy/{id}")
++.route(web::get().to(get_funnel_retry_policy))
++.route(web::patch().to(update_funnel_retry_policy))
++.route(web::delete().to(delete_funnel_retry_policy)),
++);
++}
++
++fn configure_funnel_stage_events(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/funnel_stage_events")
++.route(web::get().to(list_funnel_stage_events))
++.route(web::post().to(create_funnel_stage_events)),
++)
++.service(
++web::resource("/funnel_stage_events/{id}")
++.route(web::get().to(get_funnel_stage_events))
++.route(web::patch().to(update_funnel_stage_events))
++.route(web::delete().to(delete_funnel_stage_events)),
++);
++}
++
++fn configure_funnel_state_log(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/funnel_state_log")
++.route(web::get().to(list_funnel_state_log))
++.route(web::post().to(create_funnel_state_log)),
++)
++.service(
++web::resource("/funnel_state_log/{id}")
++.route(web::get().to(get_funnel_state_log))
++.route(web::patch().to(update_funnel_state_log))
++.route(web::delete().to(delete_funnel_state_log)),
++);
++}
++
+ fn configure_funnel_step_components(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/funnel_step_components")
+@@ -32084,20 +37619,6 @@ web::resource("/hourly_conversion_rates/{id}")
+ );
+ }
+ 
+-fn configure_hr_application_reviews(cfg: &mut web::ServiceConfig) {
+-cfg.service(
+-web::resource("/hr_application_reviews")
+-.route(web::get().to(list_hr_application_reviews))
+-.route(web::post().to(create_hr_application_reviews)),
+-)
+-.service(
+-web::resource("/hr_application_reviews/{id}")
+-.route(web::get().to(get_hr_application_reviews))
+-.route(web::patch().to(update_hr_application_reviews))
+-.route(web::delete().to(delete_hr_application_reviews)),
+-);
+-}
+-
+ fn configure_ibb_campaign_node_rules(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/ibb_campaign_node_rules")
+@@ -32378,6 +37899,34 @@ web::resource("/job_logs/{id}")
+ );
+ }
+ 
++fn configure_kr_funnel_metrics(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/kr_funnel_metrics")
++.route(web::get().to(list_kr_funnel_metrics))
++.route(web::post().to(create_kr_funnel_metrics)),
++)
++.service(
++web::resource("/kr_funnel_metrics/{id}")
++.route(web::get().to(get_kr_funnel_metrics))
++.route(web::patch().to(update_kr_funnel_metrics))
++.route(web::delete().to(delete_kr_funnel_metrics)),
++);
++}
++
++fn configure_kr_progress(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/kr_progress")
++.route(web::get().to(list_kr_progress))
++.route(web::post().to(create_kr_progress)),
++)
++.service(
++web::resource("/kr_progress/{id}")
++.route(web::get().to(get_kr_progress))
++.route(web::patch().to(update_kr_progress))
++.route(web::delete().to(delete_kr_progress)),
++);
++}
++
+ fn configure_kv_store(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/kv_store")
+@@ -32420,6 +37969,20 @@ web::resource("/lead_custom_fields/{id}")
+ );
+ }
+ 
++fn configure_lead_high_value_zips(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/lead_high_value_zips")
++.route(web::get().to(list_lead_high_value_zips))
++.route(web::post().to(create_lead_high_value_zips)),
++)
++.service(
++web::resource("/lead_high_value_zips/{id}")
++.route(web::get().to(get_lead_high_value_zips))
++.route(web::patch().to(update_lead_high_value_zips))
++.route(web::delete().to(delete_lead_high_value_zips)),
++);
++}
++
+ fn configure_lead_ip_addresses(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/lead_ip_addresses")
+@@ -32448,6 +38011,20 @@ web::resource("/lead_marketing_tags/{id}")
+ );
+ }
+ 
++fn configure_lead_qualification_config(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/lead_qualification_config")
++.route(web::get().to(list_lead_qualification_config))
++.route(web::post().to(create_lead_qualification_config)),
++)
++.service(
++web::resource("/lead_qualification_config/{id}")
++.route(web::get().to(get_lead_qualification_config))
++.route(web::patch().to(update_lead_qualification_config))
++.route(web::delete().to(delete_lead_qualification_config)),
++);
++}
++
+ fn configure_lead_qualifications(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/lead_qualifications")
+@@ -32644,6 +38221,20 @@ web::resource("/manager_presence/{id}")
+ );
+ }
+ 
++fn configure_manual_intervention_log(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/manual_intervention_log")
++.route(web::get().to(list_manual_intervention_log))
++.route(web::post().to(create_manual_intervention_log)),
++)
++.service(
++web::resource("/manual_intervention_log/{id}")
++.route(web::get().to(get_manual_intervention_log))
++.route(web::patch().to(update_manual_intervention_log))
++.route(web::delete().to(delete_manual_intervention_log)),
++);
++}
++
+ fn configure_marketing_campaign_audiences(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/marketing_campaign_audiences")
+@@ -32784,6 +38375,20 @@ web::resource("/marketing_materials/{id}")
+ );
+ }
+ 
++fn configure_marketing_outcome_events(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/marketing_outcome_events")
++.route(web::get().to(list_marketing_outcome_events))
++.route(web::post().to(create_marketing_outcome_events)),
++)
++.service(
++web::resource("/marketing_outcome_events/{id}")
++.route(web::get().to(get_marketing_outcome_events))
++.route(web::patch().to(update_marketing_outcome_events))
++.route(web::delete().to(delete_marketing_outcome_events)),
++);
++}
++
+ fn configure_marketing_qr_scan_events(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/marketing_qr_scan_events")
+@@ -32952,6 +38557,20 @@ web::resource("/message_read_receipts/{id}")
+ );
+ }
+ 
++fn configure_messenger_ad_launches(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/messenger_ad_launches")
++.route(web::get().to(list_messenger_ad_launches))
++.route(web::post().to(create_messenger_ad_launches)),
++)
++.service(
++web::resource("/messenger_ad_launches/{id}")
++.route(web::get().to(get_messenger_ad_launches))
++.route(web::patch().to(update_messenger_ad_launches))
++.route(web::delete().to(delete_messenger_ad_launches)),
++);
++}
++
+ fn configure_messenger_conversation_replies(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/messenger_conversation_replies")
+@@ -33064,6 +38683,20 @@ web::resource("/meta_conversions/{id}")
+ );
+ }
+ 
++fn configure_migration_20260718010500_ownership(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/migration_20260718010500_ownership")
++.route(web::get().to(list_migration_20260718010500_ownership))
++.route(web::post().to(create_migration_20260718010500_ownership)),
++)
++.service(
++web::resource("/migration_20260718010500_ownership/{id}")
++.route(web::get().to(get_migration_20260718010500_ownership))
++.route(web::patch().to(update_migration_20260718010500_ownership))
++.route(web::delete().to(delete_migration_20260718010500_ownership)),
++);
++}
++
+ fn configure_migration_log(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/migration_log")
+@@ -33274,20 +38907,6 @@ web::resource("/neighborhood_price_history/{id}")
+ );
+ }
+ 
+-fn configure_neighborhood_pricing(cfg: &mut web::ServiceConfig) {
+-cfg.service(
+-web::resource("/neighborhood_pricing")
+-.route(web::get().to(list_neighborhood_pricing))
+-.route(web::post().to(create_neighborhood_pricing)),
+-)
+-.service(
+-web::resource("/neighborhood_pricing/{id}")
+-.route(web::get().to(get_neighborhood_pricing))
+-.route(web::patch().to(update_neighborhood_pricing))
+-.route(web::delete().to(delete_neighborhood_pricing)),
+-);
+-}
+-
+ fn configure_neighborhood_referrals(cfg: &mut web::ServiceConfig) {
+ cfg.service(
+ web::resource("/neighborhood_referrals")
+@@ -33750,6 +39369,104 @@ web::resource("/offline_marketing_daily_stats/{id}")
+ );
+ }
+ 
++fn configure_onboarding_config_queue(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/onboarding_config_queue")
++.route(web::get().to(list_onboarding_config_queue))
++.route(web::post().to(create_onboarding_config_queue)),
++)
++.service(
++web::resource("/onboarding_config_queue/{id}")
++.route(web::get().to(get_onboarding_config_queue))
++.route(web::patch().to(update_onboarding_config_queue))
++.route(web::delete().to(delete_onboarding_config_queue)),
++);
++}
++
++fn configure_onboarding_email_logs(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/onboarding_email_logs")
++.route(web::get().to(list_onboarding_email_logs))
++.route(web::post().to(create_onboarding_email_logs)),
++)
++.service(
++web::resource("/onboarding_email_logs/{id}")
++.route(web::get().to(get_onboarding_email_logs))
++.route(web::patch().to(update_onboarding_email_logs))
++.route(web::delete().to(delete_onboarding_email_logs)),
++);
++}
++
++fn configure_onboarding_email_queue(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/onboarding_email_queue")
++.route(web::get().to(list_onboarding_email_queue))
++.route(web::post().to(create_onboarding_email_queue)),
++)
++.service(
++web::resource("/onboarding_email_queue/{id}")
++.route(web::get().to(get_onboarding_email_queue))
++.route(web::patch().to(update_onboarding_email_queue))
++.route(web::delete().to(delete_onboarding_email_queue)),
++);
++}
++
++fn configure_onboarding_email_templates(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/onboarding_email_templates")
++.route(web::get().to(list_onboarding_email_templates))
++.route(web::post().to(create_onboarding_email_templates)),
++)
++.service(
++web::resource("/onboarding_email_templates/{id}")
++.route(web::get().to(get_onboarding_email_templates))
++.route(web::patch().to(update_onboarding_email_templates))
++.route(web::delete().to(delete_onboarding_email_templates)),
++);
++}
++
++fn configure_onboarding_milestones(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/onboarding_milestones")
++.route(web::get().to(list_onboarding_milestones))
++.route(web::post().to(create_onboarding_milestones)),
++)
++.service(
++web::resource("/onboarding_milestones/{id}")
++.route(web::get().to(get_onboarding_milestones))
++.route(web::patch().to(update_onboarding_milestones))
++.route(web::delete().to(delete_onboarding_milestones)),
++);
++}
++
++fn configure_onboarding_sequences(cfg: &mut web::ServiceConfig) {
++cfg.service(
++web::resource("/onboarding_sequences")

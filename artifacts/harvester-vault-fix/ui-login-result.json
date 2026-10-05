@@ -1,0 +1,32 @@
+{
+  "url": "https://quantum-forge.codetether.run/dashboard",
+  "body": "CodeTether Get Started New Workspaces Workers OKR New Swarm New MCP Tools New Security New Ralph New Cognition Avatar New Ads New Benchmarks Analytics New Cronjobs Tasks Sessions Output Activity GitHub Actions New GitHub App New Automations Billing Settings 0 Workspaces 0 Tasks Connected U UI Smoke ← Back to Site Degraded Isolated Instance quantum-forge.codetether.run Workspaces Add VM workspaces keep a dedicated persistent machine. Container workspaces run on shared workers. 3-CLICK QUICK START 1) Pick runtime, 2) Create workspace, 3) Trigger agent. VM Container Create VM Workspace CodeTether /app/home/riley/A2A-Server-MCP CONTAINER WORKSPACE idle Worker: wrk_1771472455_4e65f97b8c7e3f14 🗑️ Delete CodeTether Knative Clone /workspace/repos/0b18cb4587312094 CONTAINER WORKSPACE idle Worker: wrk_1777747179_bf05361c3a468791 🗑️ Delete CodeTether/TetherScript /var/lib/codetether/repos/53ae5750103e9627 CONTAINER WORKSPACE idle Worker: wrk_1779249516_88d81a17672b7951 🗑️ Delete CodeTether/TetherScript /var/lib/codetether/repos/b5cb9c4bc8dcf528 CONTAINER WORKSPACE idle Worker: wrk_1779906868_d3f431307bb9416a 🗑️ Delete CodeTether/TetherScript /var/lib/codetether/repos/f0fe86f12e71b23c CONTAINER WORKSPACE idle Worker: wrk_1779249516_88d81a17672b7951 🗑️ Delete Harvester issue265 smoke smoke-issue265-20260519211459 /var/lib/codetether/repos/smoke-issue265-20260519211459 CONTAINER WORKSPACE idle Worker: wrk_1779502366_bea28d652149a82d 🗑️ Delete Spotlessbinco /home/riley/spotlessbinco CONTAINER WORKSPACE idle Worker: wrk_1777858918_d528ba00ce3546b1 🗑️ Delete codetether-agent-harvester-1773696404 /workspace/codetether-agent VM WORKSPACE Stopped idle Worker: wrk_1773708328_befba3ab6da903be SSH: codetether-vm-d5b116cd-ssh.a2a-server.svc.cluster.local 🗑️ Delete codetether-agent-harvester-20260316-215715 /workspace/codetether-agent-20260316-215715 VM WORKSPACE Stopped idle SSH: codetether-vm-ecbee25b-ssh.a2a-server.svc.cluster.local 🗑️ Delete codetether-agent-harvester-20260316-",
+  "candidates": [
+    {
+      "tag": "INPUT",
+      "text": "Search by provider or model..."
+    }
+  ],
+  "net": [
+    {
+      "url": "https://api.codetether.run/v1/agent/workers",
+      "status": 200
+    },
+    {
+      "url": "https://api.codetether.run/v1/agent/models",
+      "status": 200
+    },
+    {
+      "url": "https://api.codetether.run/v1/agent/workers",
+      "status": 200
+    },
+    {
+      "url": "https://api.codetether.run/v1/agent/models",
+      "status": 200
+    },
+    {
+      "url": "https://api.codetether.run/v1/agent/workers",
+      "status": 200
+    }
+  ]
+}

@@ -21,6 +21,11 @@ export function notifyApiAuthChange() {
   window.dispatchEvent(new Event(AUTH_CHANGE_EVENT))
 }
 
+/** Stable external-store snapshot for password-token readiness after hydration. */
+export function getStoredApiToken(): string | null {
+  return getApiAuth().token || null
+}
+
 /** Resolve API credentials for both SSO and the supported password login. */
 export function getApiAuth(session?: ApiSession): {
   token?: string

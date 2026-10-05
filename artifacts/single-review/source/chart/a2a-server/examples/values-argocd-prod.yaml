@@ -1,0 +1,209 @@
+# Argo CD production values for CodeTether.
+#
+# This file intentionally avoids plaintext secrets. Create the referenced
+# Kubernetes secrets before syncing the Argo CD Application.
+
+app:
+  name: "CodeTether Server"
+  description: "Production CodeTether A2A coordination server"
+  logLevel: "INFO"
+  enhanced: true
+
+image:
+  repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
+  tag: "main-d518d97"
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: registry-credentials
+
+# Use the deterministic blue/green chart path for GitOps. The legacy
+# non-blue/green deployment path uses a random Helm annotation, which causes
+# perpetual Argo CD drift.
+blueGreen:
+  enabled: true
+  mode: bluegreen
+  serviceColor: green
+  legacyReplicaCount: 0
+  replicas:
+    blue: 0
+    green: 2
+  rolloutId:
+    legacy: ""
+    blue: ""
+    green: "claimfix-20260506-152900"
+
+forgejo:
+  existingSecret: codetether-a2a-server-forgejo
+  apiUrl: https://forgejo.quantum-forge.io/api/v1
+  botUsername: codetether
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "cloudflare-issuer"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://codetether.run, https://docs.codetether.run"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT, User-Agent, X-Requested-With, If-None-Match, If-Modified-Since, Content-Type, Range, Authorization, X-Tenant-ID, X-API-Key"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
+  hosts:
+    - host: api.codetether.run
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 8000
+  tls:
+    - secretName: a2a-server-tls
+      hosts:
+        - api.codetether.run
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+redis:
+  enabled: true
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      memory: 128Mi
+
+postgresql:
+  enabled: false
+
+externalPostgresql:
+  existingSecret: "a2a-server-database"
+  secretKey: "DATABASE_URL"
+
+auth:
+  enabled: true
+  tokens: {}
+
+secret:
+  create: false
+
+existingEnvFromSecrets:
+  - harvester-api-keys
+
+envFromSecret:
+  A2A_AUTH_TOKENS: a2a-server-auth-tokens
+
+env:
+  A2A_HOST: "0.0.0.0"
+  A2A_PORT: "8000"
+  A2A_LOG_LEVEL: "INFO"
+  MCP_HTTP_ENABLED: "true"
+  MCP_HTTP_HOST: "0.0.0.0"
+  MCP_HTTP_PORT: "9000"
+  A2A_AGENT_NAME: "CodeTether Server"
+  A2A_AGENT_DESCRIPTION: "Production CodeTether A2A coordination server"
+  A2A_AGENT_ORG: "CodeTether"
+  A2A_AGENT_ORG_URL: "https://codetether.run"
+  A2A_AGENT_URL: "https://api.codetether.run"
+  A2A_AGENT_DOCS_URL: "https://docs.codetether.run"
+  WORKER_INFRA_CACHE_TTL_SECONDS: "30"
+  WORKER_INFRA_NODE_MAP: ""
+  # Approved CodeTether PRs are merged by the GitHub App after reviewer,
+  # feedback, and status-check gates pass. Argo CD then deploys main via GitOps.
+  GITHUB_APP_AUTO_MERGE_ENABLED: "true"
+  GITHUB_APP_MERGE_METHOD: "squash"
+  # Publish task evidence as GitHub Check Runs; this does not consume Actions minutes.
+  GITHUB_APP_STATUS_PUBLISHER: "checks"
+
+# Optional integrations. Enable these after their referenced secrets and CRDs
+# exist in the destination cluster.
+livekit:
+  enabled: false
+
+knative:
+  enabled: false
+
+monitoring:
+  serviceMonitor:
+    enabled: false
+
+networkPolicy:
+  enabled: false
+
+marketing:
+  enabled: false
+
+docs:
+  enabled: false
+
+opa:
+  enabled: false
+
+# GitHub App issue-mention harvester.
+#
+# When enabled, the `a2a-server-harvester` StatefulSet runs a long-lived
+# `codetether worker` that claims @codetether mention tasks dispatched by the
+# server.  Workers check out repos to a workspace PVC, run a fix, and open a
+# PR.  Push access is granted by the @codetether GitHub App — only repos
+# where the app is installed will be eligible for PRs.
+#
+# autoApprove policy:
+#   - "all"  : approve every tool call (dangerous — workers can edit, commit,
+#              push, and open PRs without prompting).
+#   - "safe" : only read-only / non-mutating tool calls are auto-approved;
+#              anything that writes, pushes, or opens a PR still requires
+#              explicit human approval via the A2A UI.  This is the
+#              recommended setting while the harvester is being smoke-tested.
+#   - "none" : every tool call requires explicit approval (manual PR review
+#              is the only way work lands).
+harvester:
+  enabled: true
+  replicaCount: 1
+  agentName: harvester
+  autoApprove: "safe"
+  # Leave storage.className empty to use the cluster's default StorageClass.
+  # Override here if the prod cluster pins a non-default class (e.g. nfs-storage
+  # or premium-rwo); the chart defaults to "standard" if unset.
+  storage:
+    className: ""
+    size: 50Gi
+  # Resource headroom matches the StatefulSet template defaults.  Tighten
+  # after observing actual worker utilization in prod.
+  resources:
+    limits:
+      cpu: "4"
+      memory: 16Gi
+    requests:
+      cpu: "1"
+      memory: 4Gi
+  # Optional: pin a specific provider/model so all harvester runs use it.
+  # Leave empty to let the A2A server's tenant defaults decide.
+  defaultProvider: ""
+  defaultModel: ""
+  # No static token — workers authenticate to the A2A server via the projected
+  # service-account JWT issued by the harvester ServiceAccount.
+  tokenSecret:
+    name: ""
+  # Optional: mount provider API keys from a Secret in this namespace.
+  providerSecrets:
+    envFrom: []
+
+commonLabels:
+  app.kubernetes.io/part-of: codetether
+  app.kubernetes.io/managed-by: argocd

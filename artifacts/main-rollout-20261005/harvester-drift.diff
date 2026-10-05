@@ -1,0 +1,312 @@
+--- artifacts/main-rollout-20261005/harvester-desired.json	2026-10-05 02:49:43.721437973 +0000
++++ artifacts/main-rollout-20261005/harvester-live.json	2026-10-05 02:49:43.848437976 +0000
+@@ -1,50 +1,43 @@
+ {
+-  "serviceName": "a2a-server-harvester",
+-  "replicas": 0,
+-  "updateStrategy": {
+-    "type": "OnDelete",
+-    "rollingUpdate": null
++  "persistentVolumeClaimRetentionPolicy": {
++    "whenDeleted": "Retain",
++    "whenScaled": "Retain"
+   },
++  "podManagementPolicy": "OrderedReady",
++  "replicas": 0,
++  "revisionHistoryLimit": 10,
+   "selector": {
+     "matchLabels": {
+-      "app.kubernetes.io/name": "a2a-server",
++      "app.kubernetes.io/component": "harvester",
+       "app.kubernetes.io/instance": "a2a-server",
+-      "app.kubernetes.io/component": "harvester"
++      "app.kubernetes.io/name": "a2a-server"
+     }
+   },
++  "serviceName": "a2a-server-harvester",
+   "template": {
+     "metadata": {
++      "annotations": {
++        "checksum/config": "2ffc5da24c8abd5c852a0fef48f06753a86b7891fd521393b8482a3a06e36669",
++        "kubectl.kubernetes.io/restartedAt": "2026-07-12T20:01:23Z"
++      },
++      "creationTimestamp": null,
+       "labels": {
+-        "app.kubernetes.io/name": "a2a-server",
++        "app.kubernetes.io/component": "harvester",
+         "app.kubernetes.io/instance": "a2a-server",
+-        "app.kubernetes.io/component": "harvester"
+-      },
+-      "annotations": {
+-        "checksum/config": "2ffc5da24c8abd5c852a0fef48f06753a86b7891fd521393b8482a3a06e36669"
++        "app.kubernetes.io/name": "a2a-server"
+       }
+     },
+     "spec": {
+-      "serviceAccountName": "a2a-server-harvester",
+-      "imagePullSecrets": [
+-        {
+-          "name": "registry-credentials"
+-        }
+-      ],
+-      "securityContext": {
+-        "fsGroup": 1000,
+-        "runAsNonRoot": true,
+-        "runAsUser": 1000
+-      },
+       "containers": [
+         {
+-          "name": "workspace-reclaim",
+-          "image": "registry.quantum-forge.net/cluster-ci-cache/codetether-worker:4.7.5-dev.49-forgejo-ro-599230d97ec3",
+-          "imagePullPolicy": "IfNotPresent",
+           "command": [
+             "/bin/sh",
+             "-c",
+             "set -u\nroot=/var/lib/codetether/repos\nretain_days=3\ninterval=3600\nmin_free_pct=20\ngit config --global --add safe.directory '*' >/dev/null 2>&1 || true\nwhile true; do\n  free_pct=$(df -P \"$root\" | awk 'NR==2 {print 100 - int($5)}')\n  echo \"workspace-reclaim: free=${free_pct}% threshold=${min_free_pct}%\"\n  if [ \"$free_pct\" -lt \"$min_free_pct\" ]; then\n    find \"$root\" -maxdepth 1 -mindepth 1 -type d -mtime \"+${retain_days}\" 2>/dev/null |\n    while read -r ws; do\n      name=$(basename \"$ws\")\n      case \"$name\" in .*) continue ;; esac\n      gd=$(find \"$ws\" -maxdepth 2 -name .git -type d 2>/dev/null | head -1)\n      if [ -n \"$gd\" ]; then\n        wt=$(dirname \"$gd\")\n        dirty=$(git -C \"$wt\" status --porcelain 2>/dev/null | wc -l)\n        unpushed=$(git -C \"$wt\" log --branches --not --remotes --oneline 2>/dev/null | wc -l)\n        stash=$(git -C \"$wt\" stash list 2>/dev/null | wc -l)\n        readable=$(git -C \"$wt\" rev-parse --is-inside-work-tree 2>/dev/null || echo no)\n        # Preserve anything unreadable or carrying unsaved work.\n        if [ \"$readable\" != true ] ||\n           [ \"$dirty\" -ne 0 ] || [ \"$unpushed\" -ne 0 ] || [ \"$stash\" -ne 0 ]; then\n          echo \"workspace-reclaim: preserving $name (dirty=$dirty unpushed=$unpushed stash=$stash)\"\n          continue\n        fi\n      fi\n      echo \"workspace-reclaim: reclaiming $name\"\n      rm -rf \"$ws\" || echo \"workspace-reclaim: failed $name\"\n    done\n  fi\n  sleep \"$interval\"\ndone\n"
+           ],
++          "image": "registry.quantum-forge.net/cluster-ci-cache/codetether-worker:4.7.5-dev.49-forgejo-ro-599230d97ec3",
++          "imagePullPolicy": "IfNotPresent",
++          "name": "workspace-reclaim",
+           "resources": {
+             "limits": {
+               "cpu": "250m",
+@@ -55,38 +48,16 @@
+               "memory": "64Mi"
+             }
+           },
++          "terminationMessagePath": "/dev/termination-log",
++          "terminationMessagePolicy": "File",
+           "volumeMounts": [
+             {
+-              "name": "workspace",
+-              "mountPath": "/var/lib/codetether/repos"
++              "mountPath": "/var/lib/codetether/repos",
++              "name": "workspace"
+             }
+           ]
+         },
+         {
+-          "name": "harvester",
+-          "securityContext": {
+-            "allowPrivilegeEscalation": false,
+-            "capabilities": {
+-              "drop": [
+-                "ALL"
+-              ]
+-            },
+-            "readOnlyRootFilesystem": false,
+-            "runAsNonRoot": true,
+-            "runAsUser": 1000
+-          },
+-          "image": "registry.quantum-forge.net/cluster-ci-cache/codetether-worker:4.7.5-dev.49-forgejo-ro-599230d97ec3",
+-          "imagePullPolicy": "IfNotPresent",
+-          "command": [
+-            "/usr/local/bin/codetether"
+-          ],
+-          "envFrom": [
+-            {
+-              "secretRef": {
+-                "name": "harvester-api-keys"
+-              }
+-            }
+-          ],
+           "args": [
+             "worker",
+             "--server",
+@@ -98,11 +69,15 @@
+             "--auto-approve",
+             "all"
+           ],
++          "command": [
++            "/usr/local/bin/codetether"
++          ],
+           "env": [
+             {
+               "name": "POD_NAME",
+               "valueFrom": {
+                 "fieldRef": {
++                  "apiVersion": "v1",
+                   "fieldPath": "metadata.name"
+                 }
+               }
+@@ -155,8 +130,8 @@
+               "name": "CODETETHER_TOKEN",
+               "valueFrom": {
+                 "secretKeyRef": {
+-                  "name": "a2a-server-worker-token",
+-                  "key": "CODETETHER_TOKEN"
++                  "key": "CODETETHER_TOKEN",
++                  "name": "a2a-server-worker-token"
+                 }
+               }
+             },
+@@ -164,8 +139,8 @@
+               "name": "DATABASE_URL",
+               "valueFrom": {
+                 "secretKeyRef": {
+-                  "name": "a2a-server-database",
+-                  "key": "DATABASE_URL"
++                  "key": "DATABASE_URL",
++                  "name": "a2a-server-database"
+                 }
+               }
+             },
+@@ -230,35 +205,50 @@
+               "value": "1"
+             }
+           ],
+-          "ports": [
+-            {
+-              "name": "health",
+-              "containerPort": 8080,
+-              "protocol": "TCP"
+-            },
++          "envFrom": [
+             {
+-              "name": "a2a",
+-              "containerPort": 8081,
+-              "protocol": "TCP"
++              "secretRef": {
++                "name": "harvester-api-keys"
++              }
+             }
+           ],
++          "image": "registry.quantum-forge.net/cluster-ci-cache/codetether-worker:4.7.5-dev.49-forgejo-ro-599230d97ec3",
++          "imagePullPolicy": "IfNotPresent",
+           "livenessProbe": {
++            "failureThreshold": 3,
+             "httpGet": {
+               "path": "/health",
+-              "port": "health"
++              "port": "health",
++              "scheme": "HTTP"
+             },
+             "initialDelaySeconds": 30,
+             "periodSeconds": 30,
+-            "timeoutSeconds": 5,
+-            "failureThreshold": 3
++            "successThreshold": 1,
++            "timeoutSeconds": 5
+           },
++          "name": "harvester",
++          "ports": [
++            {
++              "containerPort": 8080,
++              "name": "health",
++              "protocol": "TCP"
++            },
++            {
++              "containerPort": 8081,
++              "name": "a2a",
++              "protocol": "TCP"
++            }
++          ],
+           "readinessProbe": {
++            "failureThreshold": 3,
+             "httpGet": {
+               "path": "/health",
+-              "port": "health"
++              "port": "health",
++              "scheme": "HTTP"
+             },
+             "initialDelaySeconds": 10,
+             "periodSeconds": 10,
++            "successThreshold": 1,
+             "timeoutSeconds": 5
+           },
+           "resources": {
+@@ -271,28 +261,61 @@
+               "memory": "4Gi"
+             }
+           },
++          "securityContext": {
++            "allowPrivilegeEscalation": false,
++            "capabilities": {
++              "drop": [
++                "ALL"
++              ]
++            },
++            "readOnlyRootFilesystem": false,
++            "runAsNonRoot": true,
++            "runAsUser": 1000
++          },
++          "terminationMessagePath": "/dev/termination-log",
++          "terminationMessagePolicy": "File",
+           "volumeMounts": [
+             {
+-              "name": "workspace",
+-              "mountPath": "/var/lib/codetether/repos"
++              "mountPath": "/var/lib/codetether/repos",
++              "name": "workspace"
+             },
+             {
+-              "name": "workspace",
+               "mountPath": "/home/worker",
++              "name": "workspace",
+               "subPath": ".worker-home"
+             },
+             {
+-              "name": "vault-sa-token",
+               "mountPath": "/var/run/secrets/vault",
++              "name": "vault-sa-token",
+               "readOnly": true
+             }
+           ]
+         }
+       ],
++      "dnsPolicy": "ClusterFirst",
++      "imagePullSecrets": [
++        {
++          "name": "harbor-regcred"
++        },
++        {
++          "name": "registry-credentials"
++        }
++      ],
++      "restartPolicy": "Always",
++      "schedulerName": "default-scheduler",
++      "securityContext": {
++        "fsGroup": 1000,
++        "runAsNonRoot": true,
++        "runAsUser": 1000
++      },
++      "serviceAccount": "a2a-server-harvester",
++      "serviceAccountName": "a2a-server-harvester",
++      "terminationGracePeriodSeconds": 30,
+       "volumes": [
+         {
+           "name": "vault-sa-token",
+           "projected": {
++            "defaultMode": 420,
+             "sources": [
+               {
+                 "serviceAccountToken": {
+@@ -307,9 +330,15 @@
+       ]
+     }
+   },
++  "updateStrategy": {
++    "type": "OnDelete"
++  },
+   "volumeClaimTemplates": [
+     {
++      "apiVersion": "v1",
++      "kind": "PersistentVolumeClaim",
+       "metadata": {
++        "creationTimestamp": null,
+         "name": "workspace"
+       },
+       "spec": {
+@@ -320,7 +349,11 @@
+           "requests": {
+             "storage": "50Gi"
+           }
+-        }
++        },
++        "volumeMode": "Filesystem"
++      },
++      "status": {
++        "phase": "Pending"
+       }
+     }
+   ]

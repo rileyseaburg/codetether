@@ -1,0 +1,47 @@
+{
+  "testMessages": [
+    {
+      "input": "Hello, Agent!",
+      "expectedPrefix": "Echo: "
+    },
+    {
+      "input": "How are you doing today?",
+      "expectedPrefix": "Echo: "
+    },
+    {
+      "input": "Can you process this complex message with multiple words and punctuation?",
+      "expectedPrefix": "Echo: "
+    }
+  ],
+  "testAgent": {
+    "name": "A2A Echo Agent",
+    "description": "An A2A agent that echoes messages",
+    "expectedSkills": ["echo"],
+    "expectedCapabilities": {
+      "streaming": true,
+      "pushNotifications": true
+    }
+  },
+  "invalidRequests": [
+    {
+      "description": "Invalid method",
+      "request": {
+        "jsonrpc": "2.0",
+        "method": "invalid/method",
+        "params": {},
+        "id": "test-1"
+      },
+      "expectedError": true
+    },
+    {
+      "description": "Missing required params",
+      "request": {
+        "jsonrpc": "2.0",
+        "method": "message/send",
+        "params": {},
+        "id": "test-2"
+      },
+      "expectedError": true
+    }
+  ]
+}

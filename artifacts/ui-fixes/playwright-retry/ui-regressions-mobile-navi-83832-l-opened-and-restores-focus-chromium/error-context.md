@@ -1,0 +1,66 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - button "Open navigation menu" [active] [ref=e5]:
+        - img [ref=e6]
+      - generic [ref=e10]:
+        - button "Switch to light mode" [ref=e11]:
+          - img [ref=e12]
+        - button "Open user menu" [ref=e15]:
+          - generic [ref=e16]: A
+    - main [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e19]:
+          - heading "Settings" [level=1] [ref=e20]
+          - paragraph [ref=e21]: Manage your account, billing, and API keys
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - heading "Subscription & Usage" [level=2] [ref=e24]
+            - link "Manage billing →" [ref=e25] [cursor=pointer]:
+              - /url: /dashboard/billing
+          - generic [ref=e27]:
+            - generic [ref=e29]:
+              - text: Current plan
+              - generic [ref=e30]: Pro
+            - generic [ref=e32]:
+              - generic [ref=e33]: Tasks this month
+              - generic [ref=e34]: 0 / 1000
+        - generic [ref=e36]:
+          - heading "Secrets Storage Status" [level=2] [ref=e37]
+          - generic [ref=e41]: Connected to HashiCorp Vault
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - heading "Your API Keys" [level=2] [ref=e44]
+            - paragraph [ref=e45]: API keys are securely stored in HashiCorp Vault and synced to your workers.
+          - generic [ref=e46]: No API keys configured. Add one below to get started.
+        - generic [ref=e47]:
+          - generic [ref=e48]:
+            - heading "Add API Key" [level=2] [ref=e49]
+            - paragraph [ref=e50]: Add a new LLM provider API key to use with your agents.
+          - generic [ref=e51]:
+            - generic [ref=e52]:
+              - generic [ref=e53]: Provider
+              - combobox "Provider" [ref=e54]:
+                - option "Select a provider..." [selected]
+                - option "Fixture Provider -"
+            - generic [ref=e55]:
+              - generic [ref=e56]: API Key
+              - textbox "API Key" [ref=e57]:
+                - /placeholder: Enter your API key
+            - generic [ref=e58]:
+              - button "Save API Key" [disabled] [ref=e59]
+              - button "Test Key" [disabled] [ref=e60]
+        - generic [ref=e61]:
+          - heading "Supported Providers" [level=2] [ref=e63]
+          - generic [ref=e66]:
+            - heading "Fixture Provider" [level=3] [ref=e67]
+            - paragraph
+  - button "Open chat" [ref=e69]:
+    - img [ref=e71]
+  - button "Open Next.js Dev Tools" [ref=e78] [cursor=pointer]:
+    - img [ref=e79]
+  - alert [ref=e82]
+```
