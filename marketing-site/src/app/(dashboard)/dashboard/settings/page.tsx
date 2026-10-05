@@ -75,6 +75,14 @@ const errorDetail = (error: unknown, fallback: string) => {
   return fallback
 }
 
+// Providers and SDK errors can echo request credentials. Never render them.
+const credentialSafeMessage = (message: string, ...credentials: string[]) =>
+  credentials.reduce(
+    (text, credential) =>
+      credential ? text.replaceAll(credential, '[redacted]') : text,
+    message,
+  )
+
 const getAuthHeaders = () => {
   const headers: Record<string, string> = {}
   if (typeof window !== 'undefined') {
@@ -93,6 +101,8 @@ export default function SettingsPage() {
   const [vaultStatus, setVaultStatus] = useState<VaultStatus | null>(null)
   const [vaultAccessError, setVaultAccessError] = useState<string | null>(null)
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null)
+  const [billingError, setBillingError] = useState<string | null>(null)
+  const [billingLoading, setBillingLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState<string | null>(null)
@@ -105,6 +115,52 @@ export default function SettingsPage() {
 
   const { token: authToken } = getApiAuth(session)
   const getAuthToken = () => authToken || null
+
+  const loadBillingSummary = async () => {
+    setBillingLoading(true)
+    setBillingError(null)
+    const headers: Record<string, string> = {}
+    if (authToken) headers.Authorization = 'Bearer ' + authToken
+
+    try {
+      const subscriptionRes = await getSubscriptionV1BillingSubscriptionGet({
+        headers,
+      })
+      if (subscriptionRes.error || !subscriptionRes.data) {
+        throw new Error('Subscription unavailable')
+      }
+      const subscription = subscriptionRes.data as any
+      const subscriptionStatus = {
+        ...subscriptionPlan(subscription),
+        tasks_used: null,
+        tasks_limit: quotaNumber(subscription.tasks_limit),
+      }
+      setBillingStatus(subscriptionStatus)
+
+      try {
+        const usageRes = await getUsageV1BillingUsageGet({ headers })
+        const usage = usageRes.data as any
+        const used = nonNegativeNumber(usage?.tasks_used)
+        if (usageRes.error || !usage || used === null) {
+          throw new Error('Usage unavailable')
+        }
+        setBillingStatus({
+          ...subscriptionStatus,
+          tasks_used: used,
+          tasks_limit:
+            quotaNumber(usage.tasks_limit) ?? subscriptionStatus.tasks_limit,
+        })
+      } catch {
+        setBillingError(
+          'Task usage is unavailable. Your subscription limits are still shown.',
+        )
+      }
+    } catch {
+      setBillingError('Billing details are unavailable. Please retry.')
+    } finally {
+      setBillingLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (status !== 'loading' && authToken) {
@@ -124,22 +180,17 @@ export default function SettingsPage() {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const [providersRes, vaultRes, keysRes, billingRes, usageRes] =
-        await Promise.all([
-          listProvidersV1AgentProvidersGet(),
-          token
-            ? vaultStatusV1AgentVaultStatusGet({ headers })
-            : vaultStatusV1AgentVaultStatusGet(),
-          token
-            ? listApiKeysV1AgentApiKeysGet({ headers })
-            : Promise.resolve({ data: undefined, error: undefined }),
-          token
-            ? getSubscriptionV1BillingSubscriptionGet({ headers })
-            : Promise.resolve({ data: undefined, error: undefined }),
-          token
-            ? getUsageV1BillingUsageGet({ headers })
-            : Promise.resolve({ data: undefined, error: undefined }),
-        ])
+      // Billing failures must not discard the provider form or its draft.
+      void loadBillingSummary()
+      const [providersRes, vaultRes, keysRes] = await Promise.all([
+        listProvidersV1AgentProvidersGet(),
+        token
+          ? vaultStatusV1AgentVaultStatusGet({ headers })
+          : vaultStatusV1AgentVaultStatusGet(),
+        token
+          ? listApiKeysV1AgentApiKeysGet({ headers })
+          : Promise.resolve({ data: undefined, error: undefined }),
+      ])
 
       if (!providersRes.error && providersRes.data) {
         const response = providersRes.data as any
@@ -167,18 +218,6 @@ export default function SettingsPage() {
         setError('Please sign in to manage your API keys')
       } else if (keysRes.error) {
         setError((keysRes.error as any)?.detail || 'Failed to load API keys')
-      }
-
-      if (!billingRes.error && billingRes.data) {
-        const response = billingRes.data as any
-        const usage = !usageRes?.error ? (usageRes?.data as any) : undefined
-        setBillingStatus({
-          ...subscriptionPlan(response),
-          tasks_used: nonNegativeNumber(usage?.tasks_used),
-          tasks_limit:
-            quotaNumber(usage?.tasks_limit) ??
-            quotaNumber(response.tasks_limit),
-        })
       }
     } catch (err) {
       console.error('Failed to load data:', err)
@@ -283,6 +322,7 @@ export default function SettingsPage() {
       return
     }
     const providerId = selectedProvider
+    const submittedKey = apiKey.trim()
 
     setTesting(providerId)
     setError(null)
@@ -299,7 +339,7 @@ export default function SettingsPage() {
         headers,
         body: {
           provider_id: providerId,
-          api_key: apiKey.trim(),
+          api_key: submittedKey,
         },
       })
 
@@ -310,23 +350,31 @@ export default function SettingsPage() {
         )
       } else if (!error && response?.success === true) {
         setSuccess(
-          typeof response?.message === 'string'
-            ? response.message
-            : 'API key test passed',
+          credentialSafeMessage(
+            typeof response?.message === 'string'
+              ? response.message
+              : 'API key test passed',
+            submittedKey,
+            token || '',
+          ),
         )
       } else {
         setError(
-          typeof response?.message === 'string'
-            ? response.message
-            : errorDetail(
-                error,
-                'API key test failed. Check the key and try again.',
-              ),
+          credentialSafeMessage(
+            typeof response?.message === 'string'
+              ? response.message
+              : errorDetail(
+                  error,
+                  'API key test failed. Check the key and try again.',
+                ),
+            submittedKey,
+            token || '',
+          ),
         )
       }
-    } catch (err) {
-      console.error('Failed to test API key:', err)
-      setError('Failed to test API key')
+    } catch {
+      // SDK exceptions may include request headers and the unsaved key body.
+      setError('Failed to test API key. Please try again.')
     } finally {
       setTesting(null)
     }
@@ -427,7 +475,12 @@ export default function SettingsPage() {
             Manage billing &rarr;
           </Link>
         </div>
-        <div className="p-6">
+        <div className="p-6" aria-busy={billingLoading}>
+          {billingLoading && (
+            <p role="status" className="mb-3 text-sm text-gray-500">
+              Loading billing usage...
+            </p>
+          )}
           {billingStatus ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -480,7 +533,24 @@ export default function SettingsPage() {
               </div>
             </div>
           ) : (
-            <div className="text-sm text-gray-500">Loading billing info...</div>
+            <div className="text-sm text-gray-500">
+              {billingLoading
+                ? 'Loading billing info...'
+                : 'Billing unavailable'}
+            </div>
+          )}
+          {billingError && (
+            <div className="mt-3 text-sm text-red-600 dark:text-red-400">
+              <p role="alert">{billingError}</p>
+              <button
+                type="button"
+                onClick={loadBillingSummary}
+                disabled={billingLoading}
+                className="mt-1 underline disabled:opacity-50"
+              >
+                Retry billing summary
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -522,6 +592,11 @@ export default function SettingsPage() {
       </div>
 
       {/* Error/Success Messages */}
+      {testing !== null && (
+        <p role="status" className="text-sm text-gray-600 dark:text-gray-400">
+          Testing API key... This does not save the key.
+        </p>
+      )}
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
           <p role="alert" className="text-sm text-red-800 dark:text-red-200">
