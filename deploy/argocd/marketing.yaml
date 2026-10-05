@@ -33,7 +33,7 @@ spec:
         image:
           pullPolicy: IfNotPresent
           repository: registry.quantum-forge.net/cluster-ci-cache/codetether-marketing
-          tag: ui-a1d68a889bd3
+          tag: ui-eb2051a212a2
         imagePullSecrets:
         - name: registry-credentials
         ingress:
@@ -61,8 +61,8 @@ spec:
           targetPort: 3000
           type: ClusterIP
     path: chart/a2a-server/charts/marketing
-    repoURL: git@github.com:rileyseaburg/codetether.git
-    targetRevision: a1d68a889bd3e752e5a00b6cfba90a0e9888c0c0
+    repoURL: https://forgejo.quantum-forge.io/riley/codetether.git
+    targetRevision: eb2051a212a2c729a7963da8e1dda39a4e958513
   syncPolicy:
     automated:
       prune: true
