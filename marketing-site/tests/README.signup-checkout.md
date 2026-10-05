@@ -5,6 +5,30 @@ configuration, lint, types, and Git checks are **static/local**. These checks do
 contact Keycloak, provision a tenant, enter user credentials, or create a Stripe
 checkout session. Live Keycloak/Stripe checks are **not-run**.
 
+## Authoritative audit inspected
+
+The designated `artifacts/ui-audit/AUDIT.md` was inspected read-only in the primary
+checkout at `/home/riley/A2A-Server-MCP/artifacts/ui-audit/AUDIT.md`. It is absent
+from the managed child's tracked files; no primary-checkout files were changed.
+The inspected full document has SHA-256
+`d2042fe88cee557e5b915af1fa3d6b1ad76f00bc0c5cbc4f425b0ab168c670a6`.
+An exact excerpt of its findings 1–2 is retained at
+`artifacts/auth-checkout/audit-findings-1-2.md` in the managed child.
+
+- **Finding 1, P1 — Post-signup sign-in skips Auth.js PKCE initialization:** the
+  audit identifies a hand-built Keycloak URL without a verifier cookie and asks
+  for tenant-aware server sign-in. The current registration/action/provider flow
+  initializes Auth.js with PKCE/state; rendered signup/action tests and actual
+  Auth.js callback tests against mocked OIDC cover that remedy.
+- **Finding 2, P2 — Paid-plan upgrade sends password-authenticated users to
+  registration:** the audit asks for a shared dual-method token abstraction.
+  Current checkout uses the shared SSO/password-token resolver. The production
+  readiness fix and rendered regressions also cover password tokens during SSO
+  discovery, so those users can reach bearer-authenticated checkout.
+
+The audit's line references describe earlier code, not current line locations.
+The mapping below documents the current sources and evidence for both findings.
+
 ## Source-to-requirement map
 
 | Requirement | Current implementation | Regression evidence |
