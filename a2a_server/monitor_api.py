@@ -47,6 +47,7 @@ from .git_service import (
     store_git_credential_record,
 )
 from .task_routing import target_agent_mismatch
+from a2a_server.task_metadata_trust import sanitize_external_metadata
 from .task_orchestration import orchestrate_task_route
 from .vault_client import (
     KNOWN_PROVIDERS,
@@ -4649,8 +4650,11 @@ async def create_global_task(task_data: AgentTaskCreate):
     # Use provided workspace_id or fall back to 'global'
     effective_workspace_id = task_data.workspace_id or 'global'
 
-    # Build metadata + routing policy outputs.
-    base_metadata = task_data.metadata.copy() if task_data.metadata else {}
+    # Build metadata + routing policy outputs. Caller metadata is untrusted:
+    # this route is public (marketing chat), so strip automation claims.
+    base_metadata = sanitize_external_metadata(
+        task_data.metadata, entry_point='POST /v1/agent/tasks'
+    )
     if task_data.model:
         base_metadata['model'] = task_data.model
     if task_data.model_ref:
@@ -4747,6 +4751,12 @@ async def create_agent_task(workspace_id: str, task_data: AgentTaskCreate):
             'skipped': True,
             'reason': 'github_app_terminal_hook_dispatches_followup',
         }
+
+    # Anything else posted here is caller-controlled; strip automation claims.
+    base_metadata = sanitize_external_metadata(
+        base_metadata,
+        entry_point=f'POST /v1/agent/workspaces/{workspace_id}/tasks',
+    )
 
     routing_decision, routed_metadata = orchestrate_task_route(
         prompt=task_data.prompt,

@@ -21,6 +21,7 @@ from pydantic import BaseModel
 import uvicorn
 
 from .models import Message, Part
+from a2a_server.task_metadata_trust import untrusted_mcp_metadata
 from .monitor_api import (
     monitor_router,
     nextauth_router,
@@ -1756,7 +1757,7 @@ class MCPHTTPServer:
             'source': 'send_message_async',
         }
         if isinstance(args.get('metadata'), dict):
-            base_metadata.update(args.get('metadata'))
+            base_metadata.update(untrusted_mcp_metadata(args, base_metadata))
 
         routing_decision, routed_metadata = orchestrate_task_route(
             prompt=message,
@@ -1894,7 +1895,7 @@ class MCPHTTPServer:
             'target_agent_name': agent_name,
         }
         if isinstance(args.get('metadata'), dict):
-            base_metadata.update(args.get('metadata'))
+            base_metadata.update(untrusted_mcp_metadata(args, base_metadata))
 
         routing_decision, routed_metadata = orchestrate_task_route(
             prompt=message,
@@ -2049,7 +2050,7 @@ class MCPHTTPServer:
             'source': 'create_task',
         }
         if isinstance(args.get('metadata'), dict):
-            base_metadata.update(args.get('metadata'))
+            base_metadata.update(untrusted_mcp_metadata(args, base_metadata))
 
         routing_decision, routed_metadata = orchestrate_task_route(
             prompt=description,

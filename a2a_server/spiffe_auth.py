@@ -22,8 +22,11 @@ OPA = authorization.
 
 Configuration (env):
     SPIFFE_ENABLED          "true" to enable SVID validation (default false)
-    SPIFFE_TRUST_DOMAIN     expected trust domain, e.g. "codetether.run"
-    SPIFFE_AUDIENCE         expected audience, e.g. "a2a-server" (comma list ok)
+    SPIFFE_TRUST_DOMAIN     expected trust domain, e.g. "codetether.io"
+                            (required; must match SPIRE's trust_domain)
+    SPIFFE_AUDIENCE         expected audience, e.g. "a2a-server" (required,
+                            comma list ok)
+    SPIFFE_ISSUER           expected ``iss`` (SPIRE jwt_issuer), optional
     SPIFFE_JWKS_URL         URL to the JWKS bundle (SPIRE OIDC discovery)
     SPIFFE_JWKS_TTL         JWKS cache TTL seconds (default 300)
     SPIFFE_BUNDLE_CONFIGMAP rotating SPIRE trust bundle ConfigMap (optional)
@@ -60,6 +63,11 @@ def spiffe_enabled() -> bool:
 
 def _trust_domain() -> str:
     return os.environ.get('SPIFFE_TRUST_DOMAIN', '').strip()
+
+
+def _issuer() -> str:
+    """Expected JWT-SVID ``iss`` (SPIRE ``jwt_issuer``); empty skips."""
+    return os.environ.get('SPIFFE_ISSUER', '').strip()
 
 
 def _audiences() -> list[str]:
@@ -217,14 +225,23 @@ def validate_jwt_svid(token: str) -> SpiffeIdentity:
         ) from exc
 
     audiences = _audiences()
+    expected_td = _trust_domain()
+    if not audiences or not expected_td:
+        # Zero trust: an SVID minted for any audience or any trust domain
+        # must never be accepted because configuration is incomplete.
+        logger.error(
+            'SPIFFE enabled without SPIFFE_AUDIENCE/SPIFFE_TRUST_DOMAIN'
+        )
+        raise HTTPException(
+            status_code=503, detail='SPIFFE validation not configured'
+        )
     decode_kwargs: dict = {
         'algorithms': ['RS256', 'ES256', 'ES384', 'EdDSA'],
-        'options': {'require': ['exp', 'sub']},
+        'options': {'require': ['exp', 'sub', 'aud']},
+        'audience': audiences,
     }
-    if audiences:
-        decode_kwargs['audience'] = audiences
-    else:
-        decode_kwargs['options']['verify_aud'] = False
+    if _issuer():
+        decode_kwargs['issuer'] = _issuer()
 
     try:
         claims = jwt.decode(token, signing_key.key, **decode_kwargs)
@@ -233,6 +250,10 @@ def validate_jwt_svid(token: str) -> SpiffeIdentity:
     except jwt.InvalidAudienceError as exc:
         raise HTTPException(
             status_code=403, detail='SVID audience mismatch'
+        ) from exc
+    except jwt.InvalidIssuerError as exc:
+        raise HTTPException(
+            status_code=403, detail='SVID issuer mismatch'
         ) from exc
     except jwt.PyJWTError as exc:
         logger.warning('SVID decode failed: %s', exc)
@@ -246,8 +267,7 @@ def validate_jwt_svid(token: str) -> SpiffeIdentity:
             status_code=403, detail=f'Invalid SPIFFE ID: {exc}'
         ) from exc
 
-    expected_td = _trust_domain()
-    if expected_td and trust_domain != expected_td:
+    if trust_domain != expected_td:
         raise HTTPException(
             status_code=403,
             detail=f'Untrusted SPIFFE trust domain: {trust_domain}',
@@ -259,6 +279,27 @@ def validate_jwt_svid(token: str) -> SpiffeIdentity:
         path=path,
         claims=claims,
     )
+
+
+def worker_ids() -> tuple[str, ...]:
+    """SPIFFE IDs (or ``prefix*`` patterns) allowed to act as workers.
+
+    SPIRE issues an SVID to every pod in the cluster; trust-domain
+    membership alone must not grant worker authority.
+    """
+    raw = os.environ.get('SPIFFE_WORKER_IDS', '')
+    return tuple(item.strip() for item in raw.split(',') if item.strip())
+
+
+def is_allowed_worker(spiffe_id: str) -> bool:
+    """True when ``spiffe_id`` matches an entry in ``SPIFFE_WORKER_IDS``."""
+    for pattern in worker_ids():
+        if pattern.endswith('*'):
+            if spiffe_id.startswith(pattern[:-1]):
+                return True
+        elif spiffe_id == pattern:
+            return True
+    return False
 
 
 def bearer_token(request: Request) -> str | None:

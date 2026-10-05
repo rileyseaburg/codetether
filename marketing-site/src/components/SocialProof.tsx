@@ -43,7 +43,7 @@ export function Testimonials() {
         },
         {
             title: 'Enterprise Security',
-            description: 'OPA Rego policy engine, RBAC across 5 roles, tenant isolation, Ed25519 plugin signing, and K8s-native deployment.',
+            description: 'OPA Rego policy engine, RBAC across 5 roles, tenant isolation, integrity-checked plugins, and K8s-native deployment.',
             highlight: true,
         },
     ]

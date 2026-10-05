@@ -95,10 +95,16 @@ export default function SecurityPage() {
 
     useEffect(() => {
         if (!isAuthenticated) return
-        setLoading(true)
-        Promise.all([fetchHealth(), fetchAlerts()]).finally(() => setLoading(false))
-        const interval = setInterval(() => { fetchHealth(); fetchAlerts() }, 30000)
-        return () => clearInterval(interval)
+        // `loading` starts true; only the async completion clears it. Fetches
+        // run from a scheduled callback, never synchronously in the effect.
+        const refresh = () =>
+            Promise.all([fetchHealth(), fetchAlerts()]).finally(() => setLoading(false))
+        const first = setTimeout(refresh, 0)
+        const interval = setInterval(refresh, 30000)
+        return () => {
+            clearTimeout(first)
+            clearInterval(interval)
+        }
     }, [isAuthenticated, fetchHealth, fetchAlerts])
 
     const systemOk = health?.status === 'ok' || health?.status === 'healthy'
@@ -287,7 +293,7 @@ export default function SecurityPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {[
                                         { title: 'Mandatory Authentication', desc: 'Every MCP connection and A2A request requires valid credentials.', icon: '🔐', scope: 'both' },
-                                        { title: 'Ed25519 Plugin Signing', desc: 'Plugins are cryptographically signed and verified at load time.', icon: '🔏', scope: 'both' },
+                                        { title: 'Plugin Integrity Checks', desc: 'Plugin manifests carry an HMAC-SHA256 signature and SHA-256 content hash, checked at load time.', icon: '🔏', scope: 'both' },
                                         { title: 'Sandboxed Execution', desc: 'CPU, memory, disk, and network are constrained per-tool.', icon: '📦', scope: 'both' },
                                         { title: 'Full Audit Trail', desc: 'Every action logged to tamper-evident JSONL audit log.', icon: '📋', scope: 'both' },
                                         { title: 'HashiCorp Vault', desc: 'Secrets fetched at runtime, never stored in config files.', icon: '🗝️', scope: 'both' },
@@ -429,22 +435,12 @@ allow {
 
                     {/* Plugin signing */}
                     <div className="rounded-xl border border-gray-700 bg-gray-800/50 p-6">
-                        <h3 className="text-lg font-semibold text-white mb-2">Plugin Signing (Ed25519)</h3>
+                        <h3 className="text-lg font-semibold text-white mb-2">Plugin Integrity</h3>
                         <p className="text-sm text-gray-400 mb-4">
-                            Plugins must be signed with an Ed25519 key. The agent verifies signatures at load time.
+                            Plugin manifests are signed with HMAC-SHA256 using CODETETHER_PLUGIN_SIGNING_KEY, and each
+                            plugin&apos;s SHA-256 content hash is checked at load time. Public-key signing for
+                            marketplace plugins is on the roadmap; until it ships, marketplace plugins are rejected.
                         </p>
-                        <div className="space-y-3 font-mono text-sm">
-                            {[
-                                { cmd: 'codetether plugin sign --key private.pem plugin.wasm', desc: 'Sign a plugin' },
-                                { cmd: 'codetether plugin verify plugin.wasm', desc: 'Verify signature' },
-                                { cmd: 'codetether plugin install plugin.wasm', desc: 'Install (auto-verifies)' },
-                            ].map(item => (
-                                <div key={item.cmd} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 rounded-lg bg-gray-700/50 px-4 py-3">
-                                    <code className="text-cyan-400 shrink-0">{item.cmd}</code>
-                                    <span className="text-gray-400 text-xs">{item.desc}</span>
-                                </div>
-                            ))}
-                        </div>
                     </div>
 
                     {/* Sandbox Resource Limits */}

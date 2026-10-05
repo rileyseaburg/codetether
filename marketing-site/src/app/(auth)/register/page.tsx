@@ -2,6 +2,9 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { useFormStatus } from 'react-dom'
+import { startWorkspaceSignIn } from '../actions'
+import { useClientReady } from '@/hooks/useClientReady'
 
 import { AuthLayout } from '@/components/AuthLayout'
 import { Button } from '@/components/Button'
@@ -17,7 +20,21 @@ interface SignupResult {
   provisioning_status: string
 }
 
+function WorkspaceSignInButton() {
+  const { pending } = useFormStatus()
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="block w-full rounded-md bg-cyan-700 px-4 py-3 text-center text-sm font-semibold text-white shadow-sm transition-colors hover:bg-cyan-800 disabled:opacity-50"
+    >
+      {pending ? 'Connecting to your workspace…' : 'Sign in to your workspace'}
+    </button>
+  )
+}
+
 export default function Register() {
+  const clientReady = useClientReady()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [signupResult, setSignupResult] = useState<SignupResult | null>(null)
@@ -46,8 +63,9 @@ export default function Register() {
     }
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
-      
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
+
       // Call tenant signup endpoint (provisions Keycloak + K8s)
       const response = await fetch(`${apiUrl}/v1/tenants/signup`, {
         method: 'POST',
@@ -68,7 +86,6 @@ export default function Register() {
 
       // Store signup result and show success state
       setSignupResult(result)
-
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Signup failed')
     } finally {
@@ -76,26 +93,8 @@ export default function Register() {
     }
   }
 
-  // Build the OAuth login URL for the new tenant
-  const buildKeycloakLoginUrl = (result: SignupResult): string => {
-    const redirectUri = result.instance_url 
-      ? `${result.instance_url}/api/auth/callback/keycloak`
-      : `${window.location.origin}/api/auth/callback/keycloak`
-    
-    const params = new URLSearchParams({
-      client_id: result.spa_client_id,
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      scope: 'openid profile email',
-    })
-    
-    return `${result.login_url}?${params.toString()}`
-  }
-
   // Success state - show provisioning status and login button
   if (signupResult) {
-    const loginUrl = buildKeycloakLoginUrl(signupResult)
-    
     return (
       <AuthLayout
         title="Workspace Created!"
@@ -103,31 +102,34 @@ export default function Register() {
       >
         <div className="space-y-6">
           {/* Status Banner */}
-          <div className="rounded-lg bg-gradient-to-r from-cyan-950/40 to-gray-900 border border-cyan-500/20 p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="h-3 w-3 rounded-full bg-green-500 animate-pulse" />
+          <div className="rounded-lg border border-cyan-500/20 bg-gradient-to-r from-cyan-950/40 to-gray-900 p-4">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="h-3 w-3 animate-pulse rounded-full bg-green-500" />
               <span className="text-sm font-medium text-gray-200">
-                Provisioning {signupResult.provisioning_status === 'completed' ? 'Complete' : 'In Progress'}
+                Provisioning{' '}
+                {signupResult.provisioning_status === 'completed'
+                  ? 'Complete'
+                  : 'In Progress'}
               </span>
             </div>
-            
+
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-400">Tenant ID:</span>
-                <code className="text-cyan-300 font-mono text-xs">
+                <code className="font-mono text-xs text-cyan-300">
                   {signupResult.tenant_id.slice(0, 12)}...
                 </code>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Realm:</span>
-                <code className="text-cyan-300 font-mono text-xs">
+                <code className="font-mono text-xs text-cyan-300">
                   {signupResult.realm_name}
                 </code>
               </div>
               {signupResult.instance_url && (
                 <div className="flex justify-between">
                   <span className="text-gray-400">Instance:</span>
-                  <code className="text-cyan-300 font-mono text-xs">
+                  <code className="font-mono text-xs text-cyan-300">
                     {signupResult.instance_url.replace('https://', '')}
                   </code>
                 </div>
@@ -136,12 +138,10 @@ export default function Register() {
           </div>
 
           {/* Login Button */}
-          <a
-            href={loginUrl}
-            className="block w-full rounded-md bg-cyan-500 px-4 py-3 text-center text-sm font-semibold text-white shadow-sm hover:bg-cyan-400 transition-colors"
-          >
-            Sign in to your workspace
-          </a>
+          <form action={startWorkspaceSignIn}>
+            <input type="hidden" name="realm" value={signupResult.realm_name} />
+            <WorkspaceSignInButton />
+          </form>
 
           <p className="text-center text-xs text-gray-500">
             You will be redirected to authenticate with your new credentials.
@@ -164,13 +164,13 @@ export default function Register() {
         </>
       }
     >
-      <form onSubmit={handleSubmit}>
+      <form method="post" onSubmit={handleSubmit}>
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+          <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {error}
           </div>
         )}
-        
+
         <div className="space-y-4">
           <TextField
             label="Organization name"
@@ -212,18 +212,30 @@ export default function Register() {
             <option value="other">Other</option>
           </SelectField>
         </div>
-        
-        <Button 
-          type="submit" 
-          color="cyan" 
+
+        <Button
+          type="submit"
+          color="cyan"
           className="mt-8 w-full"
-          disabled={isLoading}
+          disabled={!clientReady || isLoading}
         >
           {isLoading ? (
             <span className="flex items-center justify-center gap-2">
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  fill="none"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
               </svg>
               Creating workspace...
             </span>
@@ -237,7 +249,8 @@ export default function Register() {
             Free tier includes 10 tasks/month. No credit card required.
           </p>
           <p className="text-center text-xs text-gray-400">
-            Your workspace includes a dedicated Kubernetes instance with data isolation.
+            Your workspace includes a dedicated Kubernetes instance with data
+            isolation.
           </p>
         </div>
       </form>

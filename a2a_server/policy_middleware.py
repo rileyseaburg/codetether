@@ -1,5 +1,4 @@
-"""
-Centralized Authorization Middleware for A2A Server.
+"""Centralized Authorization Middleware for A2A Server.
 
 Maps HTTP path patterns + methods to OPA permission strings and enforces
 authorization via the policy engine. This secures ~120 previously-unprotected
@@ -9,26 +8,87 @@ Endpoints that are intentionally public or already protected by existing
 auth dependencies are skipped.
 """
 
-import os
-import re
 import hmac
 import logging
-from typing import Optional, List, Tuple
+import os
+import re
 
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import (
+    BaseHTTPMiddleware,
+    RequestResponseEndpoint,
+)
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
+
+from a2a_server import policy, spiffe_auth
+from a2a_server.oauth_provider import www_authenticate_header
+
 
 logger = logging.getLogger(__name__)
 
+#: Public base URL used in RFC 6750 resource_metadata (same source as
+#: oauth_provider's protected-resource metadata).
+_SERVER_URL = os.environ.get(
+    'MCP_SERVER_URL', 'https://api.codetether.run'
+).rstrip('/')
+
 # ── Worker Authentication ────────────────────────────────────────
-# When WORKER_AUTH_TOKEN is set, worker infrastructure endpoints require
-# this token as Bearer auth. When unset, worker endpoints remain open
-# for backward compatibility with internal deployments.
-WORKER_AUTH_TOKEN: Optional[str] = os.environ.get('WORKER_AUTH_TOKEN')
+# Worker infrastructure endpoints (registration, heartbeats, task polling,
+# task listing) require either a valid WORKER_AUTH_TOKEN bearer or an
+# authenticated platform user. Zero trust: nothing is open by default.
+#
+# Before this change, an unset WORKER_AUTH_TOKEN left these routes open to
+# the internet ("trust cluster-internal traffic"), exposing every task's
+# prompt/result and every worker's registration to anonymous callers.
+#
+# A2A_ALLOW_UNAUTHENTICATED_WORKERS=true restores open access for local dev.
+WORKER_AUTH_TOKEN: str | None = os.environ.get('WORKER_AUTH_TOKEN')
 _WORKER_PATH = re.compile(
-    r'^/v1/agent/(workers/|tasks(/|/[^/]+/(output|status|claim|complete|cancel|requeue))?/?$)'
+    r'^/v1/agent/(workers(/.*)?|tasks(/|/[^/]+/(output|status|claim|complete|cancel|requeue))?/?)$'
 )
+#: Worker-path requests that stay public. The marketing chat widget creates
+#: tasks anonymously; its metadata is sanitized (see task_metadata_trust).
+_PUBLIC_WORKER_ROUTES = frozenset({('/v1/agent/tasks', 'POST')})
+
+
+def _unauthenticated_workers_allowed() -> bool:
+    value = os.environ.get('A2A_ALLOW_UNAUTHENTICATED_WORKERS', '')
+    return value.strip().lower() in {'1', 'true', 'yes'}
+
+
+def _spiffe_only_workers() -> bool:
+    """SPIRE-native mode: reject shared WORKER_AUTH_TOKEN bearers.
+
+    Mirrors SPIFFE_ALLOW_TOKEN_LEGACY: once workers present JWT-SVIDs,
+    set it to false and the shared-secret path is closed.
+    """
+    legacy = os.environ.get('SPIFFE_ALLOW_TOKEN_LEGACY', 'true')
+    spiffe = os.environ.get('SPIFFE_ENABLED', 'false')
+    return spiffe.lower() == 'true' and legacy.lower() != 'true'
+
+
+def _worker_path_exempt(path: str, method: str) -> bool:
+    """Public chat task creation and explicit dev mode skip worker auth."""
+    if (path.rstrip('/') or '/', method) in _PUBLIC_WORKER_ROUTES:
+        return True
+    return _unauthenticated_workers_allowed()
+
+
+def _worker_auth_required() -> JSONResponse:
+    return JSONResponse(
+        status_code=401,
+        content={
+            'detail': 'Worker authentication required (set --token on worker)'
+        },
+        headers={'WWW-Authenticate': 'Bearer'},
+    )
+
+
+def worker_identity_allowed(user: dict) -> bool:
+    """Non-SPIFFE users pass through; SPIFFE callers must be allow-listed."""
+    if user.get('auth_source') != 'spiffe':
+        return True
+    return spiffe_auth.is_allowed_worker(str(user.get('spiffe_id') or ''))
 
 
 # ── Path → Permission Mapping ────────────────────────────────────
@@ -40,7 +100,7 @@ _WORKER_PATH = re.compile(
 # Endpoints NOT listed here pass through without middleware-level
 # authorization (they may still have their own auth dependencies).
 
-_RULES: List[Tuple[str, Optional[set], str]] = [
+_RULES: list[tuple[str, set | None, str]] = [
     # ── Public / Skip (no auth required) ─────────────────────────
     # These return "" to signal "skip authorization".
     (r'^/health$', None, ''),
@@ -117,7 +177,9 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     (r'^/v1/agent/workers/[^/]+/profile$', {'POST'}, 'workers:write'),
     (r'^/v1/agent/workers$', {'GET'}, ''),
     (r'^/v1/agent/workers/', {'GET'}, ''),
-    (r'^/v1/agent/workspaces/list$', {'GET'}, ''),
+    # Workspace list includes git_auth config and every registered path;
+    # it is dashboard data, not worker infrastructure.
+    (r'^/v1/agent/workspaces/list$', {'GET'}, 'codebases:read'),
     # Worker profiles
     (r'^/v1/agent/worker-profiles$', {'POST'}, 'workers:write'),
     (r'^/v1/agent/worker-profiles$', {'GET'}, 'workers:read'),
@@ -222,9 +284,14 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     # Admin analytics endpoints
     (r'^/v1/analytics/', None, 'analytics:admin'),
     # ── MCP Router (/mcp) ────────────────────────────────────────
-    # MCP is an internal agent protocol (like /a2a/ and /v1/worker/).
-    # Voice agents and tool clients use it for service-to-service calls.
-    (r'^/mcp', None, ''),
+    # Zero trust: MCP exposes task creation, messaging, and codebase deletion.
+    # It was previously skipped ("internal protocol") and reachable
+    # anonymously from the internet. Discovery stays public (MCP spec);
+    # everything else needs an authenticated identity with mcp scope.
+    (r'^/mcp/?$', {'GET'}, ''),
+    (r'^/mcp/v1/tools$', {'GET'}, 'mcp:read'),
+    (r'^/mcp/v1/tasks', {'GET'}, 'mcp:read'),
+    (r'^/mcp', None, 'mcp:write'),
     # ── Token Billing Router (/v1/token-billing) ─────────────────
     (r'^/v1/token-billing/budgets', {'POST', 'PUT', 'DELETE'}, 'billing:write'),
     (r'^/v1/token-billing/pricing', {'POST', 'PUT', 'DELETE'}, 'billing:write'),
@@ -232,12 +299,17 @@ _RULES: List[Tuple[str, Optional[set], str]] = [
     # ── Worker SSE (/v1/worker) — has its own token auth ─────────
     (r'^/v1/worker/', None, ''),
     # ── A2A Protocol (/a2a) ──────────────────────────────────────
-    (r'^/a2a/', None, ''),  # A2A has its own optional auth
+    # Zero trust: A2A message/send creates and queues real agent work. The
+    # routes were skipped ("optional auth") and ran work for anonymous
+    # callers. Discovery (agent card) stays public per the A2A spec.
+    (r'^/a2a/card$', {'GET'}, ''),
+    (r'^/a2a/rest/tasks/', {'GET'}, 'tasks:read'),
+    (r'^/a2a/', None, 'tasks:execute'),
     # ── Server inline routes ─────────────────────────────────────
     (r'^/agents$', {'GET'}, 'agent:read'),
     (r'^/v1/livekit/token$', {'POST'}, ''),  # has its own auth
-    (r'^/v1/a2a$', {'POST'}, ''),  # A2A protocol endpoint
-    (r'^/$', {'POST'}, ''),  # JSON-RPC root — has its own auth
+    (r'^/v1/a2a$', {'POST'}, 'tasks:execute'),  # A2A JSON-RPC
+    (r'^/$', {'POST'}, 'tasks:execute'),  # A2A JSON-RPC root
 ]
 
 # Pre-compile regexes for performance.
@@ -246,7 +318,7 @@ _COMPILED_RULES = [
 ]
 
 
-def _match_permission(path: str, method: str) -> Optional[str]:
+def _match_permission(path: str, method: str) -> str | None:
     """Find the required permission for a path + method.
 
     Returns:
@@ -255,120 +327,130 @@ def _match_permission(path: str, method: str) -> Optional[str]:
         - None if no rule matches (pass through)
     """
     for regex, methods, perm in _COMPILED_RULES:
-        if regex.search(path):
-            if methods is None or method in methods:
-                return perm
+        if regex.search(path) and (methods is None or method in methods):
+            return perm
     return None
+
+
+def _authentication_required(permission: str) -> JSONResponse:
+    """401 with an RFC 9728 / MCP-spec ``WWW-Authenticate`` challenge."""
+    return JSONResponse(
+        status_code=401,
+        content={'detail': 'Authentication required'},
+        headers={'WWW-Authenticate': www_authenticate_header(scope=permission)},
+    )
+
+
+def _insufficient_scope(permission: str) -> JSONResponse:
+    """403 with an RFC 6750 ``insufficient_scope`` challenge."""
+    resource_metadata = f'{_SERVER_URL}/.well-known/oauth-protected-resource'
+    return JSONResponse(
+        status_code=403,
+        content={
+            'detail': (
+                f"Access denied: insufficient permissions for '{permission}'"
+            )
+        },
+        headers={
+            'WWW-Authenticate': (
+                f'Bearer error="insufficient_scope", '
+                f'scope="{permission}", '
+                f'resource_metadata="{resource_metadata}"'
+            )
+        },
+    )
 
 
 class PolicyAuthorizationMiddleware(BaseHTTPMiddleware):
     """Starlette middleware that enforces OPA policies on matched routes."""
 
-    async def dispatch(self, request: Request, call_next):
-        from .policy import OPA_ENABLED
-
-        # If policy engine is disabled globally, pass through.
-        if not OPA_ENABLED:
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        """Authenticate, then authorize the request against its route rule."""
+        if not policy.OPA_ENABLED:
             return await call_next(request)
 
         path = request.url.path
         method = request.method
-
-        # Find applicable permission.
         permission = _match_permission(path, method)
+        skip = permission is None or permission == ''
 
-        # No rule matched or explicitly skipped → pass through.
-        if permission is None or permission == '':
-            # Even on skip-auth routes, enforce worker token if configured.
-            if WORKER_AUTH_TOKEN and _WORKER_PATH.search(path):
-                if not self._check_worker_token(request):
-                    return JSONResponse(
-                        status_code=401,
-                        content={
-                            'detail': 'Worker authentication required (set --token on worker)'
-                        },
-                    )
-            return await call_next(request)
-
-        # Worker infrastructure bypass: internal workers (codebases, tasks,
-        # heartbeats) lose auth context.  When WORKER_AUTH_TOKEN is configured, require it;
-        # otherwise trust cluster-internal traffic (backward-compatible).
-        if _WORKER_PATH.search(path):
-            if WORKER_AUTH_TOKEN:
-                if self._check_worker_token(request):
-                    return await call_next(request)
-                # Token configured but invalid — fall through to user auth
-            else:
-                # No worker token configured — allow worker infrastructure
+        # Worker infrastructure paths: zero trust, never open by default.
+        # Accept a valid worker token or an allow-listed identity.
+        # Only the public chat POST and an explicit dev opt-in bypass this.
+        if _WORKER_PATH.search(path) and not _worker_path_exempt(path, method):
+            verdict = await self._authorize_worker(request, path)
+            if verdict is not None:
+                return verdict
+            if skip or request.state.worker_token:
                 return await call_next(request)
 
-        # Resolve user from Authorization header.
+        if not skip:
+            verdict = await self._authorize_user(request, permission)
+            if verdict is not None:
+                return verdict
+        return await call_next(request)
+
+    async def _authorize_user(
+        self, request: Request, permission: str
+    ) -> JSONResponse | None:
+        """Resolve the caller and check ``permission``; None means allowed."""
         user = await self._resolve_user(request)
         if user is None:
-            # Include WWW-Authenticate per RFC 9728 / MCP spec
-            try:
-                from .oauth_provider import www_authenticate_header
-
-                www_auth = www_authenticate_header(scope=permission)
-            except ImportError:
-                www_auth = 'Bearer'
-            return JSONResponse(
-                status_code=401,
-                content={'detail': 'Authentication required'},
-                headers={'WWW-Authenticate': www_auth},
-            )
-
-        # Enforce policy.
-        from .policy import check_policy
-
-        allowed = await check_policy(user, permission)
-        if not allowed:
+            return _authentication_required(permission)
+        if not await policy.check_policy(user, permission):
             logger.warning(
                 'policy_middleware_denied',
                 extra={
                     'user_id': user.get('user_id') or user.get('id'),
                     'action': permission,
-                    'path': path,
-                    'method': method,
+                    'path': request.url.path,
+                    'method': request.method,
                 },
             )
-            # Include WWW-Authenticate with insufficient_scope per RFC 6750
-            try:
-                from .oauth_provider import _SERVER_URL
+            return _insufficient_scope(permission)
+        request.state.policy_user = user
+        return None
 
-                resource_metadata = (
-                    f'{_SERVER_URL}/.well-known/oauth-protected-resource'
-                )
-                www_auth = (
-                    f'Bearer error="insufficient_scope", '
-                    f'scope="{permission}", '
-                    f'resource_metadata="{resource_metadata}"'
-                )
-            except ImportError:
-                www_auth = (
-                    f'Bearer error="insufficient_scope", scope="{permission}"'
-                )
+    async def _authorize_worker(
+        self, request: Request, path: str
+    ) -> JSONResponse | None:
+        """Gate a worker-path request; return a rejection or None to allow.
+
+        Sets ``request.state.worker_token`` when a shared worker token
+        authenticated the call (legacy path, closed in SPIRE-native mode).
+        """
+        request.state.worker_token = bool(
+            WORKER_AUTH_TOKEN
+            and not _spiffe_only_workers()
+            and self._check_worker_token(request)
+        )
+        if request.state.worker_token:
+            return None
+        user = await self._resolve_user(request)
+        if user is None:
+            return _worker_auth_required()
+        if not worker_identity_allowed(user):
+            logger.warning(
+                'SPIFFE identity %s not allowed on worker path %s',
+                user.get('spiffe_id'),
+                path,
+            )
             return JSONResponse(
                 status_code=403,
-                content={
-                    'detail': f"Access denied: insufficient permissions for '{permission}'"
-                },
-                headers={'WWW-Authenticate': www_auth},
+                content={'detail': 'Workload not authorized as worker'},
             )
-
-        # Store resolved user on request state for downstream handlers.
         request.state.policy_user = user
-        return await call_next(request)
+        return None
 
-    async def _resolve_user(self, request: Request) -> Optional[dict]:
+    async def _resolve_user(self, request: Request) -> dict | None:
         """Resolve authenticated user from the request."""
-        from .policy import _resolve_user as _shared_resolve_user
-
-        return await _shared_resolve_user(request)
+        return await policy._resolve_user(request)  # noqa: SLF001 - shared
 
     @staticmethod
     def _check_worker_token(request: Request) -> bool:
-        """Validate Bearer token on worker endpoints against WORKER_AUTH_TOKEN."""
+        """Validate a worker Bearer token against WORKER_AUTH_TOKEN."""
         auth = request.headers.get('authorization', '')
         if not auth.startswith('Bearer '):
             return False

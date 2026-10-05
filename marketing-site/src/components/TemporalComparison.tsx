@@ -27,7 +27,7 @@ const gaps = [
     {
         need: 'Plugin security and isolation',
         zapier: 'Shared runtime, trust-based.',
-        codetether: 'Sandboxed with Ed25519 code signing.',
+        codetether: 'Sandboxed with integrity-checked manifests.',
     },
     {
         need: 'Refine the output after seeing it',

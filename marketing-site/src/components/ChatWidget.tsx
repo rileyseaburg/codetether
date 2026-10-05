@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { createElement, useState, useRef, useEffect, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createGlobalTaskV1AgentTasksPost, getTaskV1AgentTasksTaskIdGet } from '@/lib/api'
 
@@ -267,6 +268,14 @@ function clearStorage(): void {
 }
 
 export function ChatWidget() {
+  const pathname = usePathname()
+  // The workspace already has its own conversation workflow. Do not cover its
+  // composer or primary actions with a second, unrelated chat launcher.
+  if (pathname?.startsWith('/dashboard')) return null
+  return createElement(MarketingChatWidget)
+}
+
+function MarketingChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState<Message[]>([])

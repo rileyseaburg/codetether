@@ -37,7 +37,7 @@ export const plans = [
       'Per-model cost breakdown',
       'Monthly spending limits',
       'OPA Rego RBAC policies',
-      'Ed25519 plugin signing',
+      'Plugin integrity checks',
       'RLM unlimited context',
       'Swarm orchestration',
       'MCP tool bridge',

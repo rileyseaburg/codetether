@@ -4,24 +4,7 @@ import { useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { setApiAuthToken } from '@/lib/api'
 
-function getStoredApiAuth(): { token?: string; tenantId?: string } {
-    if (typeof window === 'undefined') {
-        return {}
-    }
-
-    const token = localStorage.getItem('a2a_token') || localStorage.getItem('access_token') || undefined
-    let tenantId: string | undefined
-
-    try {
-        const rawUser = localStorage.getItem('a2a_user')
-        const user = rawUser ? JSON.parse(rawUser) : undefined
-        tenantId = user?.tenantId || user?.tenant_id
-    } catch {
-        tenantId = undefined
-    }
-
-    return { token, tenantId }
-}
+import { getApiAuth, subscribeToAuthChanges } from '@/lib/auth-token'
 
 /**
  * Syncs the NextAuth session token to the @hey-api SDK client.
@@ -32,35 +15,21 @@ function getStoredApiAuth(): { token?: string; tenantId?: string } {
  * calls made in the same render cycle aren't unauthenticated.
  */
 export function ApiAuthSync() {
-    const { data: session, status } = useSession()
+  const { data: session, status } = useSession()
 
-    // Eager: seed from localStorage on mount so SDK calls made by globally
-    // rendered components (for example the chat widget) are not anonymous while
-    // NextAuth is still loading.
-    useEffect(() => {
-        const { token, tenantId } = getStoredApiAuth()
-        if (token) {
-            setApiAuthToken(token, tenantId)
-        }
-    }, [])
+  // Keep SDK credentials synchronized with UI identity, including token
+  // rotation and logout in another tab (which do not change a NextAuth session).
+  useEffect(() => {
+    const sync = () => {
+      const { token, tenantId } = getApiAuth({
+        accessToken: session?.accessToken,
+        tenantId: session?.tenantId,
+      })
+      setApiAuthToken(token, tenantId)
+    }
+    sync()
+    return subscribeToAuthChanges(sync)
+  }, [session?.accessToken, session?.tenantId, status])
 
-    // Primary: sync from NextAuth session whenever it changes. If the root
-    // provider has no session but a self-service token exists in localStorage,
-    // keep using that token instead of clearing the SDK auth state.
-    useEffect(() => {
-        if (session?.accessToken) {
-            setApiAuthToken(session.accessToken, session.tenantId)
-            return
-        }
-
-        const { token, tenantId } = getStoredApiAuth()
-        if (token) {
-            setApiAuthToken(token, tenantId)
-            return
-        }
-
-        setApiAuthToken()
-    }, [session?.accessToken, session?.tenantId, status])
-
-    return null
+  return null
 }

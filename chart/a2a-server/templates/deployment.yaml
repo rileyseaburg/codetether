@@ -75,6 +75,7 @@ spec:
           startupProbe:
             {{- toYaml .Values.startupProbe | nindent 12 }}
           envFrom:
+            {{- include "a2a-server.workerAuthEnvFrom" . | nindent 12 }}
             {{- range .Values.existingEnvFromSecrets }}
             - secretRef:
                 name: {{ . }}
@@ -118,6 +119,7 @@ spec:
               value: "true"
             {{- end }}
             {{- include "a2a-server.spiffeEnv" . | nindent 12 }}
+            {{- include "a2a-server.workerAuthEnv" . | nindent 12 }}
             {{- include "a2a-server.agentIdentityEnv" . | nindent 12 }}
             {{- range $key, $value := .Values.envFromSecret }}
             - name: {{ $key }}
@@ -392,6 +394,7 @@ spec:
           startupProbe:
             {{- toYaml .Values.startupProbe | nindent 12 }}
           envFrom:
+            {{- include "a2a-server.workerAuthEnvFrom" . | nindent 12 }}
             {{- range .Values.existingEnvFromSecrets }}
             - secretRef:
                 name: {{ . }}
@@ -435,6 +438,7 @@ spec:
               value: "true"
             {{- end }}
             {{- include "a2a-server.spiffeEnv" . | nindent 12 }}
+            {{- include "a2a-server.workerAuthEnv" . | nindent 12 }}
             {{- include "a2a-server.agentIdentityEnv" . | nindent 12 }}
             {{- range $key, $value := .Values.envFromSecret }}
             - name: {{ $key }}
@@ -653,6 +657,7 @@ spec:
           startupProbe:
             {{- toYaml $.Values.startupProbe | nindent 12 }}
           envFrom:
+            {{- include "a2a-server.workerAuthEnvFrom" $ | nindent 12 }}
             {{- range $.Values.existingEnvFromSecrets }}
             - secretRef:
                 name: {{ . }}
@@ -696,6 +701,7 @@ spec:
               value: "true"
             {{- end }}
             {{- include "a2a-server.spiffeEnv" $ | nindent 12 }}
+            {{- include "a2a-server.workerAuthEnv" $ | nindent 12 }}
             {{- include "a2a-server.agentIdentityEnv" $ | nindent 12 }}
             {{- range $key, $value := $.Values.envFromSecret }}
             - name: {{ $key }}

@@ -13,9 +13,19 @@ import threading
 import httpx
 import pytest
 import uvicorn
+
 from fastapi import FastAPI
 
-from a2a_server.worker_sse import worker_sse_router, get_worker_registry
+from a2a_server.worker_sse import get_worker_registry, worker_sse_router
+
+
+HTTP_OK = 200
+
+
+@pytest.fixture(autouse=True)
+def _dev_unauthenticated_workers(monkeypatch):
+    """Stream-transport test; worker auth fail-closed is tested elsewhere."""
+    monkeypatch.setenv('A2A_ALLOW_UNAUTHENTICATED_WORKERS', 'true')
 
 
 def _free_port() -> int:
@@ -28,7 +38,9 @@ def _free_port() -> int:
 
 class _Server:
     def __init__(self, app: FastAPI, port: int):
-        cfg = uvicorn.Config(app, host='127.0.0.1', port=port, log_level='error')
+        cfg = uvicorn.Config(
+            app, host='127.0.0.1', port=port, log_level='error'
+        )
         self._server = uvicorn.Server(cfg)
         self._thread = threading.Thread(target=self._server.run, daemon=True)
 
@@ -71,22 +83,24 @@ async def test_live_reconnect_replays_gap_over_real_socket():
     url = '/v1/worker/tasks/stream?agent_name=build&worker_id=' + worker_id
 
     try:
-        async with httpx.AsyncClient(base_url=base, timeout=10) as client:
-            async with client.stream('GET', url) as resp:
-                assert resp.status_code == 200
+        async with (
+            httpx.AsyncClient(base_url=base, timeout=10) as client,
+            client.stream('GET', url) as resp,
+        ):
+            assert resp.status_code == HTTP_OK
 
-                async def push():
-                    for _ in range(40):
-                        if registry._workers.get(worker_id):
-                            break
-                        await asyncio.sleep(0.05)
-                    for pct in (10, 20, 30):
-                        await registry.push_progress(worker_id, {'pct': pct})
-                        await asyncio.sleep(0.02)
+            async def push():
+                for _ in range(40):
+                    if await registry.get_worker(worker_id):
+                        break
+                    await asyncio.sleep(0.05)
+                for pct in (10, 20, 30):
+                    await registry.push_progress(worker_id, {'pct': pct})
+                    await asyncio.sleep(0.02)
 
-                pusher = asyncio.create_task(push())
-                first = await asyncio.wait_for(_collect_ids(resp, 3), timeout=8)
-                await pusher
+            pusher = asyncio.create_task(push())
+            first = await asyncio.wait_for(_collect_ids(resp, 3), timeout=8)
+            await pusher
 
         epoch = first[0].split('.')[0]
         assert first == [f'{epoch}.1', f'{epoch}.2', f'{epoch}.3']

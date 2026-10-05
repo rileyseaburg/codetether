@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
+import { useTenantApi } from '@/hooks/useTenantApi'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
 
@@ -28,6 +29,7 @@ function TerminalIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 
 export default function OutputPage() {
     const { data: session } = useSession()
+    const { tenantFetch } = useTenantApi()
     const [workspaces, setWorkspaces] = useState<Workspace[]>([])
     const [selectedWorkspace, setSelectedWorkspace] = useState('')
     const [output, setOutput] = useState<OutputLine[]>([])
@@ -35,28 +37,30 @@ export default function OutputPage() {
     const eventSourceRef = useRef<EventSource | null>(null)
     const outputEndRef = useRef<HTMLDivElement>(null)
 
-    const loadWorkspaces = useCallback(async () => {
-        try {
-            const response = await fetch(`${API_URL}/v1/agent/workspaces/list`)
-            if (response.ok) {
-                const data = await response.json()
-                const items = Array.isArray(data) ? data : (data?.workspaces ?? data?.codebases ?? [])
-                setWorkspaces(
-                    (items as any[]).map((cb) => ({
-                        id: String(cb?.id ?? ''),
-                        name: String(cb?.name ?? cb?.id ?? ''),
-                        path: String(cb?.path ?? ''),
-                        status: String(cb?.status ?? 'unknown'),
-                    })).filter((cb) => cb.id)
-                )
-            }
-        } catch (error) {
-            console.error('Failed to load workspaces:', error)
-        }
-    }, [])
+    const loadWorkspaces = useCallback(async (): Promise<Workspace[]> => {
+        // Authenticated: the workspace list is no longer public.
+        const { data } = await tenantFetch<unknown>('/v1/agent/workspaces/list')
+        if (!data) return []
+        const record = data as { workspaces?: unknown[]; codebases?: unknown[] }
+        const items = Array.isArray(data)
+            ? data
+            : (record.workspaces ?? record.codebases ?? [])
+        return (items as any[]).map((cb) => ({
+            id: String(cb?.id ?? ''),
+            name: String(cb?.name ?? cb?.id ?? ''),
+            path: String(cb?.path ?? ''),
+            status: String(cb?.status ?? 'unknown'),
+        })).filter((cb) => cb.id)
+    }, [tenantFetch])
 
     useEffect(() => {
-        loadWorkspaces()
+        let active = true
+        loadWorkspaces().then((items) => {
+            if (active) setWorkspaces(items)
+        })
+        return () => {
+            active = false
+        }
     }, [loadWorkspaces])
 
     useEffect(() => {
@@ -64,78 +68,11 @@ export default function OutputPage() {
         outputEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [output])
 
-    const connectToWorkspace = useCallback((workspaceId: string) => {
-        // Close existing connection
-        if (eventSourceRef.current) {
-            eventSourceRef.current.close()
-        }
-
-        if (!workspaceId) {
-            setOutput([])
-            setConnected(false)
-            return
-        }
-
-        setOutput([{ type: 'status', content: 'Connecting to event stream...', timestamp: new Date() }])
-
-        // Handle relative API URLs by resolving against window.location
-        const baseApiUrl = API_URL.startsWith('/') ? `${window.location.origin}${API_URL}` : API_URL
-        const sseUrl = new URL(`${baseApiUrl}/v1/agent/workspaces/${workspaceId}/events`)
-        if (session?.accessToken) {
-            sseUrl.searchParams.set('access_token', session.accessToken)
-        }
-        const eventSource = new EventSource(sseUrl.toString())
-        eventSourceRef.current = eventSource
-
-        eventSource.onopen = () => {
-            setConnected(true)
-            addOutput('status', 'Connected')
-        }
-
-        eventSource.onerror = () => {
-            setConnected(false)
-            addOutput('error', 'Event stream disconnected')
-        }
-
-        eventSource.addEventListener('connected', () => {
-            addOutput('status', 'Connected to agent stream')
-        })
-
-        eventSource.addEventListener('message', (e) => {
-            try {
-                const data = JSON.parse(e.data)
-                processEvent(data)
-            } catch {
-                if (e.data && e.data.trim()) {
-                    addOutput('text', e.data)
-                }
-            }
-        })
-
-        eventSource.addEventListener('status', (e) => {
-            const data = JSON.parse(e.data)
-            addOutput('status', data.message || data.status)
-        })
-
-        return () => eventSource.close()
+    const addOutput = useCallback((type: OutputLine['type'], content: string) => {
+        setOutput((prev) => [...prev, { type, content, timestamp: new Date() }].slice(-500))
     }, [])
 
-    useEffect(() => {
-        if (selectedWorkspace) {
-            connectToWorkspace(selectedWorkspace)
-        }
-        return () => {
-            if (eventSourceRef.current) {
-                eventSourceRef.current.close()
-            }
-        }
-    }, [selectedWorkspace, connectToWorkspace])
-
-    const addOutput = (type: OutputLine['type'], content: string) => {
-        setOutput((prev) => [...prev, { type, content, timestamp: new Date() }].slice(-500))
-    }
-
-    const processEvent = (event: Record<string, unknown>) => {
+    const processEvent = useCallback((event: Record<string, unknown>) => {
         const type = (event.type || event.event_type) as string
         const part = (event.part || {}) as Record<string, unknown>
 
@@ -201,6 +138,79 @@ export default function OutputPage() {
                 }
             }
         }
+    }, [addOutput])
+
+    const connectToWorkspace = useCallback((workspaceId: string) => {
+        // Close existing connection
+        if (eventSourceRef.current) {
+            eventSourceRef.current.close()
+        }
+
+        // Handle relative API URLs by resolving against window.location
+        const baseApiUrl = API_URL.startsWith('/') ? `${window.location.origin}${API_URL}` : API_URL
+        const sseUrl = new URL(`${baseApiUrl}/v1/agent/workspaces/${workspaceId}/events`)
+        if (session?.accessToken) {
+            sseUrl.searchParams.set('access_token', session.accessToken)
+        }
+        const eventSource = new EventSource(sseUrl.toString())
+        eventSourceRef.current = eventSource
+
+        eventSource.onopen = () => {
+            setConnected(true)
+            addOutput('status', 'Connected')
+        }
+
+        eventSource.onerror = () => {
+            setConnected(false)
+            addOutput('error', 'Event stream disconnected')
+        }
+
+        eventSource.addEventListener('connected', () => {
+            addOutput('status', 'Connected to agent stream')
+        })
+
+        eventSource.addEventListener('message', (e) => {
+            try {
+                const data = JSON.parse(e.data)
+                processEvent(data)
+            } catch {
+                if (e.data && e.data.trim()) {
+                    addOutput('text', e.data)
+                }
+            }
+        })
+
+        eventSource.addEventListener('status', (e) => {
+            const data = JSON.parse(e.data)
+            addOutput('status', data.message || data.status)
+        })
+
+        return () => eventSource.close()
+    }, [addOutput, processEvent, session])
+
+    useEffect(() => {
+        if (selectedWorkspace) {
+            connectToWorkspace(selectedWorkspace)
+        }
+        return () => {
+            if (eventSourceRef.current) {
+                eventSourceRef.current.close()
+            }
+        }
+    }, [selectedWorkspace, connectToWorkspace])
+
+    const selectWorkspace = (workspaceId: string) => {
+        // Reset the view in the event handler; the effect only (re)connects.
+        setSelectedWorkspace(workspaceId)
+        setConnected(false)
+        setOutput(
+            workspaceId
+                ? [{ type: 'status', content: 'Connecting to event stream...', timestamp: new Date() }]
+                : []
+        )
+        if (!workspaceId && eventSourceRef.current) {
+            eventSourceRef.current.close()
+        }
     }
 
     const getOutputClasses = (type: OutputLine['type']) => {
@@ -223,7 +233,7 @@ export default function OutputPage() {
                     <div className="flex items-center gap-4">
                         <select
                             value={selectedWorkspace}
-                            onChange={(e) => setSelectedWorkspace(e.target.value)}
+                            onChange={(e) => selectWorkspace(e.target.value)}
                             className="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"
                         >
                             <option value="">Select workspace...</option>

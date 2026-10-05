@@ -177,6 +177,10 @@ Intended for use under a container `env:` list.
   value: "true"
 - name: SPIFFE_TRUST_DOMAIN
   value: {{ .Values.spiffe.trustDomain | quote }}
+- name: SPIFFE_ISSUER
+  value: {{ .Values.spiffe.issuer | default "" | quote }}
+- name: SPIFFE_WORKER_IDS
+  value: {{ join "," (.Values.spiffe.workerIds | default list) | quote }}
 - name: SPIFFE_AUDIENCE
   value: {{ .Values.spiffe.audience | quote }}
 - name: SPIFFE_JWKS_URL

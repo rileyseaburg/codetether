@@ -42,10 +42,7 @@ data:
   KEYCLOAK_REALM: {{ .Values.keycloak.realm | quote }}
   KEYCLOAK_CLIENT_ID: {{ .Values.keycloak.clientId | quote }}
 
-  # Worker authentication token (when set, workers must pass --token to connect)
-  {{- if .Values.workerAuthToken }}
-  WORKER_AUTH_TOKEN: {{ .Values.workerAuthToken | quote }}
-  {{- end }}
+  # Worker authentication token lives in a Secret (worker-auth-secret.yaml).
 
   # Sandbox execution
   {{- if .Values.sandbox.enabled }}

@@ -1,4 +1,7 @@
+# Assertions quote exact prompt/API strings; one private helper is exercised.
+# ruff: noqa: E501, SLF001
 import os
+
 
 os.environ.setdefault(
     'DATABASE_URL', 'postgresql://test:test@localhost:5432/test'
@@ -11,6 +14,9 @@ from a2a_server.github_app import (
     issue_review_task,
     task_completion,
     task_context,
+)
+from a2a_server.github_app.task_status_hook import (
+    handle_github_app_terminal_task,
 )
 
 
@@ -114,7 +120,7 @@ async def test_issue_final_comment_queues_review_task(monkeypatch, pr_payload):
 
     assert created
     assert created[0]['parent_task_id'] == 'task-code'
-    assert created[0]['pr']['number'] == 77
+    assert created[0]['pr']['number'] == pr_payload['number']
     assert created[0]['token'] == 'token'
     assert created[0]['trigger_actor_login'] == 'rileyseaburg'
     assert 'target_worker_id' not in created[0]
@@ -453,6 +459,7 @@ async def test_create_merge_task_records_sha_mismatch(monkeypatch, pr_payload):
                 'branch_name': 'codetether/issue-12',
                 'pr_head_sha': 'abc123',
                 'github_installation_id': 123,
+                'codetether_provenance': _review_stage_provenance(),
             },
         },
         token='token',
@@ -518,6 +525,7 @@ async def test_create_merge_task_blocks_unresolved_review_feedback(
                 'branch_name': 'codetether/issue-12',
                 'pr_head_sha': 'abc123',
                 'github_installation_id': 123,
+                'codetether_provenance': _review_stage_provenance(),
             },
         },
         token='token',
@@ -597,6 +605,7 @@ async def test_create_merge_task_auto_merges_when_feedback_addressed(
                 'branch_name': 'codetether/issue-12',
                 'pr_head_sha': 'abc123',
                 'github_installation_id': 123,
+                'codetether_provenance': _review_stage_provenance(),
             },
         },
         token='token',
@@ -693,6 +702,7 @@ async def test_create_merge_task_enables_github_auto_merge_when_direct_merge_blo
                 'branch_name': 'codetether/issue-12',
                 'pr_head_sha': 'abc123',
                 'github_installation_id': 123,
+                'codetether_provenance': _review_stage_provenance(),
             },
         },
         token='token',
@@ -764,6 +774,7 @@ async def test_create_merge_task_blocks_failed_status_checks(
                 'branch_name': 'codetether/issue-12',
                 'pr_head_sha': 'abc123',
                 'github_installation_id': 123,
+                'codetether_provenance': _review_stage_provenance(),
             },
         },
         token='token',
@@ -797,6 +808,18 @@ def test_merge_provenance_uses_merge_steward_actor(pr_payload):
 # ---------------------------------------------------------------------------
 
 
+def _review_stage_provenance():
+    """Provenance the review stage records on its task, as in production."""
+    return issue_review_task.issue_pr_provenance(
+        repo='acme/widgets',
+        issue_number=12,
+        branch='codetether/issue-12',
+        pr={'number': 77, 'head': {'sha': 'abc123'}, 'base': {'sha': 'def456'}},
+        installation_id=123,
+        action='github:review_pr',
+    )
+
+
 def _make_review_task(
     verdict_text, *, pr_head_sha='abc123', extra_metadata=None
 ):
@@ -810,6 +833,7 @@ def _make_review_task(
         'pr_head_sha': pr_head_sha,
         'github_installation_id': 123,
         'github_issue_url': 'https://github.com/acme/widgets/pull/77',
+        'codetether_provenance': _review_stage_provenance(),
     }
     if extra_metadata:
         metadata.update(extra_metadata)
@@ -1188,7 +1212,6 @@ async def test_create_merge_task_falls_back_to_mention_on_fix_failure(
 
     async def fake_fix_followup(*, review_task, token):
         fix_created.append(True)
-        return None  # fix follow-up could not create task
 
     async def fake_fallback(*, review_task, token):
         fallback_called.append(True)
@@ -1222,7 +1245,6 @@ async def test_create_merge_task_does_not_call_fix_on_approval(
 
     async def fake_fix_followup(*, review_task, token):
         fix_created.append(True)
-        return None
 
     async def fake_github_json(method, path, token, payload=None):
         if path == '/repos/acme/widgets/pulls/77':
@@ -1451,10 +1473,6 @@ async def test_issue_terminal_normalization_fails_missing_branch_before_check(
     monkeypatch.setattr(
         'a2a_server.github_app.task_completion.notify_issue_task_completion',
         fake_notify,
-    )
-
-    from a2a_server.github_app.task_status_hook import (
-        handle_github_app_terminal_task,
     )
 
     await handle_github_app_terminal_task('task-code')

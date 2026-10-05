@@ -30,6 +30,26 @@ def get_auth_tokens_set() -> set:
     return tokens
 
 
+def unauthenticated_allowed() -> bool:
+    """Explicit local-dev opt-out; zero trust means never implicit.
+
+    Before this switch existed, an unset ``A2A_AUTH_TOKENS`` (with SPIFFE
+    off, or with legacy tokens allowed) silently disabled worker auth.
+    """
+    value = os.environ.get('A2A_ALLOW_UNAUTHENTICATED_WORKERS', '')
+    return value.strip().lower() in {'1', 'true', 'yes'}
+
+
+def _no_credentials_configured() -> None:
+    """Fail closed when no worker credential source is configured."""
+    if unauthenticated_allowed():
+        return
+    raise HTTPException(
+        status_code=401,
+        detail='Worker authentication is not configured',
+    )
+
+
 def verify_auth(request: Request) -> str | None:
     """Verify the caller's identity for worker-facing routes.
 
@@ -42,7 +62,9 @@ def verify_auth(request: Request) -> str | None:
     matching ``A2A_AUTH_TOKENS`` is still accepted when no valid SVID is
     presented. Set ``SPIFFE_ALLOW_TOKEN_LEGACY=false`` to retire shared tokens.
 
-    Returns the SPIFFE ID or legacy token, or None when no auth is configured.
+    Returns the SPIFFE ID or legacy token. Returns None only when no
+    credential source is configured *and* ``A2A_ALLOW_UNAUTHENTICATED_WORKERS``
+    is explicitly set; otherwise that case is rejected (fail closed).
     Raises HTTPException(401/403) on invalid credentials.
     """
     tokens = get_auth_tokens_set()
@@ -52,20 +74,24 @@ def verify_auth(request: Request) -> str | None:
         if token:
             try:
                 identity = spiffe_auth.validate_jwt_svid(token)
-                request.state.spiffe = identity
-                return identity.spiffe_id
             except HTTPException:
                 # If legacy tokens are still allowed, let a configured shared
                 # token satisfy the request instead of the SVID.
                 if not (spiffe_auth.allow_token_legacy() and token in tokens):
                     raise
                 return token
+            if not spiffe_auth.is_allowed_worker(identity.spiffe_id):
+                raise HTTPException(
+                    status_code=403, detail='Workload not authorized as worker'
+                )
+            request.state.spiffe = identity
+            return identity.spiffe_id
         if spiffe_auth.allow_token_legacy() and not tokens:
-            return None
+            return _no_credentials_configured()
         raise HTTPException(status_code=401, detail='Missing Bearer SVID')
 
     if not tokens:
-        return None
+        return _no_credentials_configured()
 
     auth = (
         request.headers.get('authorization')
@@ -105,6 +131,10 @@ async def verify_worker_or_user_auth(request: Request) -> str | None:
         )
 
         user = await _resolve_user(request)
+        if user and user.get('auth_source') == 'spiffe':
+            # A workload SVID is not a platform user: SPIFFE callers must
+            # pass the worker allow-list in verify_auth, never this path.
+            raise worker_error from None
         if user:
             request.state.user = user
             return str(user.get('user_id') or user.get('id') or '')

@@ -116,7 +116,7 @@ export default function SecurityWhitepaper() {
                                     <h3 className="font-semibold text-gray-900 dark:text-white">Control Plane (SaaS)</h3>
                                 </div>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                                    Hosted in our SOC 2 Type II compliant environment
+                                    Hosted by CodeTether (no SOC 2 report yet)
                                 </p>
                                 <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                                     <li className="flex items-start gap-2">
@@ -395,9 +395,9 @@ export default function SecurityWhitepaper() {
                         <div className="mt-8 grid gap-4 sm:grid-cols-3">
                             <div className="rounded-xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-5">
                                 <div className="text-2xl mb-2">🔏</div>
-                                <h3 className="font-semibold text-gray-900 dark:text-white">Signed Images</h3>
+                                <h3 className="font-semibold text-gray-900 dark:text-white">Image Signing (planned)</h3>
                                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                    All Docker images cryptographically signed. Verify via admission controllers.
+                                    Container images are not signed yet. Signing with admission-controller verification is on the roadmap.
                                 </p>
                             </div>
                             <div className="rounded-xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-5">
@@ -409,23 +409,27 @@ export default function SecurityWhitepaper() {
                             </div>
                             <div className="rounded-xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-5">
                                 <div className="text-2xl mb-2">📋</div>
-                                <h3 className="font-semibold text-gray-900 dark:text-white">SBOM Available</h3>
+                                <h3 className="font-semibold text-gray-900 dark:text-white">SBOM (planned)</h3>
                                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                    Software Bill of Materials for every release with all dependencies.
+                                    Releases do not publish an SBOM yet. Cargo.lock pins every Rust dependency today.
                                 </p>
                             </div>
                         </div>
 
                         <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white mt-16">
-                            7. Compliance Frameworks
+                            7. Compliance Status
                         </h2>
+                        <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+                            CodeTether does not currently hold SOC 2, HIPAA, PCI-DSS, FedRAMP, or FIPS 140-3
+                            certifications or attestations. The status of each is listed below.
+                        </p>
 
                         <div className="mt-8 grid gap-4 sm:grid-cols-2">
                             {[
-                                { icon: '🏥', name: 'HIPAA', desc: 'PHI stays in your VPC. BAA available.' },
-                                { icon: '🔒', name: 'SOC 2 Type II', desc: 'Control Plane maintains certification.' },
-                                { icon: '💳', name: 'PCI-DSS', desc: 'Cardholder data stays under your control; enforce egress policy at the Worker.' },
-                                { icon: '🏛️', name: 'FedRAMP', desc: 'Self-hosted, air-gap compatible.' },
+                                { icon: '🔐', name: 'FIPS 140-3 (in progress)', desc: 'TLS runs on AWS-LC only. An opt-in FIPS build links the AWS-LC-FIPS module and refuses to start unless FIPS mode is active. Not yet validated end to end.' },
+                                { icon: '🏠', name: 'Data residency', desc: 'Workers run in your VPC, so code and data stay under your control.' },
+                                { icon: '🔒', name: 'SOC 2', desc: 'No SOC 2 report yet. Not certified.' },
+                                { icon: '🏛️', name: 'FedRAMP / HIPAA / PCI-DSS', desc: 'Not authorized or attested. Self-hosting helps you meet these controls; it does not confer compliance.' },
                             ].map((item) => (
                                 <div key={item.name} className="rounded-xl bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 p-5 flex items-start gap-4">
                                     <div className="text-2xl">{item.icon}</div>

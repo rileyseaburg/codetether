@@ -41,7 +41,7 @@ const DEFAULT_VARIANTS: SlotVariant[] = [
         name: 'Security-first',
         content: {
             headline: 'The AI Agent Platform That Ships with Security Built In',
-            subheadline: 'HMAC-SHA256 auth, Ed25519 plugin signing, immutable audit trails. Not optional—mandatory.',
+            subheadline: 'HMAC-SHA256 auth, integrity-checked plugins, append-only audit trails. Not optional—mandatory.',
         },
         alpha: 1, beta: 1, impressions: 0, conversions: 0, signups: 0, revenueCents: 0,
         isControl: true, isActive: true,
@@ -52,7 +52,7 @@ const DEFAULT_VARIANTS: SlotVariant[] = [
         name: 'Replace-OpenClaw',
         content: {
             headline: 'Stop Paying for OpenClaw\'s Security Theater',
-            subheadline: 'CodeTether ships Ed25519 code-signing and OPA policy enforcement. They ship a "coming soon" badge.',
+            subheadline: 'CodeTether ships OS-level sandboxing and OPA policy enforcement at the agent runtime, not only at a gateway.',
         },
         alpha: 1, beta: 1, impressions: 0, conversions: 0, signups: 0, revenueCents: 0,
         isControl: false, isActive: true,
@@ -113,7 +113,7 @@ const DEFAULT_VARIANTS: SlotVariant[] = [
         name: 'Security-stats',
         content: {
             stat1: '100%', stat1Label: 'Mandatory Auth',
-            stat2: 'Ed25519', stat2Label: 'Plugin Signing',
+            stat2: 'OPA', stat2Label: 'Policy Engine',
             stat3: 'OPA', stat3Label: 'Policy Engine',
         },
         alpha: 1, beta: 1, impressions: 0, conversions: 0, signups: 0, revenueCents: 0,

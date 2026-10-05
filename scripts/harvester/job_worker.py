@@ -37,6 +37,7 @@ STOP_GRACE = 5.0
 REAP_TIMEOUT = 2.0
 GIT_TIMEOUT = 5.0
 ASCII_CONTROL_LIMIT = 32
+SVID_WAIT_SECONDS = 60.0
 TERMINAL = {'completed', 'failed', 'cancelled'}
 PENDING = {'pending', 'queued', 'assigned', 'running', 'working', 'in_progress'}
 IDENTIFIER = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$')
@@ -63,15 +64,49 @@ class Config:
     read_only: bool
     workspace: str | None
     result_path: str
+    svid_path: str | None = None
+
+    def bearer(self) -> str:
+        """Return the current credential.
+
+        SPIRE-native mode reads the JWT-SVID that spiffe-helper keeps fresh
+        (rotated before expiry), so the worker never holds a shared secret.
+        The file is re-read on every call so rotation takes effect at once.
+        """
+        if not self.svid_path:
+            return self.token
+        try:
+            value = Path(self.svid_path).read_text(encoding='ascii').strip()
+        except OSError:
+            raise Diagnostic('job_svid_unavailable') from None
+        if not value or any(ord(c) < ASCII_CONTROL_LIMIT for c in value):
+            raise Diagnostic('job_svid_invalid')
+        return value
+
+    def wait_for_bearer(self, timeout: float = SVID_WAIT_SECONDS) -> None:
+        """Block until the sidecar has written the first SVID."""
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                self.bearer()
+            except Diagnostic:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(TICK_SECONDS)
+            else:
+                return
 
     @classmethod
     def from_env(cls, env) -> Self:
         """Validate input without reflecting its values in diagnostics."""
         try:
             task, name = env['JOB_TASK_ID'], env['JOB_WORKER_NAME']
+            svid_path = env.get('CODETETHER_SVID_PATH') or None
             server, token = (
                 env['CODETETHER_SERVER'].rstrip('/'),
-                env['CODETETHER_TOKEN'],
+                env.get('CODETETHER_TOKEN', '')
+                if svid_path
+                else env['CODETETHER_TOKEN'],
             )
             seconds = float(env.get('JOB_DEADLINE_SECONDS', '3600'))
             mode = env.get('JOB_READ_ONLY', 'false').lower()
@@ -86,7 +121,7 @@ class Config:
                 and not url.password
                 and not url.query
                 and not url.fragment
-                and token
+                and (token or (svid_path and Path(svid_path).is_absolute()))
                 and not any(
                     ord(c) < ASCII_CONTROL_LIMIT for c in token + server
                 )
@@ -105,6 +140,7 @@ class Config:
                 mode == 'true',
                 env.get('JOB_WORKSPACE_PATH'),
                 path,
+                svid_path,
             )
         except (KeyError, TypeError, ValueError):
             raise Diagnostic('job_configuration_invalid') from None
@@ -136,7 +172,7 @@ def read_status(config, timeout):
         request = Request(
             config.server + '/v1/agent/tasks/' + quote(config.task_id, safe=''),
             headers={
-                'Authorization': 'Bearer ' + config.token,
+                'Authorization': 'Bearer ' + config.bearer(),
                 'Accept': 'application/json',
                 'User-Agent': 'CodeTether-Job-Supervisor/1.0',
             },
@@ -532,11 +568,12 @@ def supervise(config):
     }
     try:
         _install_signal_handlers(termination, previous)
+        config.wait_for_bearer()
         env = dict(os.environ)
         env.update(
             {
                 'CODETETHER_SERVER': config.server,
-                'CODETETHER_TOKEN': config.token,
+                'CODETETHER_TOKEN': config.bearer(),
                 'CODETETHER_WORKER_TARGETED_ONLY': '1',
                 'HOME': '/work',
                 'XDG_CONFIG_HOME': '/work/.config',

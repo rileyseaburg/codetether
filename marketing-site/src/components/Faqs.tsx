@@ -6,7 +6,7 @@ const faqs = [
     [
         {
             question: 'How is CodeTether different from OpenClaw?',
-            answer: 'OpenClaw is a Node.js gateway that shipped with auth: none by default. CodeTether is a Rust-based perpetual cognition runtime with mandatory HMAC-SHA256 authentication, Ed25519 code-signed sandboxed plugins, persona swarms with scoped permissions, and append-only audit logging. It self-deploys on Kubernetes. These are shipped features in v1.1.0, not a roadmap.',
+            answer: 'OpenClaw is a Node.js gateway that shipped with auth: none by default. CodeTether is a Rust-based perpetual cognition runtime with mandatory HMAC-SHA256 authentication, sandboxed and integrity-checked plugins, persona swarms with scoped permissions, and append-only audit logging. It self-deploys on Kubernetes.',
         },
         {
             question: 'Why is CodeTether written in Rust?',
@@ -42,7 +42,7 @@ const faqs = [
         },
         {
             question: 'How does the security model work?',
-            answer: 'Authentication uses HMAC-SHA256 bearer tokens and is mandatory — there is no flag to disable it. All plugins are sandboxed with Ed25519 code signing and SHA-256 integrity checks. Every action is logged to an append-only JSON Lines audit trail with timestamps, categories, and metadata. Persona swarms enforce least-privilege — each agent only has the permissions it needs. Enterprise plans can add custom OPA Rego policies.',
+            answer: 'Authentication uses HMAC-SHA256 bearer tokens and is mandatory — there is no flag to disable it. Plugins run sandboxed, with HMAC-SHA256 manifest signatures and SHA-256 integrity checks. Every action is logged to an append-only JSON Lines audit trail with timestamps, categories, and metadata. Persona swarms enforce least-privilege — each agent only has the permissions it needs. Enterprise plans can add custom OPA Rego policies.',
         },
         {
             question: 'Is there a managed/hosted option?',

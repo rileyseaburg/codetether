@@ -1,4 +1,5 @@
 {{- if .Values.taskJobs.enabled }}
+{{- $spire := and .Values.spiffe.enabled .Values.spiffe.workloadApi.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -12,6 +13,21 @@ data:
         "serviceAccountName":{{ printf "%s-harvester" (include "a2a-server.serviceAccountName" .) | toJson }},
         "securityContext":{"runAsNonRoot":true,"runAsUser":1000,"fsGroup":1000},
         "imagePullSecrets":{{ .Values.imagePullSecrets | default list | toJson }},
+        {{- if $spire }}
+        "initContainers":[{
+          "name":"spiffe-helper",
+          "image":{{ .Values.spiffe.workloadApi.helperImage | toJson }},
+          "restartPolicy":"Always",
+          "args":["-config","/spiffe-helper/helper.conf"],
+          "securityContext":{"allowPrivilegeEscalation":false,"readOnlyRootFilesystem":true,"capabilities":{"drop":["ALL"]}},
+          "resources":{"requests":{"cpu":"10m","memory":"32Mi"},"limits":{"cpu":"100m","memory":"64Mi"}},
+          "volumeMounts":[
+            {"name":"spiffe-workload-api","mountPath":"/spiffe-workload-api","readOnly":true},
+            {"name":"spiffe-helper-config","mountPath":"/spiffe-helper","readOnly":true},
+            {"name":"svid","mountPath":"/svid"}
+          ]
+        }],
+        {{- end }}
         "containers":[{
           "name":"worker",
           "image":{{ printf "%s:%s" .Values.harvester.image.repository .Values.harvester.image.tag | toJson }},
@@ -22,7 +38,11 @@ data:
           "env":[
             {"name":"PATH","value":"/runner:/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"},
             {"name":"CODETETHER_SERVER","value":"http://a2a-server:8000"},
+            {{- if $spire }}
+            {"name":"CODETETHER_SVID_PATH","value":"/svid/jwt_svid.token"},
+            {{- else }}
             {"name":"CODETETHER_TOKEN","valueFrom":{"secretKeyRef":{"name":{{ .Values.harvester.tokenSecret.name | toJson }},"key":"CODETETHER_TOKEN"}}},
+            {{- end }}
             {"name":"HOME","value":"/work"},
             {"name":"XDG_CONFIG_HOME","value":"/work/.config"},
             {"name":"XDG_DATA_HOME","value":"/work/.local/share"},
@@ -42,6 +62,9 @@ data:
             {"name":"runner","mountPath":"/runner","readOnly":true},
             {"name":"home","mountPath":"/work"},
             {"name":"workspace","mountPath":"/var/lib/codetether/repos"},
+            {{- if $spire }}
+            {"name":"svid","mountPath":"/svid","readOnly":true},
+            {{- end }}
             {"name":"vault-jwt","mountPath":"/var/run/secrets/vault","readOnly":true}
           ],
           "resources":{"requests":{"cpu":"500m","memory":"2Gi","ephemeral-storage":"6Gi"},
@@ -50,6 +73,11 @@ data:
         "volumes":[
           {"name":"runner","configMap":{"name":{{ printf "%s-task-job-runner" (include "a2a-server.fullname" .) | toJson }},"defaultMode":365}},
           {"name":"home","emptyDir":{"sizeLimit":"8Gi"}},
+          {{- if $spire }}
+          {"name":"spiffe-workload-api","csi":{"driver":{{ .Values.spiffe.workloadApi.csiDriver | toJson }},"readOnly":true}},
+          {"name":"spiffe-helper-config","configMap":{"name":{{ printf "%s-spiffe-helper" (include "a2a-server.fullname" .) | toJson }}}},
+          {"name":"svid","emptyDir":{"medium":"Memory","sizeLimit":"1Mi"}},
+          {{- end }}
           {"name":"vault-jwt","projected":{"sources":[{"serviceAccountToken":{"audience":"vault","expirationSeconds":3600,"path":"token"}}]}}
         ]
       }}}}

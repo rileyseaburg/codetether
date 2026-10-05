@@ -91,7 +91,7 @@ const mcpTools = await mcp.listTools({
     {
         name: 'Production Infrastructure',
         description:
-            'K8s-native deployment with OPA policy engine, RBAC, tenant isolation, and Ed25519 plugin signing. Built in Rust for single-binary performance across 11 platforms.',
+            'K8s-native deployment with OPA policy engine, RBAC, tenant isolation, and integrity-checked plugins. Built in Rust for single-binary performance across 11 platforms.',
         icon: InfraIcon,
         code: `# Deploy to Kubernetes
 $ kubectl apply -f chart/a2a-server/

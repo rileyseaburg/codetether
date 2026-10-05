@@ -62,7 +62,7 @@ function XIcon(props: React.ComponentPropsWithoutRef<'svg'>) {
 const comparisonRows = [
     { feature: 'Language', openclaw: 'Node.js', codetether: 'Rust (memory-safe)' },
     { feature: 'Auth default', openclaw: 'auth: none', codetether: 'Mandatory HMAC-SHA256 — cannot disable' },
-    { feature: 'Plugin isolation', openclaw: 'None — shared process', codetether: 'Sandboxed + Ed25519 code-signed' },
+    { feature: 'Plugin isolation', openclaw: 'None — shared process', codetether: 'Sandboxed + integrity-checked manifests' },
     { feature: 'Authorization', openclaw: 'None — ambient authority', codetether: 'Open Policy Agent (OPA) Rego policies' },
     { feature: 'Audit trail', openclaw: 'None', codetether: 'Append-only JSON Lines — every action' },
     { feature: 'Cognition model', openclaw: 'Request/response', codetether: 'Perpetual thought loops' },
@@ -405,7 +405,7 @@ export function OpenClawComparison() {
                                     <span className="text-xs font-medium text-cyan-400">Path Two</span>
                                 </div>
                                 <p className="text-gray-200 text-sm leading-relaxed">
-                                    You deploy an agent runtime built by someone who runs production systems for a living. Written in Rust. Deployed on Kubernetes. Auth mandatory. Plugins sandboxed and signed. Every autonomous decision audit-logged.
+                                    You deploy an agent runtime built by someone who runs production systems for a living. Written in Rust. Deployed on Kubernetes. Auth mandatory. Plugins sandboxed and integrity-checked. Every autonomous decision audit-logged.
                                 </p>
                                 <p className="mt-4 text-gray-300 text-sm">
                                     Not because those things are trendy — because when you&apos;ve been the person who gets paged when things break, <span className="text-cyan-400 font-medium">you build differently</span>.

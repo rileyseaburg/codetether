@@ -79,8 +79,6 @@ export default function PrivacyPolicy() {
                         <ul className="mt-4 space-y-2 text-gray-600">
                             <li>• TLS 1.3 encryption for all data in transit</li>
                             <li>• AES-256 encryption for data at rest</li>
-                            <li>• Regular security audits and penetration testing</li>
-                            <li>• SOC 2 Type II compliance (Enterprise tier)</li>
                         </ul>
 
                         <h2 className="text-2xl font-semibold text-gray-900 mt-12">6. Data Retention</h2>

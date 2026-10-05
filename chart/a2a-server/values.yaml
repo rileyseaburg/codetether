@@ -691,10 +691,19 @@ stripe:
   webhookSecret: "" # Set via --set stripe.webhookSecret=whsec_...
 
 # ── Worker Authentication ──────────────────────────────────────
-# Shared secret token for worker API endpoints (register, heartbeat, task poll).
-# When set, workers must pass --token <value> to authenticate.
-# When empty, worker endpoints remain open (for internal/trusted networks).
-workerAuthToken: "" # Set via --set workerAuthToken=<secret>
+# Worker API endpoints (register, heartbeat, task poll, task/worker listing)
+# require a bearer token or an authenticated platform user. They are never
+# open by default (zero trust); with no token, workers get 401.
+#
+# Preferred: create a Secret with key WORKER_AUTH_TOKEN out-of-band
+# (Vault/ExternalSecrets/kubectl) and name it here. Workers send the same
+# value as CODETETHER_TOKEN.
+workerAuth:
+  existingSecret: ""
+  # Local/dev only: reopen worker routes to anonymous callers.
+  allowUnauthenticated: false
+# Legacy inline token, rendered into a chart-managed Secret. Avoid in git.
+workerAuthToken: ""
 
 # ── Sandbox Execution ─────────────────────────────────────────
 # Run agent tasks inside ephemeral Docker containers for isolation.
@@ -737,8 +746,21 @@ opa:
 spiffe:
   # Enable JWT-SVID validation in the A2A server (sets SPIFFE_ENABLED=true).
   enabled: false
-  # SPIFFE trust domain. Must match the SPIRE server's trust_domain.
+  # SPIFFE trust domain. Must match the SPIRE server's trust_domain
+  # (production SPIRE uses codetether.io).
   trustDomain: "codetether.run"
+  # Expected JWT-SVID issuer (SPIRE server jwt_issuer). Empty skips the check.
+  issuer: ""
+  # SPIFFE IDs allowed on worker routes (exact, or prefix ending in "*").
+  # Every pod gets an SVID from SPIRE; only these may act as workers.
+  workerIds: []
+  # SPIRE-native task Jobs: mount the Workload API via the SPIFFE CSI driver
+  # and run spiffe-helper to keep a JWT-SVID file fresh for the worker.
+  workloadApi:
+    enabled: false
+    csiDriver: csi.spiffe.io
+    socketPath: /spiffe-workload-api/spire-agent.sock
+    helperImage: ghcr.io/spiffe/spiffe-helper:0.10.0
   # Expected audience(s) the SVID must be minted for (comma-separated).
   audience: "a2a-server"
   # JWKS endpoint published by SPIRE's OIDC Discovery Provider.

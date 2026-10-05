@@ -11,15 +11,17 @@ export function SessionItem({ session, isSelected, onSelect }: SessionItemProps)
     const sessionTitle = session.title || 'Untitled Session'
     const summaryFiles = session.summary?.files
     const sessionTimestamp = session.time?.updated ?? session.time?.created
-    const dateText = sessionTimestamp ? formatDate(new Date(sessionTimestamp).toISOString()) : ''
+    const date = new Date(sessionTimestamp)
+    const dateText = sessionTimestamp && Number.isFinite(date.getTime())
+        ? formatDate(date.toISOString()) : ''
     const descriptionId = `session-desc-${session.id}`
 
     return (
         <button
             id={`session-${session.id}`}
             type="button"
-            role="option"
-            aria-selected={isSelected}
+            aria-pressed={isSelected}
+            aria-controls="chat-pane"
             aria-describedby={descriptionId}
              className={`group w-full text-left p-3 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-500 sm:p-4 ${isSelected ? 'bg-cyan-50 dark:bg-cyan-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}
             onClick={() => onSelect(session)}

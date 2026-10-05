@@ -43,7 +43,7 @@ const comparisonData = [
     {
         feature: 'Plugin Security',
         chatgpt: 'Shared process, no isolation',
-        codetether: 'Sandboxed + Ed25519 signed',
+        codetether: 'Sandboxed + integrity-checked',
     },
     {
         feature: 'Audit Trail',
@@ -95,7 +95,7 @@ export function CopilotComparison() {
                         <span className="text-cyan-600 dark:text-cyan-400">CodeTether is a Worker.</span>
                     </h2>
                     <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                        ChatGPT is great for quick answers. CodeTether is for tasks you'd normally spend <span className="font-semibold">30–60 minutes</span> doing yourself—or pay someone else to do.
+                        ChatGPT is great for quick answers. CodeTether is for tasks you&apos;d normally spend <span className="font-semibold">30–60 minutes</span> doing yourself—or pay someone else to do.
                     </p>
                     <p className="mt-2 text-gray-600 dark:text-gray-300">
                         <span className="font-semibold">Trigger once → walk away → get deliverables.</span>

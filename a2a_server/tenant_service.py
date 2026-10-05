@@ -76,12 +76,14 @@ class KeycloakTenantService:
     # Standard redirect URIs and web origins for clients
     REDIRECT_URIS = [
         'http://localhost:*',
+        'https://codetether.run/api/auth/callback/keycloak',
         'https://*.codetether.run/*',
         'https://app.codetether.run/*',
     ]
     WEB_ORIGINS = [
         'http://localhost:3000',
         'http://localhost:8080',
+        'https://codetether.run',
         'https://app.codetether.run',
         'https://*.codetether.run',
     ]

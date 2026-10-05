@@ -1,22 +1,28 @@
+# Tests assert on WorkerRegistry internal claim state by design.
+# ruff: noqa: SLF001
 import asyncio
 import os
+
 from unittest.mock import AsyncMock
 
 import pytest
+
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from starlette.requests import Request
+
 
 os.environ.setdefault(
     'DATABASE_URL', 'postgresql://test:test@localhost:5432/test'
 )
 
-import a2a_server.agent_bridge as agent_bridge
-import a2a_server.database as database
-import a2a_server.monitor_api as monitor_api
-import a2a_server.worker_sse as worker_sse
+from a2a_server import agent_bridge, database, monitor_api, worker_sse
 from a2a_server.worker_claim_routing import normalize_capabilities
 from a2a_server.worker_sse import WorkerRegistry, worker_sse_router
+
+
+HTTP_OK = 200
+SEVEN_DAYS_SECONDS = 604800
 
 
 def test_normalize_capabilities_expands_persistent_aliases():
@@ -26,6 +32,12 @@ def test_normalize_capabilities_expands_persistent_aliases():
     ]
     assert 'persistent' in normalize_capabilities(['persistent_workspace'])
     assert 'persistent' in normalize_capabilities(['harvester'])
+
+
+@pytest.fixture(autouse=True)
+def _dev_unauthenticated_workers(monkeypatch):
+    """Route-logic tests; worker auth is fail-closed and covered elsewhere."""
+    monkeypatch.setenv('A2A_ALLOW_UNAUTHENTICATED_WORKERS', 'true')
 
 
 @pytest.fixture
@@ -59,7 +71,7 @@ async def test_pending_task_polling_hides_claimed_tasks(monkeypatch, registry):
 
 
 @pytest.mark.asyncio
-async def test_pending_task_polling_hides_targeted_tasks_from_unidentified_workers(
+async def test_pending_polling_hides_targeted_tasks_from_unknown_workers(
     monkeypatch,
 ):
     async def _fake_list_tasks(**kwargs):
@@ -83,7 +95,7 @@ async def test_pending_task_polling_hides_targeted_tasks_from_unidentified_worke
 
 
 @pytest.mark.asyncio
-async def test_pending_task_polling_includes_tasks_targeted_to_requesting_worker(
+async def test_pending_polling_includes_tasks_targeted_to_requester(
     monkeypatch,
 ):
     async def _fake_list_tasks(**kwargs):
@@ -134,7 +146,7 @@ async def test_claim_task_falls_back_to_db_when_bridge_update_misses(
         calls.append(kwargs)
         return True
 
-    monkeypatch.setattr(agent_bridge, 'get_bridge', lambda: BridgeMiss())
+    monkeypatch.setattr(agent_bridge, 'get_bridge', BridgeMiss)
     monkeypatch.setattr(
         database, 'db_update_task_status', _fake_update_task_status
     )
@@ -163,7 +175,7 @@ async def test_claim_task_falls_back_to_db_when_bridge_update_misses(
             json={'task_id': 'task_claimed'},
         )
 
-    assert response.status_code == 200
+    assert response.status_code == HTTP_OK
     assert calls == [
         {
             'task_id': 'task_claimed',
@@ -195,7 +207,7 @@ async def test_claim_task_returns_attached_task_run_metadata(
             'task_timeout_seconds': 604800,
         }
 
-    monkeypatch.setattr(agent_bridge, 'get_bridge', lambda: BridgeMiss())
+    monkeypatch.setattr(agent_bridge, 'get_bridge', BridgeMiss)
     monkeypatch.setattr(
         database, 'db_update_task_status', _fake_update_task_status
     )
@@ -225,9 +237,9 @@ async def test_claim_task_returns_attached_task_run_metadata(
             json={'task_id': 'task_claimed'},
         )
 
-    assert response.status_code == 200
+    assert response.status_code == HTTP_OK
     assert response.json()['run_id'] == 'run_1'
-    assert response.json()['task_timeout_seconds'] == 604800
+    assert response.json()['task_timeout_seconds'] == SEVEN_DAYS_SECONDS
 
 
 @pytest.mark.asyncio
@@ -248,7 +260,7 @@ async def test_claim_task_uses_db_worker_name_when_registry_misses(
         assert worker_id == 'worker_1'
         return {'name': 'agent-alpha'}
 
-    monkeypatch.setattr(agent_bridge, 'get_bridge', lambda: Bridge())
+    monkeypatch.setattr(agent_bridge, 'get_bridge', Bridge)
     monkeypatch.setattr(database, 'db_get_worker', _fake_db_get_worker)
 
     assert await registry.claim_task('task_targeted', 'worker_1') is True
@@ -269,7 +281,7 @@ async def test_claim_task_rejects_worker_missing_required_capability(
             assert task_id == 'task_persistent'
             return PersistentTask()
 
-    monkeypatch.setattr(agent_bridge, 'get_bridge', lambda: Bridge())
+    monkeypatch.setattr(agent_bridge, 'get_bridge', Bridge)
 
     await registry.register_worker(
         worker_id='worker_knative',
@@ -279,8 +291,7 @@ async def test_claim_task_rejects_worker_missing_required_capability(
     )
 
     assert (
-        await registry.claim_task('task_persistent', 'worker_knative')
-        is False
+        await registry.claim_task('task_persistent', 'worker_knative') is False
     )
     assert 'task_persistent' not in registry._claimed_tasks
 
@@ -323,7 +334,7 @@ async def test_release_task_accepts_db_claim_when_local_registry_misses(
 
     updates = []
 
-    monkeypatch.setattr(agent_bridge, 'get_bridge', lambda: Bridge())
+    monkeypatch.setattr(agent_bridge, 'get_bridge', Bridge)
     monkeypatch.setattr(
         worker_sse,
         '_db_claim_allows_release',
@@ -343,7 +354,7 @@ async def test_release_task_accepts_db_claim_when_local_registry_misses(
             json={'task_id': 'task_claimed', 'status': 'running'},
         )
 
-    assert response.status_code == 200
+    assert response.status_code == HTTP_OK
     assert response.json()['success'] is True
     assert updates == [
         {
@@ -399,7 +410,7 @@ async def test_claim_task_run_helper_matches_deployed_schema(monkeypatch):
     )
 
     assert result['run_id'] == 'run_1'
-    assert result['task_timeout_seconds'] == 604800
+    assert result['task_timeout_seconds'] == SEVEN_DAYS_SECONDS
     assert seen['params'][:2] == ('task_claimed', 'worker_1')
     # Regression (riley/spotlessbinco#5847): the lease interval was written as
     # `($3 || ' seconds')::INTERVAL`, which types $3 as text; passing the int

@@ -36,6 +36,31 @@ must match their pinned head. No old pod filesystem is reset, copied or removed.
 Legacy author-session preservation requires an explicit handoff and is rejected
 rather than silently losing unpushed state.
 
+## Repository hooks are mandatory
+
+Harvesters may not commit or push without the repository's own hooks. This is
+enforced at three independent layers, and each one fails closed:
+
+1. **Bootstrap** (`job_bootstrap.py`) merges the default branch
+   (`JOB_BASE_BRANCH`) into the work branch before the agent starts, then
+   installs every declared hook: `pre-commit install --install-hooks` for
+   `.pre-commit-config.yaml` (its `default_install_hook_types`, e.g.
+   pre-commit and post-commit) and the repository's pre-push installer for
+   `.githooks/pre-push`. A declared hook that cannot be installed fails the Job
+   with `workspace_hooks_unavailable`. A merge conflict is aborted and left for
+   the agent; the branch is never rewritten.
+2. **Worker finalize** (`a2a/worker/git_hook_gate.rs`) refuses the automatic
+   commit and push unless every declared hook is installed and executable in the
+   active hooks directory (honouring `core.hooksPath`).
+3. **Shell guard** (`tool/shell_git_hooks.rs`) blocks `--no-verify`,
+   `git commit -n`, `core.hooksPath` overrides and hook-skip environment
+   (`SKIP=`, `HUSKY=0`, `GIT_CONFIG_KEY_*`) in agent shell commands.
+
+The hooks then run with their normal effect. A hook that refuses a push (for
+example a cache gate awaiting receipts) blocks that push; it is not bypassed.
+The worker image must carry the hook tooling (`pre-commit`, `gitleaks`); see
+`codetether-agent/Dockerfile.worker-tools`.
+
 Successful read-only/clone Jobs receive a TTL after termination evidence is saved
 in task metadata; because they never hold user work, cancelled or failed
 read-only Jobs are released the same way (their evidence is kept on the task).

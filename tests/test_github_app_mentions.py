@@ -6,6 +6,12 @@ from a2a_server.github_app.payload import (
 from a2a_server.github_app.settings import APP_SLUG
 
 
+INSTALLATION_ID = 123
+ISSUE_ID = 456
+ISSUE_NUMBER = 7
+PR_NUMBER = 8
+
+
 def test_mentions_bot_is_case_insensitive():
     assert mentions_bot(f'@{APP_SLUG.title()} can you handle this bug?')
 
@@ -34,11 +40,11 @@ def test_assignment_language_is_a_fix_request():
 def test_issue_opened_body_mention_extracts_context():
     payload = {
         'action': 'opened',
-        'installation': {'id': 123},
+        'installation': {'id': INSTALLATION_ID},
         'repository': {'full_name': 'owner/repo'},
         'issue': {
-            'id': 456,
-            'number': 7,
+            'id': ISSUE_ID,
+            'number': ISSUE_NUMBER,
             'title': 'Bug',
             'body': f'@{APP_SLUG} handle this issue',
         },
@@ -49,10 +55,10 @@ def test_issue_opened_body_mention_extracts_context():
 
     assert context is not None
     assert context.repo_full_name == 'owner/repo'
-    assert context.installation_id == 123
-    assert context.issue_number == 7
+    assert context.installation_id == INSTALLATION_ID
+    assert context.issue_number == ISSUE_NUMBER
     assert context.pr_number is None
-    assert context.comment_id == 456
+    assert context.comment_id == ISSUE_ID
     assert context.comment_body == f'@{APP_SLUG} handle this issue'
 
 
@@ -73,11 +79,11 @@ def test_edited_issue_attributes_trigger_to_sender():
     payload = {
         'action': 'edited',
         'changes': {'body': {'from': 'plain issue body'}},
-        'installation': {'id': 123},
+        'installation': {'id': INSTALLATION_ID},
         'repository': {'full_name': 'owner/repo'},
         'issue': {
-            'id': 456,
-            'number': 7,
+            'id': ISSUE_ID,
+            'number': ISSUE_NUMBER,
             'body': f'@{APP_SLUG} handle this issue',
             'user': {'login': 'original-author'},
         },
@@ -94,11 +100,11 @@ def test_edited_pull_request_attributes_trigger_to_sender():
     payload = {
         'action': 'edited',
         'changes': {'body': {'from': 'plain pull request body'}},
-        'installation': {'id': 123},
+        'installation': {'id': INSTALLATION_ID},
         'repository': {'full_name': 'owner/repo'},
         'pull_request': {
             'id': 789,
-            'number': 8,
+            'number': PR_NUMBER,
             'body': f'@{APP_SLUG} fix this pull request',
             'user': {'login': 'original-author'},
         },
@@ -108,5 +114,5 @@ def test_edited_pull_request_attributes_trigger_to_sender():
     context = extract_context('pull_request', payload)
 
     assert context is not None
-    assert context.pr_number == 8
+    assert context.pr_number == PR_NUMBER
     assert context.actor_login == 'human-editor'

@@ -67,6 +67,44 @@ class ConfigAndHttpTests(unittest.TestCase):
                     str(error.exception), 'job_configuration_invalid'
                 )
 
+    def test_spire_native_reads_rotating_svid_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            svid = Path(tmp) / 'jwt_svid.token'
+            env = {
+                'JOB_TASK_ID': 'task-1',
+                'JOB_WORKER_NAME': 'worker-1',
+                'CODETETHER_SERVER': 'https://server.example',
+                'CODETETHER_SVID_PATH': str(svid),
+            }
+            loaded = worker.Config.from_env(env)
+            with self.assertRaises(worker.Diagnostic) as missing:
+                loaded.bearer()
+            self.assertEqual(str(missing.exception), 'job_svid_unavailable')
+            svid.write_text('svid-one\n', encoding='ascii')
+            self.assertEqual(loaded.bearer(), 'svid-one')
+            svid.write_text('svid-two', encoding='ascii')
+            self.assertEqual(loaded.bearer(), 'svid-two')
+            self.assertNotIn('svid-two', repr(loaded))
+
+    def test_svid_mode_requires_absolute_path(self):
+        env = {
+            'JOB_TASK_ID': 'task-1',
+            'JOB_WORKER_NAME': 'worker-1',
+            'CODETETHER_SERVER': 'https://server.example',
+            'CODETETHER_SVID_PATH': 'relative/token',
+        }
+        with self.assertRaises(worker.Diagnostic):
+            worker.Config.from_env(env)
+
+    def test_token_mode_still_requires_token(self):
+        env = {
+            'JOB_TASK_ID': 'task-1',
+            'JOB_WORKER_NAME': 'worker-1',
+            'CODETETHER_SERVER': 'https://server.example',
+        }
+        with self.assertRaises(worker.Diagnostic):
+            worker.Config.from_env(env)
+
     def request(self, body, status=200):
         response = Mock(status=status)
         response.read.return_value = body

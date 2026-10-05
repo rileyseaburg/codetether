@@ -44,7 +44,7 @@ const useCases = [
     {
         title: 'DevOps & Infrastructure',
         description:
-            'Agents that monitor your systems, manage deployments, and self-heal on Kubernetes. Ed25519-signed plugins ensure only trusted tools touch production. Every action audit-logged for compliance.',
+            'Agents that monitor your systems, manage deployments, and self-heal on Kubernetes. Integrity-checked plugins and sandboxed tools limit what reaches production. Every action audit-logged for compliance.',
         icon: '⚙️',
         features: ['K8s management', 'Incident response', 'Audit compliance'],
         workflow: 'Alert fires → Agent diagnoses → Auto-remediation + audit log'

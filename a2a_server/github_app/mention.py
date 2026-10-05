@@ -14,7 +14,8 @@ from __future__ import annotations
 import os
 import re
 
-from .settings import APP_SLUG
+from a2a_server.github_app.settings import APP_SLUG
+
 
 _FIX_TERMS = (
     'fix',
@@ -117,8 +118,9 @@ _FIX_TERMS = (
     'knock this out',
 )
 
-# Bot identities that exist on the Forgejo instance today. `CODETETHER_BOT_ALIASES`
-# accepts a comma-separated list so a new identity does not require a code change.
+# Bot identities that exist on the Forgejo instance today.
+# `CODETETHER_BOT_ALIASES` accepts a comma-separated list so a new identity
+# does not require a code change.
 _DEFAULT_ALIASES = ('codetether', 'codetether-bot', 'codetether-agent')
 
 

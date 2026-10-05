@@ -3,3 +3,4 @@
 Product-facing applications and services that are part of the CodeTether ecosystem but are not the core Python API server.
 
 - `voice-agent/` — LiveKit/Qwen voice agent service and fine-tuning helpers.
+- `remote_employee/` — CodeTether-mux employees in a LiveKit-enabled 3D office.
