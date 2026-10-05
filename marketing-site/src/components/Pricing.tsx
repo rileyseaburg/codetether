@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { useSession } from 'next-auth/react'
 import clsx from 'clsx'
 
 import { Button } from '@/components/Button'
-import { getApiAuth } from '@/lib/auth-token'
+import { getApiAuth, subscribeToAuthChanges } from '@/lib/auth-token'
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'https://api.codetether.run'
@@ -243,13 +243,21 @@ function Plan({
 
 export function Pricing() {
   const { data: session, status } = useSession()
+  const passwordToken = useSyncExternalStore(
+    subscribeToAuthChanges,
+    () => getApiAuth().token,
+    () => undefined,
+  )
+  // Password login is independent of Auth.js session discovery. Keep anonymous
+  // visitors waiting for discovery, but do not block a usable password token.
+  const checkoutLoading = status === 'loading' && !passwordToken
   const [activePeriod] = useState<'monthly' | 'annually'>('monthly')
   const [upgrading, setUpgrading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const handleUpgrade = async (tierId: string) => {
     const { token } = getApiAuth(session)
-    if (status === 'loading' || upgrading) return
+    if ((status === 'loading' && !token) || upgrading) return
     // Password login and NextAuth both provide API bearer credentials.
     if (!token) {
       window.location.href = '/register'
@@ -331,7 +339,7 @@ export function Pricing() {
               activePeriod={activePeriod}
               onUpgrade={handleUpgrade}
               upgrading={upgrading}
-              checkoutDisabled={status === 'loading' || upgrading !== null}
+              checkoutDisabled={checkoutLoading || upgrading !== null}
             />
           ))}
         </div>
