@@ -1,0 +1,5 @@
+Query chain:
+ →Find: Target Application 'com.a2a.monitor'
+  ↪︎Find: Descendants matching type Any
+    ↪︎Find: Elements matching predicate '"agents.worker.ubuntu-dev-sessions" IN identifiers'
+      ↪︎Find: First Match

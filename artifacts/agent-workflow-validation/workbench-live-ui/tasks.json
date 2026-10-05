@@ -3,11 +3,11 @@
     "workerId": "ubuntu-dev-sessions",
     "workspaceId": "ios-e2e-ubuntu-dev",
     "label": "local",
-    "marker": "a192e28cdf46eaec6607a027",
+    "marker": "f72432a77dbd5f69c819ce5c",
     "taskIds": [
-      "e0b86a85-23d7-4058-9afb-2c3dfb035f7c"
+      "56c2d8f1-e57a-4d1e-8da3-089acba93481"
     ],
-    "firstPrompt": "Remember this exact code for this conversation: a192e28cdf46eaec6607a027. Reply READY. Do not use tools or read files.",
-    "contextId": "ios-58fd696f-709a-4a53-b0d7-4a796bf786d4"
+    "firstPrompt": "Remember this exact code for this conversation: f72432a77dbd5f69c819ce5c. Reply READY. Do not use tools or read files.",
+    "contextId": "ios-5395d9f1-54bc-4ad7-b214-7f0d26dac31d"
   }
 ]

@@ -91,32 +91,31 @@ struct ContentView: View {
             LiquidGradientBackground()
 
             #if os(iOS)
-            NavigationStack {
-                TabView(selection: $selectedTab) {
-                    ForEach(Tab.allCases, id: \.self) { tab in
+            TabView(selection: $selectedTab) {
+                ForEach(Tab.allCases, id: \.self) { tab in
+                    NavigationStack {
                         tabContent(for: tab)
-                            .tabItem {
-                                Label(tab.rawValue, systemImage: tab.icon)
+                            .navigationTitle(tab.rawValue)
+                            .toolbar {
+                                ToolbarItem(placement: .navigationBarTrailingCompat) {
+                                    UserProfileButton()
+                                }
                             }
-                            .tag(tab)
+                            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+                            .toolbarBackground(.visible, for: .navigationBar)
                     }
-                }
-                .tint(.cyan) // Tab bar tint color
-                .navigationTitle(selectedTab.rawValue)
-                .toolbar {
-                    ToolbarItem(placement: .navigationBarTrailingCompat) {
-                        UserProfileButton()
+                    .tabItem {
+                        Label(tab.rawValue, systemImage: tab.icon)
                     }
+                    .tag(tab)
                 }
-                .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
-                .toolbarBackground(.visible, for: .navigationBar)
             }
             .tint(.cyan)
             #else
             NavigationSplitView {
                 SidebarView(selectedTab: $selectedTab)
             } detail: {
-                tabContent(for: selectedTab)
+                NavigationStack { tabContent(for: selectedTab) }
             }
             .toolbar {
                 ToolbarItem(placement: .automatic) {

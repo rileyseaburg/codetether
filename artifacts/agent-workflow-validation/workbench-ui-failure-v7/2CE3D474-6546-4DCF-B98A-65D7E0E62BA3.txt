@@ -1,0 +1,90 @@
+Application, 0x102865050, pid: 66478, label: 'A2A Monitor' <App element pid: 66478>
+  Window (Main), 0x102895570, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4341512624.4>
+    Other, 0x102896ad0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4341522224.5>
+      Other, 0x102898ed0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4341523744.6>
+        Other, 0x1028962b0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4341509584.7>
+          Other, 0x1028966b0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 105553169861280.8>
+            Other, 0x102898ff0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4342688448.37>
+              NavigationBar, 0x102899110, {{0.0, 56.3}, {440.0, 96.0}}, identifier: 'Work Session' <AX element pid: 66478, elementOrHash.elementID: 4342536864.38>
+              Other, 0x102899230, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4342689568.39>
+                Other, 0x102899350, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4343337184.42>
+                  Other, 0x102899470, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4341781088.44>
+                    Other, 0x102899590, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 105553169886944.46>
+                      Other, 0x1028996b0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4342790544.49>
+                        Other, 0x1028997d0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4342668544.50>
+                          Other, 0x1028998f0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4343369888.52>
+                            Other, 0x102899a10, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4342794080.57>
+                              Other, 0x102899b30, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 105553169887264.62>
+                                CollectionView, 0x102899c50, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4354562048.63>
+                                  Other, 0x102899d70, {{-20.0, -1759.7}, {480.0, 2054.7}} <AX element pid: 66478, elementOrHash.elementID: 4344581696.64>
+                                  Cell, 0x102899e90, {{20.0, 152.3}, {400.0, 65.0}} <AX element pid: 66478, elementOrHash.elementID: 4345795072.65>
+                                    Other, 0x102899fb0, {{20.0, 152.3}, {400.0, 65.0}} <AX element pid: 66478, elementOrHash.elementID: 4344425904.75>
+                                      Other, 0x10289a0d0, {{20.0, 152.3}, {400.0, 65.0}} <AX element pid: 66478, elementOrHash.elementID: 4344427392.88>
+                                    Other, 0x10289a1f0, {{20.0, 152.3}, {400.0, 65.0}} <AX element pid: 66478, elementOrHash.elementID: 4344424000.76>
+                                      Other, 0x10289a310, {{20.0, 152.3}, {400.0, 65.0}} <AX element pid: 66478, elementOrHash.elementID: 4345812480.89>
+                                        Other, 0x10289a430, {{20.0, 152.3}, {400.0, 65.0}} <AX element pid: 66478, elementOrHash.elementID: 105553169888864.98>
+                                          Button, 0x10289a550, {{20.0, 152.3}, {400.0, 65.0}}, identifier: 'agents.newSession', label: 'New Work Session' <AX element pid: 66478, elementOrHash.elementID: 105553169888704.104>
+                                            Image, 0x10289a670, {{42.0, 173.7}, {24.3, 22.7}}, identifier: 'plus.bubble.fill', label: 'Comment' <AX element pid: 66478, elementOrHash.elementID: 105553169888544.110>
+                                            StaticText, 0x10289a790, {{42.0, 173.7}, {189.7, 22.7}}, label: 'New Work Session' <AX element pid: 66478, elementOrHash.elementID: 105553169887904.111>
+                                  Cell, 0x10289a8b0, {{20.0, 217.3}, {400.0, 60.0}} <AX element pid: 66478, elementOrHash.elementID: 4346143744.66>
+                                    Other, 0x10289a9d0, {{20.0, 217.3}, {400.0, 60.0}} <AX element pid: 66478, elementOrHash.elementID: 4344505600.77>
+                                      Other, 0x10289aaf0, {{20.0, 217.3}, {400.0, 60.0}} <AX element pid: 66478, elementOrHash.elementID: 4344508064.90>
+                                    Other, 0x10289ac10, {{20.0, 217.3}, {400.0, 60.0}} <AX element pid: 66478, elementOrHash.elementID: 4344478736.78>
+                                      Other, 0x10289ad30, {{20.0, 217.3}, {400.0, 60.0}} <AX element pid: 66478, elementOrHash.elementID: 4346153472.91>
+                                        Other, 0x10289ae50, {{20.0, 217.3}, {400.0, 60.0}} <AX element pid: 66478, elementOrHash.elementID: 105553169889184.99>
+                                          StaticText, 0x10289af70, {{20.0, 217.3}, {400.0, 60.0}}, label: 'Choose an online agent and a project, then tell it what to do. Keep chatting in the same work session.' <AX element pid: 66478, elementOrHash.elementID: 105553169888224.105>
+                                  Other, 0x10289b090, {{84.0, 217.0}, {336.0, 0.3}} <AX element pid: 66478, elementOrHash.elementID: 4344598224.67>
+                                  Other, 0x10289b1b0, {{-20.0, 295.0}, {480.0, 127.0}} <AX element pid: 66478, elementOrHash.elementID: 4344600480.68>
+                                  Cell, 0x10289b2d0, {{20.0, 295.0}, {400.0, 38.7}} <AX element pid: 66478, elementOrHash.elementID: 4346208768.69>
+                                    Other, 0x10289b3f0, {{20.0, 295.0}, {400.0, 38.7}} <AX element pid: 66478, elementOrHash.elementID: 4344549056.79>
+                                    Other, 0x10289b510, {{20.0, 295.0}, {400.0, 38.7}} <AX element pid: 66478, elementOrHash.elementID: 4344531216.80>
+                                      Other, 0x10289b630, {{20.0, 295.0}, {400.0, 38.7}} <AX element pid: 66478, elementOrHash.elementID: 4346228224.92>
+                                        Other, 0x10289b750, {{20.0, 295.0}, {400.0, 38.7}} <AX element pid: 66478, elementOrHash.elementID: 105553169889504.100>
+                                          StaticText, 0x10289b870, {{20.0, 295.0}, {400.0, 38.7}}, label: 'ONLINE AGENTS · 1' <AX element pid: 66478, elementOrHash.elementID: 105553169888064.106>
+                                  Cell, 0x10289b990, {{20.0, 333.7}, {400.0, 70.7}} <AX element pid: 66478, elementOrHash.elementID: 4355476480.115>
+                                    Other, 0x10289bab0, {{20.0, 333.7}, {400.0, 70.7}} <AX element pid: 66478, elementOrHash.elementID: 4341779440.116>
+                                      Other, 0x10289bbd0, {{20.0, 333.7}, {400.0, 70.7}} <AX element pid: 66478, elementOrHash.elementID: 4341370768.118>
+                                    Other, 0x10289bcf0, {{20.0, 333.7}, {400.0, 70.7}} <AX element pid: 66478, elementOrHash.elementID: 4341506400.117>
+                                      Other, 0x10289be10, {{20.0, 333.7}, {400.0, 70.7}} <AX element pid: 66478, elementOrHash.elementID: 4354628608.119>
+                                        Other, 0x10289bf30, {{20.0, 333.7}, {400.0, 70.7}} <AX element pid: 66478, elementOrHash.elementID: 105553169924576.120>
+                                          Button, 0x10289c050, {{20.0, 333.7}, {400.0, 70.7}}, identifier: 'agents.worker.ubuntu-dev-sessions', label: 'ubuntu-dev-sessions, Agent · 1 projects, Online' <AX element pid: 66478, elementOrHash.elementID: 105553169930976.121>
+                                            Image, 0x10289c3b0, {{42.0, 360.7}, {20.0, 17.0}}, identifier: 'desktopcomputer', label: 'Computer' <AX element pid: 66478, elementOrHash.elementID: 105553169931616.122>
+                                            StaticText, 0x10289c4d0, {{72.0, 349.7}, {170.0, 20.3}}, label: 'ubuntu-dev-sessions' <AX element pid: 66478, elementOrHash.elementID: 105553169928576.123>
+                                            StaticText, 0x10289c5f0, {{72.0, 374.0}, {98.7, 14.3}}, label: 'Agent · 1 projects' <AX element pid: 66478, elementOrHash.elementID: 105553169928896.124>
+                                            Image, 0x10289c710, {{305.3, 361.3}, {15.3, 15.3}}, identifier: 'circle.fill', label: 'Circle' <AX element pid: 66478, elementOrHash.elementID: 105553169931136.125>
+                                            StaticText, 0x10289c830, {{305.3, 361.3}, {74.0, 15.3}}, label: 'Online' <AX element pid: 66478, elementOrHash.elementID: 105553169931296.126>
+                                            Image, 0x10289c950, {{390.7, 361.7}, {8.3, 14.7}}, identifier: 'chevron.right', label: 'Forward' <AX element pid: 66478, elementOrHash.elementID: 105553169929856.127>
+                                  Other, 0x10289ca70, {{-20.0, 422.0}, {480.0, 2079.7}} <AX element pid: 66478, elementOrHash.elementID: 4344601248.71>
+                                  Cell, 0x10289cb90, {{20.0, 422.0}, {400.0, 38.7}} <AX element pid: 66478, elementOrHash.elementID: 4346280960.72>
+                                    Other, 0x10289ccb0, {{20.0, 422.0}, {400.0, 38.7}} <AX element pid: 66478, elementOrHash.elementID: 4344532656.83>
+                                    Other, 0x10289cdd0, {{20.0, 422.0}, {400.0, 38.7}} <AX element pid: 66478, elementOrHash.elementID: 4344512640.84>
+                                      Other, 0x10289cef0, {{20.0, 422.0}, {400.0, 38.7}} <AX element pid: 66478, elementOrHash.elementID: 4346282496.95>
+                                        Other, 0x10289d010, {{20.0, 422.0}, {400.0, 38.7}} <AX element pid: 66478, elementOrHash.elementID: 105553169890464.102>
+                                          StaticText, 0x10289d130, {{20.0, 422.0}, {400.0, 38.7}}, label: 'YOUR WORK SESSIONS' <AX element pid: 66478, elementOrHash.elementID: 105553169887424.108>
+                                  Cell, 0x10289d250, {{20.0, 460.7}, {400.0, 109.0}} <AX element pid: 66478, elementOrHash.elementID: 4347232768.332>
+                                    Other, 0x10289d370, {{20.0, 460.7}, {400.0, 109.0}} <AX element pid: 66478, elementOrHash.elementID: 4344801776.333>
+                                      Other, 0x10289d490, {{20.0, 460.7}, {400.0, 109.0}} <AX element pid: 66478, elementOrHash.elementID: 4344802240.335>
+                                    Other, 0x10289d5b0, {{20.0, 460.7}, {400.0, 109.0}} <AX element pid: 66478, elementOrHash.elementID: 4344800896.334>
+                                      Other, 0x10289d6d0, {{20.0, 460.7}, {400.0, 109.0}} <AX element pid: 66478, elementOrHash.elementID: 4347326976.336>
+                                        Other, 0x10289d7f0, {{20.0, 460.7}, {400.0, 109.0}} <AX element pid: 66478, elementOrHash.elementID: 105553169944800.337>
+                                          Button, 0x10289d910, {{20.0, 460.7}, {400.0, 109.0}}, identifier: 'agents.session.58FD696F-709A-4A53-B0D7-4A796BF786D4', label: 'Remember this exact code for this conversation: a192e28cdf46eaec6607a0, ubuntu-dev-sessions · iOS Validation, Agent is working…' <AX element pid: 66478, elementOrHash.elementID: 105553169946080.338>
+                                            StaticText, 0x10289db50, {{40.0, 475.7}, {327.3, 42.3}}, label: 'Remember this exact code for this conversation: a192e28cdf46eaec6607a0' <AX element pid: 66478, elementOrHash.elementID: 105553169947040.339>
+                                            StaticText, 0x10289dc70, {{40.0, 522.0}, {209.7, 14.3}}, label: 'ubuntu-dev-sessions · iOS Validation' <AX element pid: 66478, elementOrHash.elementID: 105553169946240.340>
+                                            StaticText, 0x10289dd90, {{40.0, 540.3}, {103.7, 14.3}}, label: 'Agent is working…' <AX element pid: 66478, elementOrHash.elementID: 105553169946720.341>
+                                  Other, 0x10289deb0, {{407.0, 152.3}, {30.0, 720.7}}, label: 'Vertical scroll bar, 1 page', value: 0% <AX element pid: 66478, elementOrHash.elementID: 4342306368.74>
+                                    Other, 0x10289dfd0, {{434.0, 438.7}, {3.0, 431.3}} <AX element pid: 66478, elementOrHash.elementID: 4342799984.87>
+                                  Other, 0x10289e0f0, {{407.0, 152.3}, {30.0, 720.7}}, label: 'Vertical scroll bar, 1 page', value: 0% <AX element pid: 66478, elementOrHash.elementID: 4342306368.74>
+                                    Other, 0x10289e210, {{434.0, 438.7}, {3.0, 431.3}} <AX element pid: 66478, elementOrHash.elementID: 4342799984.87>
+                        TabBar, 0x10289e330, {{0.0, 873.0}, {440.0, 83.0}}, label: 'Tab Bar' <AX element pid: 66478, elementOrHash.elementID: 4342792496.51>
+                          Button, 0x10289e450, {{2.0, 874.0}, {106.0, 48.0}}, identifier: 'bubble.left.and.bubble.right.fill', label: 'Agents', Selected <AX element pid: 66478, elementOrHash.elementID: 4343404016.53>
+                            Image, 0x10289e570, {{35.7, 876.7}, {38.3, 31.3}}, identifier: 'bubble.left.and.bubble.right.fill', label: 'conversation' <AX element pid: 66478, elementOrHash.elementID: 4343430976.58>
+                          Button, 0x10289e690, {{112.0, 874.0}, {106.0, 48.0}}, identifier: 'list.bullet.rectangle.fill', label: 'Activity' <AX element pid: 66478, elementOrHash.elementID: 4343474752.54>
+                            Image, 0x10289e7b0, {{148.0, 879.0}, {33.0, 25.0}}, identifier: 'list.bullet.rectangle.fill', label: 'list.bullet.rectangle.fill' <AX element pid: 66478, elementOrHash.elementID: 4343474048.59>
+                          Button, 0x10289e8d0, {{222.0, 874.0}, {106.0, 48.0}}, identifier: 'cpu', label: 'Fleet' <AX element pid: 66478, elementOrHash.elementID: 4343492256.55>
+                            Image, 0x10289e9f0, {{260.7, 878.3}, {28.7, 26.7}}, identifier: 'cpu.fill', label: 'cpu.fill' <AX element pid: 66478, elementOrHash.elementID: 4343494432.60>
+                          Button, 0x10289eb10, {{332.0, 874.0}, {106.0, 48.0}}, identifier: 'lock.shield.fill', label: 'Environments' <AX element pid: 66478, elementOrHash.elementID: 4343503776.56>
+                            Image, 0x10289ec30, {{372.7, 878.3}, {24.7, 26.7}}, identifier: 'lock.shield.fill', label: 'lock.shield.fill' <AX element pid: 66478, elementOrHash.elementID: 4343507184.61>
+  Window, 0x10289ed50, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4363131904.232>
+    Other, 0x10289ee70, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4343418976.234>
+      Other, 0x10289ef90, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 66478, elementOrHash.elementID: 4343439424.236>
+      Other, 0x10289f0b0, {{0.0, 956.0}, {440.0, 346.0}} <AX element pid: 66478, elementOrHash.elementID: 4343618640.237>

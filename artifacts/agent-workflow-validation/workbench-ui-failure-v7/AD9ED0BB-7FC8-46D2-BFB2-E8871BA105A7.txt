@@ -1,0 +1,5 @@
+Query chain:
+ →Find: Target Application 'com.a2a.monitor'
+  ↪︎Find: Descendants matching type Any
+    ↪︎Find: Elements matching predicate '"workChat.message" IN identifiers'
+      ↪︎Find: First Match
