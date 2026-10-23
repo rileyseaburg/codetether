@@ -192,7 +192,7 @@ jobs:
             -allowProvisioningUpdates || true
 
       - name: Upload iOS app
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-app-a2a-monitor
           path: |
@@ -299,7 +299,7 @@ jobs:
           EOF
 
       - name: Upload macOS app
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-app-a2a-monitor
           path: |
