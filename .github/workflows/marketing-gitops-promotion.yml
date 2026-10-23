@@ -86,7 +86,7 @@ jobs:
           password: ${{ secrets.GCP_SA_KEY }}
 
       - name: Build and push codetether-marketing image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: marketing-site
           file: marketing-site/Dockerfile
