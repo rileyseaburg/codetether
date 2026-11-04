@@ -18,12 +18,12 @@ data:
           "name":"spiffe-helper",
           "image":{{ .Values.spiffe.workloadApi.helperImage | toJson }},
           "restartPolicy":"Always",
-          "args":["-config","/spiffe-helper/helper.conf"],
+          "args":["-config","/etc/spiffe-helper/helper.conf"],
           "securityContext":{"allowPrivilegeEscalation":false,"readOnlyRootFilesystem":true,"capabilities":{"drop":["ALL"]}},
           "resources":{"requests":{"cpu":"10m","memory":"32Mi"},"limits":{"cpu":"100m","memory":"64Mi"}},
           "volumeMounts":[
             {"name":"spiffe-workload-api","mountPath":"/spiffe-workload-api","readOnly":true},
-            {"name":"spiffe-helper-config","mountPath":"/spiffe-helper","readOnly":true},
+            {"name":"spiffe-helper-config","mountPath":"/etc/spiffe-helper","readOnly":true},
             {"name":"svid","mountPath":"/svid"}
           ]
         }],
