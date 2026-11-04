@@ -154,7 +154,8 @@ spec:
               memory: 512Mi
             limits:
               cpu: "1"
-              memory: 2Gi
+              # 2Gi still OOMKilled: replaying ~280 running workflows peaks ~2.3Gi.
+              memory: 4Gi
         # `vault-token` was removed here on purpose. That static Secret expired
         # and a2a_server.vault_client prefers VAULT_TOKEN over Kubernetes auth,
         # so every Git-credential read for Forgejo mention tasks returned 403
