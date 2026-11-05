@@ -332,13 +332,25 @@ async def _dispatch(ctx: dict[str, Any], base: str) -> dict[str, Any]:
     default_branch = plan['default_branch']
     branch = plan['branch']
     head_sha = plan['head_sha']
+    # A same-family open PR already exists: finish it instead of opening one.
+    related = None if ctx['is_pr'] else plan.get('related_pr')
+    if related:
+        branch = related['branch']
+        head_sha = related['head_sha']
+    pr_index = (
+        ctx['number']
+        if ctx['is_pr']
+        else int((related or {}).get('number') or 0)
+    )
     clone_url = str(
         repo_data.get('clone_url') or ctx['repo_data'].get('clone_url') or ''
     )
     if not clone_url:
         raise HTTPException(422, 'Forgejo repository clone URL is missing')
     work_branch = (
-        branch if ctx['is_pr'] else f'codetether/issue-{ctx["number"]}'
+        branch
+        if ctx['is_pr'] or related
+        else f'codetether/issue-{ctx["number"]}'
     )
     # Issue work branches all start from the default branch, but they must not
     # share one mutable checkout. A dirty or conflicted task would otherwise
@@ -364,6 +376,10 @@ For an implementation request, a plan or documentation-only response does not es
 Honor the user's validation location and the repository's build restrictions. When validation is assigned to Forgejo Actions, update the authorized CI workflow to perform it; lack of a local compiler is not by itself a blocker to making code and workflow changes. Do not claim CI or compile timings passed before their results exist.
 CodeTether's server publishes the issue pull request against `{default_branch}` and workflow progress using its existing Forgejo integration. Do not retrieve additional Vault credentials or change access policies merely to create a PR or post a comment. Return the pushed commit SHA, a concise change summary, validation actually run, and any blockers. Do not claim validation passed when it was not run.
 Preserve unrelated changes. Do not rebase or force-push over another writer. Do not use GitHub APIs."""
+    if related:
+        from a2a_server.forgejo_related_pr import related_instructions
+
+        prompt += related_instructions(related, ctx['number'])
     routing = await resolve_task_target()
     from a2a_server.forgejo_agent_client import create_task as create_agent_task
 
@@ -377,7 +393,7 @@ Preserve unrelated changes. Do not rebase or force-push over another writer. Do 
             f'{head_sha or work_branch}:{operation}'
         ),
         issue_index=ctx['number'],
-        pull_request_index=ctx['number'] if ctx['is_pr'] else 0,
+        pull_request_index=pr_index,
         head_sha=head_sha,
         metadata={
             'source': 'forgejo-agent',
@@ -422,7 +438,7 @@ Preserve unrelated changes. Do not rebase or force-push over another writer. Do 
                 forgejo_task_id=forgejo_agent_task_id,
                 repository=repo,
                 issue_number=ctx['number'],
-                pull_request_number=ctx['number'] if ctx['is_pr'] else 0,
+                pull_request_number=pr_index,
                 workspace_id=wid,
                 branch=work_branch,
                 head_sha=head_sha,
@@ -450,7 +466,7 @@ Preserve unrelated changes. Do not rebase or force-push over another writer. Do 
         'platform': 'forgejo',
         'repo': repo,
         'issue_number': ctx['number'],
-        'pr_number': ctx['number'] if ctx['is_pr'] else None,
+        'pr_number': pr_index or None,
         'branch_name': work_branch,
         'default_branch': default_branch,
         'forgejo_api_url': base,
@@ -473,7 +489,7 @@ Preserve unrelated changes. Do not rebase or force-push over another writer. Do 
         'issue_number': ctx['number'],
         'git_url': clone_url,
         'git_branch': branch,
-        'pr_number': ctx['number'] if ctx['is_pr'] else None,
+        'pr_number': pr_index or None,
         'pr_head_sha': head_sha,
         'trigger_actor_login': ctx.get('actor_login'),
         'forgejo_api_url': base,
