@@ -9,7 +9,8 @@ PR instead of opening another one.
 
 import re
 
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 
 BRANCH_PREFIX = 'codetether/issue-'

@@ -1,4 +1,4 @@
-"""Issue work continues an existing same-family PR instead of opening another."""
+"""Issue work continues an existing same-family PR, not a new one."""
 
 from types import SimpleNamespace
 
@@ -8,6 +8,10 @@ from a2a_server import forgejo_inbox_dispatch as effects
 from a2a_server import forgejo_related_pr as related
 from a2a_server import forgejo_webhooks as fw
 
+
+OLD_PR = 6878
+NEW_ISSUE = 7001
+LISTING_PAGES = 2
 
 AUDIT_ISSUE = (
     '[ERROR] spotlessbinco: [FullAudit] Combined result: FAILED - '
@@ -104,8 +108,8 @@ async def test_listing_pages_until_short_page():
     found = await related.find_related_pr(
         api, 'base', '/repos/o/r', 7001, AUDIT_ISSUE
     )
-    assert found['number'] == 6878
-    assert len(calls) == 2
+    assert found['number'] == OLD_PR
+    assert len(calls) == LISTING_PAGES
 
 
 @pytest.mark.asyncio
@@ -121,7 +125,7 @@ async def test_plan_freezes_related_pr(monkeypatch):
     plan = await effects.prepare_plan(
         {'repo': 'o/r', 'number': 7001, 'is_pr': False}, 'base'
     )
-    assert plan['related_pr']['number'] == 6878
+    assert plan['related_pr']['number'] == OLD_PR
     assert plan['branch'] == 'main'
 
 
@@ -195,7 +199,7 @@ async def test_dispatch_continues_related_pr_branch(monkeypatch):
             'html_url': '',
         },
     }
-    await fw._dispatch(
+    await fw._dispatch(  # noqa: SLF001 - dispatch is the unit under test
         {
             'repo': 'o/r',
             'number': 7001,
@@ -209,9 +213,9 @@ async def test_dispatch_continues_related_pr_branch(monkeypatch):
         'https://forge/api/v1',
     )
     assert workflows[0].branch == 'codetether/issue-6877'
-    assert workflows[0].pull_request_number == 6878
-    assert workflows[0].issue_number == 7001
-    assert created[0]['pull_request_index'] == 6878
+    assert workflows[0].pull_request_number == OLD_PR
+    assert workflows[0].issue_number == NEW_ISSUE
+    assert created[0]['pull_request_index'] == OLD_PR
     assert 'open PR #6878' in created[0]['prompt']
     assert 'Do not create a new branch' in created[0]['prompt']
     assert ensured[0][1]['workspace_branch'] == 'codetether/issue-6877'
