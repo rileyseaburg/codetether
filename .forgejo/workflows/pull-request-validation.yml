@@ -12,6 +12,11 @@ jobs:
     # The broad label also matches ephemeral LXC runners whose container
     # bootstrap can stall before checkout. Select the existing DIND pool.
     runs-on: spotlessbinco-k8s-dind
+    # The pool's default runner image lacks python3-venv (ensurepip), so
+    # venv creation failed before any test ran. Run in a Python image that
+    # matches the repository's py312 target; it also provides git and curl.
+    container:
+      image: python:3.12-bookworm
     timeout-minutes: 30
     steps:
       - name: Checkout
