@@ -25,6 +25,7 @@ with workflow.unsafe.imports_passed_through():
         finalize_workflow,
         publish_review,
     )
+    from .triage_activity import apply_triage
     from .models import (
         ForgejoAgentWorkflowInput,
         ForgejoAgentWorkflowResult,
@@ -272,6 +273,24 @@ class ForgejoAgentWorkflow:
             return await self._finish_attempt(
                 workflow_input, terminal.status, error_type='code_failed'
             )
+
+        # The agent may conclude the issue duplicates open work or needs no
+        # change; then the issue is closed and review is skipped.
+        if not workflow_input.pull_request_number and workflow.patched(
+            'agent-triage-v1'
+        ):
+            verdict = await self._activity(
+                apply_triage,
+                {
+                    'task_id': code.task_id,
+                    'repository': workflow_input.repository,
+                    'issue_number': workflow_input.issue_number,
+                },
+            )
+            if verdict != 'proceed':
+                return await self._finalize(
+                    workflow_input, 'completed', error_type=f'triage_{verdict}'
+                )
 
         parent_task_id = code.task_id
         for fix_attempt in range(0, 3):

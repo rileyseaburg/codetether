@@ -19,6 +19,7 @@ from .activities import (
     publish_review,
 )
 from .config import get_temporal_client, temporal_settings
+from .triage_activity import apply_triage
 from .workflows import ForgejoAgentWorkflow
 
 
@@ -43,6 +44,7 @@ async def run_worker() -> None:
             dispatch_fix,
             cancel_task,
             finalize_workflow,
+            apply_triage,
             review_activities.prepare,
             review_activities.dispatch,
             review_activities.chunk_state,
