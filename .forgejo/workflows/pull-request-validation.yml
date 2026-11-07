@@ -19,10 +19,25 @@ jobs:
       image: python:3.12-bookworm
     timeout-minutes: 30
     steps:
+      # actions/checkout needs Node.js, which the Python image lacks, so
+      # fetch the exact PR head with git. Full history is kept because the
+      # lint step diffs against the PR base commit.
       - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        env:
+          CHECKOUT_TOKEN: ${{ github.token }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$PWD"
+          basic="$(printf 'x-access-token:%s' "$CHECKOUT_TOKEN" | base64 -w0)"
+          git init -q .
+          git remote add origin "${SERVER_URL}/${REPOSITORY}.git"
+          git -c http.extraheader="AUTHORIZATION: basic ${basic}" fetch -q \
+            origin '+refs/heads/*:refs/remotes/origin/*' "$HEAD_SHA"
+          git checkout -q --detach "$HEAD_SHA"
+          git log -1 --format='Checked out %H'
 
       - name: Install Python test dependencies
         run: |
