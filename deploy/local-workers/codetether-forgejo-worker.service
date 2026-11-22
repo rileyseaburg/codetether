@@ -1,0 +1,20 @@
+[Unit]
+Description=CodeTether Forgejo task worker (local binary; replaces ct-task K8s Jobs)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/codetether/session-worker.env
+EnvironmentFile=%h/.config/codetether/forgejo-worker.env
+Environment=PNPM_HOME=%h/.local/share/pnpm
+Environment=PATH=%h/.local/share/pnpm:%h/.nvm/versions/node/v26.9.0/bin:%h/.cargo/bin:%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+ExecStartPre=/usr/bin/mkdir -p %h/.local/share/codetether-forgejo-worker/repos %h/.local/share/codetether-forgejo-worker/data %h/.local/share/codetether-forgejo-worker/cache
+WorkingDirectory=%h
+ExecStart=%h/.cargo/bin/codetether worker --server https://api.codetether.run --name ubuntu-dev-forgejo --workspaces %h/.local/share/codetether-forgejo-worker/repos --port 18881 --max-concurrent-tasks 2 --auto-approve all
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

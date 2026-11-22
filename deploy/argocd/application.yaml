@@ -18,15 +18,15 @@ spec:
     namespace: a2a-system
   source:
     repoURL: https://forgejo.quantum-forge.io/riley/codetether.git
-    targetRevision: eb2051a212a2c729a7963da8e1dda39a4e958513
+    targetRevision: dcda1414e8b22098409955ffa42cce0a44acdb11
     path: chart/a2a-server
     helm:
       releaseName: a2a-server
       parameters:
         - name: image.tag
-          value: main-eb2051a212a2
+          value: main-8e63f5151eb4
         - name: blueGreen.rolloutId.green
-          value: main-eb2051a212a2
+          value: main-8e63f5151eb4
       valuesObject:
         app:
           name: CodeTether Server
@@ -35,7 +35,7 @@ spec:
           enhanced: true
         image:
           repository: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp
-          tag: main-eb2051a212a2
+          tag: main-8e63f5151eb4
           pullPolicy: Always
         imagePullSecrets:
           - name: registry-credentials
@@ -45,7 +45,7 @@ spec:
           serviceColor: green
           images:
             green:
-              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-eb2051a212a2
+              image: registry.quantum-forge.net/cluster-ci-cache/a2a-server-mcp:main-8e63f5151eb4
           legacyReplicaCount: 0
           replicas:
             blue: 0
@@ -53,7 +53,7 @@ spec:
           rolloutId:
             legacy: ""
             blue: ""
-            green: main-eb2051a212a2
+            green: main-8e63f5151eb4
         service:
           type: ClusterIP
           port: 8000
@@ -157,7 +157,8 @@ spec:
               memory: 512Mi
             limits:
               cpu: "1"
-              memory: 2Gi
+              # 2Gi still OOMKilled: replaying ~280 running workflows peaks ~2.3Gi.
+              memory: 4Gi
         # `vault-token` was removed here on purpose. That static Secret expired
         # and a2a_server.vault_client prefers VAULT_TOKEN over Kubernetes auth,
         # so every Git-credential read for Forgejo mention tasks returned 403
@@ -203,10 +204,9 @@ spec:
           FORGEJO_AUTOMATION_PAUSED_PRS: "riley/spotlessbinco#5873"
           FORGEJO_SINGLE_REVIEW_REPOS: "riley/spotlessbinco"
           FORGEJO_REVIEW_RECOVERY_REPOS: "riley/spotlessbinco"
-          # ct-task Jobs disabled 2026-11-04: their spiffe-helper init container
-          # fails ("/spiffe-helper: not a directory"), so every Forgejo task
-          # failed. Coding tasks now pin to the local ubuntu-dev worker running
-          # the locally built codetether binary (deploy/local-workers/).
+          # Forgejo tasks run on the local ubuntu-dev worker (deploy/local-workers/).
+          # The ct-task Job spiffe-helper mount is fixed in dcda1414; set this back
+          # to "riley/spotlessbinco" to return to finite K8s Jobs.
           HARVESTER_JOB_REPOS: ""
           GITHUB_APP_TARGET_AGENT: "ubuntu-dev-forgejo"
           HARVESTER_JOB_NAMESPACE: "a2a-system"

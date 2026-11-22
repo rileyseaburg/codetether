@@ -1,0 +1,20 @@
+[Unit]
+Description=CodeTether targeted PR review worker (local binary)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/codetether/session-worker.env
+EnvironmentFile=%h/.config/codetether/pr-review-worker.env
+Environment=PATH=%h/.cargo/bin:%h/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStartPre=/usr/bin/mkdir -p %h/.local/share/codetether-pr-review-worker/repos %h/.local/share/codetether-pr-review-worker/data %h/.local/share/codetether-pr-review-worker/cache
+WorkingDirectory=%h
+ExecStart=%h/.cargo/bin/codetether worker --server https://api.codetether.run --name harvester-pr-review --workspaces %h/.local/share/codetether-pr-review-worker/repos --port 18882 --max-concurrent-tasks 2 --auto-approve safe
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
