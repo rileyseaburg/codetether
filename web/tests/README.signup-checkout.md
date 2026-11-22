@@ -21,3 +21,8 @@ npx jest --runInBand --config jest.dashboard-shell.config.cjs
 
 These commands contact neither a real identity provider nor Stripe. They do not
 establish live account creation, a payment session, or deployment success.
+The Jest configuration anchors source resolution to this directory, so it can also be run from the repository root:
+
+```sh
+./web/node_modules/.bin/jest --config web/jest.signup-checkout.config.cjs --runInBand
+```
