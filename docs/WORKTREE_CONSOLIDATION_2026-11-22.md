@@ -26,8 +26,17 @@ Rust reconciliation tip before final validation: `fd569990b44f1eac7f166c49faae40
 
 ## Publication and retained local work
 
-The agent submodule URL points to authoritative Forgejo so fresh parent checkouts resolve the consolidated agent commit independently of the GitHub mirror. GitHub parent main mirrors the final Forgejo source; the previous GitHub-only head is preserved on `backup/pre-forgejo-mirror-20261122`.
+The agent submodule URL points to authoritative Forgejo so fresh parent checkouts resolve the consolidated agent commit independently of the GitHub mirror. The previous GitHub-only head is preserved on `backup/pre-forgejo-mirror-20261122`. Both main branches are pushed to Forgejo; GitHub main updates remain blocked by the server rejections below.
 
 The agent GitHub push is blocked by GitHub secret protection on pre-existing commit `ddf7089b`: embedded Gemini/Antigravity Google OAuth client IDs and secrets. No exception was approved and no history was rewritten to bypass that protection.
 
 Concurrent SPIFFE launcher/docs changes in the Rust checkout remain uncommitted and outside this consolidation. Existing runtime artifacts and worktrees remain on disk.
+
+### GitHub parent mirror rejection
+
+GitHub rejected the push because existing history contains artifacts above its 100 MB per-file limit:
+
+- `artifacts/harvester-vault-fix/runs.json`: 196.67 MB.
+- `artifacts/ui-production/build-context.tar.gz`: 117.74 MB.
+
+The 90.61 MB `artifacts/agent-workflow-validation/worker-image/codetether` also produced a size warning. Removing files only from the newest commit cannot remove these historical blobs from the push. A history cleanup/LFS migration or an explicitly separate source-export mirror requires an owner decision. No published history was rewritten.
