@@ -3,10 +3,14 @@
 const { spawn, spawnSync } = require('node:child_process');
 const runName = process.argv[2];
 if (!/^workbench-ui-live-v\d+$/.test(runName || '')) throw new Error('Provide a unique result-bundle name');
-const list = spawnSync('ssh', ['-o', 'BatchMode=yes', 'mac', 'xcrun simctl list devices booted --json'], { encoding: 'utf8', timeout: 30000 });
+const list = spawnSync('ssh', ['-o', 'BatchMode=yes', 'mac', 'xcrun simctl list devices available --json'], { encoding: 'utf8', timeout: 30000 });
 if (list.status !== 0) throw new Error('Simulator discovery failed');
-const device = Object.values(JSON.parse(list.stdout).devices).flat().find(d => d.name === 'iPhone 16 Pro Max' && d.state === 'Booted');
-if (!device || !/^[A-Fa-f0-9-]{36}$/.test(device.udid)) throw new Error('Expected simulator is not booted');
+const device = Object.values(JSON.parse(list.stdout).devices).flat().find(d => d.name === 'iPhone 16 Pro Max');
+if (!device || !/^[A-Fa-f0-9-]{36}$/.test(device.udid)) throw new Error('Expected simulator unavailable');
+if (device.state !== 'Booted') {
+  const boot = spawnSync('ssh', ['-o', 'BatchMode=yes', 'mac', `xcrun simctl boot ${device.udid} && xcrun simctl bootstatus ${device.udid} -b`], { encoding: 'utf8', timeout: 120000 });
+  if (boot.status !== 0) throw new Error('Could not boot the selected simulator');
+}
 console.log(JSON.stringify({ device: device.name, udid: device.udid, result: `evidence/${runName}.xcresult` }));
 const bridge = spawn(process.execPath, ['scripts/workbench_live_bridge.cjs'], { env: { ...process.env, WORKBENCH_UI_TEST: '1' }, stdio: 'inherit' });
 const tunnel = spawn('ssh', ['-o', 'BatchMode=yes', '-o', 'ExitOnForwardFailure=yes', '-N', '-R', '127.0.0.1:19872:127.0.0.1:19871', 'mac'], { stdio: 'inherit' });
@@ -31,7 +35,6 @@ setTimeout(() => {
   test.stdout.on('data', output); test.stderr.on('data', output);
   test.on('exit', code => { console.log(JSON.stringify({ xcodeExit: code, runName })); process.exit(code === 0 ? 0 : 1); });
 }, 1500);
-
 
 
 

@@ -113,6 +113,7 @@ struct NewWorkSessionView: View {
     @State private var workspaceId = ""
     @State private var prompt = ""
     @State private var model = ""
+    @State private var choosingModel = false
     @State private var sending = false
     @State private var error: String?
     private var worker: AgentWorker? {
@@ -122,6 +123,11 @@ struct NewWorkSessionView: View {
     }
     private var projects: [Codebase] { worker.map(controller.projects(for:)) ?? [] }
     private var project: Codebase? { workspaceId.isEmpty ? projects.first : projects.first { $0.id == workspaceId } }
+    private var selectedModel: WorkerModelOption? {
+        guard let options = worker?.modelOptions else { return nil }
+        let id = model.isEmpty ? WorkerModelOption.preferredID(in: options) : model
+        return options.first { $0.id == id }
+    }
 
     var body: some View {
         NavigationStack {
@@ -141,6 +147,8 @@ struct NewWorkSessionView: View {
                     }
                 }
                 Section("What do you want to work on?") {
+                    Text("This starts the worker's Build mode. It can edit files and automatically commit or push project changes. Check the project path above before starting.")
+                        .font(.caption).foregroundStyle(.secondary)
                     TextEditor(text: $prompt).frame(minHeight: 140)
                         .overlay(alignment: .topLeading) {
                             if prompt.isEmpty {
@@ -151,32 +159,47 @@ struct NewWorkSessionView: View {
                         .accessibilityIdentifier("workSession.prompt")
                 }
                 Section("Model") {
-                    TextField("Automatic, or provider/model", text: $model)
-                        .autocorrectionDisabled().accessibilityIdentifier("workSession.model")
-                    Text("Leave blank to use this agent's configured default.").font(.caption)
+                    Button { choosingModel = true } label: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(selectedModel?.name ?? "Choose a model").foregroundStyle(.primary)
+                                Text(selectedModel?.providerName ?? "No models advertised — refresh agents")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.up.chevron.down")
+                        }
+                    }
+                    .disabled(worker?.modelOptions.isEmpty != false)
+                    .accessibilityIdentifier("workSession.model")
+                    Text("Tap to search models. No model ID needs to be typed.").font(.caption).foregroundStyle(.secondary)
                 }
                 if let error { Section { Text(error).foregroundStyle(.red) } }
                 Button {
-                    guard let worker, let project else { return }
+                    guard let worker, let project, let selectedModel else { return }
                     sending = true
                     Task {
                         defer { sending = false }
-                        do { onStarted(try await controller.start(worker: worker, workspace: project, prompt: prompt, model: model)) }
+                        do { onStarted(try await controller.start(worker: worker, workspace: project, prompt: prompt, model: selectedModel.id)) }
                         catch { self.error = error.localizedDescription }
                     }
                 } label: {
                     if sending { ProgressView("Starting…") }
                     else { Label("Start Session", systemImage: "paperplane.fill") }
                 }
-                .disabled(sending || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || project == nil)
+                .disabled(sending || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || project == nil || selectedModel == nil)
                 .accessibilityIdentifier("workSession.start")
             }
             .navigationTitle("New Work Session")
+            .sheet(isPresented: $choosingModel) {
+                WorkerModelPicker(models: worker?.modelOptions ?? [],
+                    selection: Binding(get: { selectedModel?.id ?? "" }, set: { model = $0 }))
+            }
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(sending) } }
             .onAppear { workerId = preferredWorkerId ?? controller.onlineWorkers.first?.workerId ?? ""; workspaceId = projects.first?.id ?? "" }
             .onChange(of: workerId) { _, _ in
                 workspaceId = projects.first?.id ?? ""
-                model = worker?.models.contains("github-copilot/gpt-5-mini") == true ? "github-copilot/gpt-5-mini" : ""
+                model = WorkerModelOption.preferredID(in: worker?.modelOptions ?? []) ?? ""
             }
         }
     }
@@ -186,6 +209,7 @@ struct WorkChatView: View {
     @ObservedObject var controller: WorkSessionController
     let sessionId: UUID
     @State private var draft = ""
+    @State private var choosingModel = false
     @State private var error: String?
     @State private var sending = false
     private var session: WorkSession? { controller.session(sessionId) }
@@ -196,6 +220,7 @@ struct WorkChatView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(session.workerName).font(.headline)
                     Text(session.workspacePath).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                    Text(session.model ?? "Choose a model before sending").font(.caption2).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading).padding().background(.thinMaterial)
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -208,7 +233,22 @@ struct WorkChatView: View {
                                     Text(session.workerName).font(.caption).foregroundStyle(.cyan)
                                     if let response = turn.response, !response.isEmpty { Text(response).textSelection(.enabled).accessibilityIdentifier("workChat.response") }
                                     else if [.pending, .working].contains(turn.status) { ProgressView("Agent is working…") }
-                                    if let failure = turn.error { Text(failure).foregroundStyle(.red) }
+                                    if let failure = turn.error {
+                                        let issue = AgentCallFailure(failure)
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            Label(issue.title, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                                            Text(issue.message).font(.callout)
+                                            if turn.id == session.turns.last?.id && !session.isRunning {
+                                                HStack {
+                                                    if issue.canChooseModel { Button("Change Model") { choosingModel = true } }
+                                                    Button("Retry") {
+                                                        Task { do { try await controller.retry(sessionId) } catch { self.error = error.localizedDescription } }
+                                                    }.accessibilityIdentifier("workChat.retry")
+                                                }
+                                            }
+                                            DisclosureGroup("Technical details") { Text(failure).font(.caption).textSelection(.enabled) }
+                                        }.accessibilityIdentifier("workChat.failure")
+                                    }
                                     if let id = turn.taskId { Text("Task \(id)").font(.caption2).foregroundStyle(.secondary).textSelection(.enabled) }
                                 }.padding().frame(maxWidth: .infinity, alignment: .leading).background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12)).id(turn.id)
                             }
@@ -224,12 +264,22 @@ struct WorkChatView: View {
                         sending = true
                         Task { defer { sending = false }; do { try await controller.send(draft, to: sessionId); draft = ""; error = nil } catch { self.error = error.localizedDescription } }
                     } label: { Image(systemName: "arrow.up.circle.fill").font(.title) }
-                    .disabled(sending || session.isRunning || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(sending || session.isRunning || session.model == nil || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .accessibilityIdentifier("workChat.send")
                 }.padding().background(.thinMaterial)
             }
         }
         .navigationTitle("Work Session")
+        .toolbar {
+            Button("Model", systemImage: "slider.horizontal.3") { choosingModel = true }
+                .disabled(session?.isRunning == true).accessibilityIdentifier("workChat.chooseModel")
+        }
+        .sheet(isPresented: $choosingModel) {
+            WorkerModelPicker(models: controller.models(for: sessionId), selection: Binding(
+                get: { session?.model ?? "" },
+                set: { value in do { try controller.selectModel(value, for: sessionId) } catch { self.error = error.localizedDescription } }))
+                .task { await controller.refresh() }
+        }
         .task(id: session?.currentTaskId) {
             while !Task.isCancelled && session?.isRunning == true {
                 do { try await controller.poll(sessionId); error = nil; try await Task.sleep(nanoseconds: 2_000_000_000) }

@@ -299,7 +299,7 @@ docker-build: models-build ## Build Docker image (API server only)
 
 .PHONY: docker-build-marketing
 docker-build-marketing: ## Build marketing site Docker image
-	docker build -t $(MARKETING_IMAGE_NAME):$(DOCKER_TAG) ./marketing-site --network=host
+	docker build -t $(MARKETING_IMAGE_NAME):$(DOCKER_TAG) ./web --network=host
 
 .PHONY: docker-build-docs
 docker-build-docs: ## Build docs site Docker image
@@ -462,7 +462,7 @@ install: ## Install Python dependencies
 .PHONY: install-dev
 install-dev: ## Install development dependencies
 	pip install -r requirements.txt -r requirements-test.txt
-	(cd marketing-site && npm install)
+	(cd web && npm install)
 
 .PHONY: test
 test: ## Run tests
@@ -545,7 +545,7 @@ run-all: ## Run Python server (MCP integrated on same port), React (Next.js) dev
 		exit 1; \
 	fi; \
 	if [ "$$MARKETING_PORT_SELECTED" != "$(MARKETING_PORT)" ]; then \
-		echo "ℹ Port $(MARKETING_PORT) is busy; using $$MARKETING_PORT_SELECTED for marketing-site."; \
+		echo "ℹ Port $(MARKETING_PORT) is busy; using $$MARKETING_PORT_SELECTED for web."; \
 	fi; \
 	trap 'kill 0' EXIT; \
 	SERVER_BASE_URL="http://localhost:$$SERVER_PORT_SELECTED"; \
@@ -588,14 +588,14 @@ run-all: ## Run Python server (MCP integrated on same port), React (Next.js) dev
 			exit 1; \
 		fi; \
 		echo "🔄 Regenerating TypeScript API SDK from local server..."; \
-		cd marketing-site && OPENAPI_URL="$$SERVER_BASE_URL/openapi.json" npm run generate:api:local; \
+		cd web && OPENAPI_URL="$$SERVER_BASE_URL/openapi.json" npm run generate:api:local; \
 		echo "✅ API SDK regenerated"; \
 		MARKETING_PORT=$$MARKETING_PORT_SELECTED NEXTAUTH_URL="$$MARKETING_BASE_URL" AUTH_URL="$$MARKETING_BASE_URL" API_URL="$$SERVER_BASE_URL" NEXT_PUBLIC_API_URL="$$SERVER_BASE_URL" npm run dev \
 	) & \
 	(if [ "$(RELOAD)" = "1" ]; then \
 		echo "🔄 API SDK hot-reload enabled (watching Python files)"; \
 		sleep 10; \
-		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --wait --drop --command="echo '🔄 Python changed, waiting for server restart...'; sleep 3; cd marketing-site && OPENAPI_URL=$$SERVER_BASE_URL/openapi.json npm run generate:api:local && echo '✅ API SDK regenerated'" ./a2a_server; \
+		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --wait --drop --command="echo '🔄 Python changed, waiting for server restart...'; sleep 3; cd web && OPENAPI_URL=$$SERVER_BASE_URL/openapi.json npm run generate:api:local && echo '✅ API SDK regenerated'" ./a2a_server; \
 	fi) & \
 	(echo "⏳ Waiting for MCP endpoint to be ready..."; \
 		for i in $$(seq 1 30); do \
@@ -669,7 +669,7 @@ dev-no-worker: ## Run Python server and React dev server (no worker)
 		exit 1; \
 	fi; \
 	if [ "$$MARKETING_PORT_SELECTED" != "$(MARKETING_PORT)" ]; then \
-		echo "ℹ Port $(MARKETING_PORT) is busy; using $$MARKETING_PORT_SELECTED for marketing-site."; \
+		echo "ℹ Port $(MARKETING_PORT) is busy; using $$MARKETING_PORT_SELECTED for web."; \
 	fi; \
 	trap 'kill 0' EXIT; \
 	SERVER_BASE_URL="http://localhost:$$SERVER_PORT_SELECTED"; \
@@ -712,13 +712,13 @@ dev-no-worker: ## Run Python server and React dev server (no worker)
 			exit 1; \
 		fi; \
 		echo "🔄 Regenerating TypeScript API SDK from local server..."; \
-		cd marketing-site && OPENAPI_URL="$$SERVER_BASE_URL/openapi.json" npm run generate:api:local; \
+		cd web && OPENAPI_URL="$$SERVER_BASE_URL/openapi.json" npm run generate:api:local; \
 		echo "✅ API SDK regenerated"; \
 		MARKETING_PORT=$$MARKETING_PORT_SELECTED NEXTAUTH_URL="$$MARKETING_BASE_URL" AUTH_URL="$$MARKETING_BASE_URL" API_URL="$$SERVER_BASE_URL" NEXT_PUBLIC_API_URL="$$SERVER_BASE_URL" npm run dev \
 	) & \
 	(echo "🔄 API SDK hot-reload enabled (watching Python files)"; \
 		sleep 10; \
-		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --wait --drop --command="echo '🔄 Python changed, waiting for server restart...'; sleep 3; cd marketing-site && OPENAPI_URL=$$SERVER_BASE_URL/openapi.json npm run generate:api:local && echo '✅ API SDK regenerated'" ./a2a_server \
+		$(PYTHON) -m watchdog.watchmedo shell-command --patterns="*.py" --recursive --wait --drop --command="echo '🔄 Python changed, waiting for server restart...'; sleep 3; cd web && OPENAPI_URL=$$SERVER_BASE_URL/openapi.json npm run generate:api:local && echo '✅ API SDK regenerated'" ./a2a_server \
 	) & \
 	wait
 
@@ -1268,7 +1268,7 @@ codetether-deploy: ## Deploy CodeTether with values file (auto-recovers from stu
 
 .PHONY: codetether-build-marketing
 codetether-build-marketing: ## Build and push marketing site
-	cd marketing-site && docker build -t $(OCI_REGISTRY)/codetether-marketing:latest -t $(OCI_REGISTRY)/codetether-marketing:$(CHART_VERSION) .
+	cd web && docker build -t $(OCI_REGISTRY)/codetether-marketing:latest -t $(OCI_REGISTRY)/codetether-marketing:$(CHART_VERSION) .
 	docker push $(OCI_REGISTRY)/codetether-marketing:latest
 	docker push $(OCI_REGISTRY)/codetether-marketing:$(CHART_VERSION)
 

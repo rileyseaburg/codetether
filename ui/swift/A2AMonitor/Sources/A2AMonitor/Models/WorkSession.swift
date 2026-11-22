@@ -30,7 +30,7 @@ struct WorkTurn: Codable, Identifiable, Hashable {
 }
 
 enum WorkSessionError: LocalizedError {
-    case missingSession, alreadyRunning, missingRemoteSession, wrongTask, emptyPrompt
+    case missingSession, alreadyRunning, missingRemoteSession, wrongTask, emptyPrompt, selectModel, wrongProject
     var errorDescription: String? {
         switch self {
         case .missingSession: return "This work session is no longer available."
@@ -38,6 +38,8 @@ enum WorkSessionError: LocalizedError {
         case .missingRemoteSession: return "The worker did not return a conversation ID. Start a new session rather than silently losing context."
         case .wrongTask: return "The server returned a different task. The conversation was not updated."
         case .emptyPrompt: return "Type a message for the agent."
+        case .selectModel: return "Choose a model advertised by this agent before sending."
+        case .wrongProject: return "This project is no longer assigned to the selected agent. Refresh and choose a project."
         }
     }
 }

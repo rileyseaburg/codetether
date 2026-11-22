@@ -473,8 +473,18 @@ async def dispatch_stage(request: ForgejoStageRequest) -> ForgejoStageResult:
         )
         agent_type = 'clone_repo'
     elif request.stage == 'code':
+        from a2a_server.temporal.triage_activity import (  # noqa: PLC0415
+            triage_prompt,
+        )
+
         title = f'Work Forgejo task #{request.workflow.issue_number}'
-        prompt = str(forgejo_task.get('prompt') or '')
+        prompt = await triage_prompt(
+            request.workflow.repository,
+            0
+            if request.workflow.pull_request_number
+            else request.workflow.issue_number,
+            str(forgejo_task.get('prompt') or ''),
+        )
         agent_type = 'build'
     else:
         raise ValueError(f'unsupported direct stage: {request.stage}')

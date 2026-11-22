@@ -2013,7 +2013,7 @@ ls -la path/to/file.tsx
 echo "spike2" | sudo -S chmod 666 path/to/file.tsx
 
 # Fix an entire directory recursively
-echo "spike2" | sudo -S chmod -R 666 marketing-site/src/
+echo "spike2" | sudo -S chmod -R 666 web/src/
 
 # Or change ownership
 echo "spike2" | sudo -S chown riley:riley path/to/file.tsx

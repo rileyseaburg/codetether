@@ -38,14 +38,16 @@ final class WorkSessionUITests: XCTestCase {
         let prompt = app.textViews["workSession.prompt"]
         XCTAssertTrue(prompt.waitForExistence(timeout: 10))
         print("WORKFLOW_STAGE form-opened")
+        let model = app.buttons["workSession.model"]
+        XCTAssertTrue(model.exists, "Model must be a picker, not a free-text field")
+        XCTAssertFalse(app.textFields["workSession.model"].exists)
+        model.tap()
+        let choice = app.buttons["model.option.github-copilot/gpt-5-mini"]
+        XCTAssertTrue(choice.waitForExistence(timeout: 10))
+        choice.tap()
+        print("WORKFLOW_STAGE model-selected")
         prompt.tap()
         prompt.typeText(target.firstPrompt)
-        let model = app.textFields["workSession.model"]
-        if model.exists, model.value as? String != "github-copilot/gpt-5-mini" {
-            model.tap()
-            if let value = model.value as? String { model.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count)) }
-            model.typeText("github-copilot/gpt-5-mini")
-        }
         let start = app.buttons["workSession.start"]
         if !start.isHittable { app.swipeUp() }
         guard start.isEnabled else {

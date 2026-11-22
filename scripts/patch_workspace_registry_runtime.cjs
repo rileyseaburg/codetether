@@ -3,7 +3,7 @@
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { spawnSync } = require('node:child_process');
-const dir = 'artifacts/agent-workflow-validation/workspace-hotfix';
+const dir = 'artifacts/agent-workflow-validation/workspace-hotfix-v2';
 fs.mkdirSync(dir, { recursive: true });
 function run(command, args, input) {
   const r = spawnSync(command, args, { input, encoding: 'utf8', timeout: 30000, maxBuffer: 8 * 1024 * 1024 });
@@ -22,18 +22,33 @@ let modified = original;
 for (const name of ['redis_workspaces', 'db_workspaces']) {
   const before = `for cb in ${name}:\n        cid = cb.get('id')\n        if cid and cid not in merged:\n            merged[cid] = cb`;
   const after = `for cb in ${name}:\n        cid = cb.get('id')\n        if cid:\n            merged[cid] = {**merged.get(cid, {}), **cb}`;
-  if (modified.split(before).length !== 2) throw new Error('Expected merge block not found exactly once');
-  modified = modified.replace(before, after);
+  if (modified.includes(before)) modified = modified.replace(before, after);
+  else if (modified.split(after).length !== 2) {
+    throw new Error('Expected original or repaired merge block not found exactly once');
+  }
 }
 // These endpoints otherwise reported cancellation without executing the coroutine.
 const cancellation = 'success = bridge.cancel_task(task_id)';
-if (modified.split(cancellation).length !== 3) throw new Error('Unexpected cancellation sites');
-modified = modified.replaceAll(cancellation, 'success = await bridge.cancel_task(task_id)');
+if (modified.split(cancellation).length === 3) {
+  modified = modified.replaceAll(cancellation, 'success = await bridge.cancel_task(task_id)');
+} else if (modified.split('success = await bridge.cancel_task(task_id)').length !== 3) {
+  throw new Error('Unexpected cancellation sites');
+}
+const detailMerge = `        for source in (db_workspace, redis_workspace):`;
+const authoritativeDetail = `        # Match list-workspace precedence: durable path/ownership wins.
+        workspace_dict = {
+            **workspace_dict,
+            **(redis_workspace or {}),
+            **(db_workspace or {}),
+        }
+${detailMerge}`;
+if (modified.split(detailMerge).length !== 2) throw new Error('Unexpected workspace detail merge sites');
+if (!modified.includes(authoritativeDetail)) modified = modified.replace(detailMerge, authoritativeDetail);
 fs.writeFileSync(`${dir}/monitor.before.py`, original);
 fs.writeFileSync(`${dir}/monitor.after.py`, modified);
 run('.venv/bin/python', ['-m', 'py_compile', `${dir}/monitor.after.py`]);
 const name = 'workspace-registry-consistency';
-const map = 'codetether-workspace-registry-20261005';
+const map = 'codetether-workspace-registry-v2-20261005';
 run('kubectl', ['apply', '--server-side', '--field-manager=codetether-workspace-repair', '-f', '-'], JSON.stringify({ apiVersion: 'v1', kind: 'ConfigMap',
   metadata: { name: map, namespace: 'a2a-system' }, data: { 'monitor_api.py': modified } }));
 const app = JSON.parse(run('kubectl', ['-n', 'argocd', 'get', 'application', 'codetether-a2a-server', '-o', 'json']));
@@ -50,12 +65,7 @@ for (const [key, value] of Object.entries({
 run('kubectl', ['-n', 'argocd', 'patch', 'application', 'codetether-a2a-server', '--type=json', '--patch', JSON.stringify(patch)]);
 const sha = text => crypto.createHash('sha256').update(text).digest('hex');
 const record = { namespace: 'a2a-system', configMap: map, beforeSha256: sha(original), afterSha256: sha(modified),
-  precedence: ['local fallback', 'Redis', 'PostgreSQL'], cancellationAwaited: true, repositoryFileModified: false };
+  precedence: ['local fallback', 'Redis', 'PostgreSQL'], detailPrecedenceFixed: true, cancellationAwaited: true, repositoryFileModified: false };
 fs.writeFileSync(`${dir}/deployment.json`, JSON.stringify(record, null, 2));
 console.log(JSON.stringify(record));
-
-
-
-
-
 

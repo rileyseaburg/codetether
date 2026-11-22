@@ -215,7 +215,7 @@ This is a monorepo. `codetether-agent/` is a git submodule with its own `Cargo.t
 
 - **Rust project root:** `codetether-agent/` (run all cargo commands from here)
 - **Python MCP server:** `a2a_server/`
-- **React dashboard:** `marketing-site/`
+- **React dashboard:** `web/`
 - **Proto definitions:** `specification/grpc/`
 - **Buf config:** `specification/grpc/buf.gen.yaml`
 

@@ -2,13 +2,22 @@
 # Lazy imports avoid the webhook cycle; SQL remains readable.
 # ruff: noqa: PLC0415, E501
 
+import os
+
 from urllib.parse import quote
 
+from a2a_server.forgejo_related_pr import find_related_pr
 from a2a_server.forgejo_workflow_projection import reconcile_native
 from a2a_server.github_app.mention import is_fix_request
 
 
 COMMENT_PAGE_SIZE = 100
+
+
+def related_reuse_enabled():
+    """Issue work continues a matching open PR unless explicitly disabled."""
+    value = os.getenv('FORGEJO_RELATED_PR_REUSE', '1').strip().lower()
+    return value not in {'0', 'false', 'no', 'off'}
 
 
 async def prepare_plan(ctx, base):
@@ -23,6 +32,16 @@ async def prepare_plan(ctx, base):
     issue = await forgejo_json('GET', base, f'{path}/issues/{ctx["number"]}')
     branch = str(repo.get('default_branch') or 'main')
     head_sha = ''
+    related = None
+    if not ctx['is_pr'] and related_reuse_enabled():
+        # Frozen with the plan so retries cannot switch to a different PR.
+        related = await find_related_pr(
+            forgejo_json,
+            base,
+            path,
+            int(ctx['number']),
+            str(issue.get('title') or ''),
+        )
     if ctx['is_pr']:
         pr = await forgejo_json('GET', base, f'{path}/pulls/{ctx["number"]}')
         head = pr.get('head') or {}
@@ -37,6 +56,7 @@ async def prepare_plan(ctx, base):
             'title': str(issue.get('title') or ''),
             'body': str(issue.get('body') or ''),
         },
+        'related_pr': related,
     }
 
 

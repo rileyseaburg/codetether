@@ -497,7 +497,7 @@ APF is implemented in both Python (`a2a_server/provenance.py`) and OPA/Rego (`po
 ```
 codetether/
 ├── 🌐 a2a_server/         # A2A protocol + REST APIs (FastAPI)
-├── 🖥️ marketing-site/     # Dashboard + marketing (Next.js)
+├── 🖥️ web/     # Dashboard + marketing (Next.js)
 ├── 👷 codetether-agent/    # Rust worker binary (28+ tools, 8 LLM providers)
 ├── 📚 codetether-docs/     # MkDocs Material documentation site
 ├── 📋 policies/            # OPA Rego authorization + provenance policies

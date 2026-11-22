@@ -4,7 +4,7 @@
 This plan outlines the strategy to unify three separate sites under the root domain `codetether.run` while maintaining their individual functionality and improving user experience.
 
 ## Current State
-- **Marketing Site**: `marketing-site/` (Next.js) - Primary marketing and landing pages
+- **Marketing Site**: `web/` (Next.js) - Primary marketing and landing pages
 - **Documentation Site**: `docs/` (MkDocs) - Technical documentation
 - **API Site**: `agent/` (Next.js) - API reference and SDK documentation
 
@@ -24,7 +24,7 @@ api.codetether.run      → API reference site
 ## Configuration Updates Completed
 
 ### 1. Marketing Site (Next.js)
-- **File**: `marketing-site/next.config.js`
+- **File**: `web/next.config.js`
 - **Changes**: Added redirect rules for `/docs` and `/api` paths
 - **Redirects**:
   - `/docs` → `https://docs.codetether.run`

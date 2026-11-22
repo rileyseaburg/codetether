@@ -21,7 +21,7 @@ eggs/
 .eggs/
 /lib/
 lib64/
-!marketing-site/src/lib/
+!web/src/lib/
 parts/
 sdist/
 var/
@@ -196,8 +196,8 @@ data/opencode.db
 # Static assets and build artifacts
 ui/pocket.zip
 ui/*.zip
-marketing-site/.next/
-marketing-site/out/
+web/.next/
+web/out/
 ui/swift/pocket.zip
 
 # Database files
@@ -268,14 +268,14 @@ a2a-server-1.0.0.tgz
 voice-agent-key.json
 
 # Self-signed dev HTTPS certs
-marketing-site/certs/
+web/certs/
 pike2 psql -h 192.168.50.70 -U postgres -d a2a_server_dev -t -c SELECT count(*) FROM tasks pike2 psql -h 192.168.50.70 -U postgres -d a2a_server -P pager=off -t -A -c SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename; pike2 psql -h 192.168.50.70 -U postgres -d a2a_server -t -A -c SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename;
 tdout)
 
 .codetether-agent
 
 # Marketing site generated/debug artifacts
-marketing-site/openapi-ts-error-*.log
-marketing-site/test-results/
-marketing-site/*.tsbuildinfo
-marketing-site/**/*.bak
+web/openapi-ts-error-*.log
+web/test-results/
+web/*.tsbuildinfo
+web/**/*.bak

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-
 from datetime import timedelta
 from typing import Any
 
@@ -16,8 +14,7 @@ with workflow.unsafe.imports_passed_through():
     from a2a_server.forgejo_review_owner.activities import (
         snapshot as review_snapshot,
     )
-
-    from .activities import (
+    from a2a_server.temporal.activities import (
         cancel_task,
         dispatch_fix,
         dispatch_review,
@@ -25,7 +22,7 @@ with workflow.unsafe.imports_passed_through():
         finalize_workflow,
         publish_review,
     )
-    from .models import (
+    from a2a_server.temporal.models import (
         ForgejoAgentWorkflowInput,
         ForgejoAgentWorkflowResult,
         ForgejoControlSignal,
@@ -33,6 +30,7 @@ with workflow.unsafe.imports_passed_through():
         ForgejoStageResult,
         ForgejoTaskTerminalSignal,
     )
+    from a2a_server.temporal.triage_activity import apply_triage
 
 _ACTIVITY_RETRY = RetryPolicy(
     initial_interval=timedelta(seconds=2),
@@ -42,6 +40,8 @@ _ACTIVITY_RETRY = RetryPolicy(
 )
 _TERMINAL_STATUSES = {'completed', 'failed', 'cancelled'}
 _BLOCKING_VERDICTS = {'CHANGES_REQUESTED', 'BLOCKED'}
+# Review rounds per attempt; the last round cannot schedule another fix.
+_REVIEW_ROUNDS = 3
 
 
 @workflow.defn(name='ForgejoAgentWorkflow')
@@ -81,7 +81,7 @@ class ForgejoAgentWorkflow:
 
     async def _activity(
         self, fn, arg, *, timeout: timedelta = timedelta(minutes=5)
-    ):
+    ) -> Any:  # noqa: ANN401 - each activity returns its own result type
         return await workflow.execute_activity(
             fn,
             arg,
@@ -107,11 +107,13 @@ class ForgejoAgentWorkflow:
             ):
                 try:
                     await workflow.wait_condition(
-                        lambda: stage.task_id in self._terminal
-                        or self._cancel_requested,
+                        lambda: (
+                            stage.task_id in self._terminal
+                            or self._cancel_requested
+                        ),
                         timeout=timedelta(seconds=15),
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     state = await self._activity(review_snapshot, stage.task_id)
                     if state['status'] in _TERMINAL_STATUSES:
                         self._terminal[stage.task_id] = (
@@ -133,7 +135,7 @@ class ForgejoAgentWorkflow:
                 ),
                 timeout=timedelta(days=7),
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             await self._activity(
                 cancel_task, stage.task_id, timeout=timedelta(minutes=2)
             )
@@ -219,7 +221,7 @@ class ForgejoAgentWorkflow:
                     lambda: self._retry_requested,
                     timeout=timedelta(days=7),
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return result
         workflow.continue_as_new(self._next_attempt(workflow_input))
         return result
@@ -251,7 +253,7 @@ class ForgejoAgentWorkflow:
             raise ValueError(f'unsupported Forgejo stage: {stage}')
         return result, await self._wait_terminal(result)
 
-    async def _run_attempt(
+    async def _run_attempt(  # noqa: PLR0911 - one return per durable outcome
         self, workflow_input: ForgejoAgentWorkflowInput
     ) -> ForgejoAgentWorkflowResult:
         if workflow_input.operation == 'review-remediation':
@@ -273,8 +275,26 @@ class ForgejoAgentWorkflow:
                 workflow_input, terminal.status, error_type='code_failed'
             )
 
+        # The agent may conclude the issue duplicates open work or needs no
+        # change; then the issue is closed and review is skipped.
+        if not workflow_input.pull_request_number and workflow.patched(
+            'agent-triage-v1'
+        ):
+            verdict = await self._activity(
+                apply_triage,
+                {
+                    'task_id': code.task_id,
+                    'repository': workflow_input.repository,
+                    'issue_number': workflow_input.issue_number,
+                },
+            )
+            if verdict != 'proceed':
+                return await self._finalize(
+                    workflow_input, 'completed', error_type=f'triage_{verdict}'
+                )
+
         parent_task_id = code.task_id
-        for fix_attempt in range(0, 3):
+        for fix_attempt in range(_REVIEW_ROUNDS):
             review, terminal = await self._stage(
                 workflow_input,
                 'review',
@@ -315,7 +335,7 @@ class ForgejoAgentWorkflow:
                     'failed',
                     error_type='review_unresolved',
                 )
-            if fix_attempt >= 2:
+            if fix_attempt >= _REVIEW_ROUNDS - 1:
                 return await self._finish_attempt(
                     workflow_input,
                     'failed',

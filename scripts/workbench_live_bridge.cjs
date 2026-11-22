@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 // Scoped simulator-only adapter for live agent discovery and two-turn continuity.
 const http = require('node:http');
+const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 require('node:dns').setDefaultResultOrder('ipv4first');
 const uiTest = process.env.WORKBENCH_UI_TEST === '1';
-const directory = 'artifacts/agent-workflow-validation/workbench-live' + (uiTest ? '-ui' : '');
+const directory = process.env.WORKBENCH_PROOF_DIR || ('artifacts/agent-workflow-validation/workbench-live' + (uiTest ? '-ui' : ''));
+if (!/^artifacts\/agent-workflow-validation\/[a-zA-Z0-9/_-]+$/.test(directory)) {
+  throw new Error('Proof directory must be scoped beneath agent-workflow-validation');
+}
 fs.mkdirSync(directory, { recursive: true });
 if (fs.existsSync(`${directory}/proof.json`)) throw new Error('Prior proof exists; preserve it before rerunning');
 const line = fs.readFileSync('/etc/codetether-worker/env', 'utf8').split('\n').find(l => l.startsWith('CODETETHER_TOKEN='));
@@ -69,11 +73,31 @@ http.createServer(async (req, res) => {
         const task = await api(`/v1/agent/tasks/${t.taskIds[1]}`);
         if (task.status !== 'completed' || !String(task.result).includes(t.marker)) throw new Error(`${t.label}: context recall failed`);
         const first = await api(`/v1/agent/tasks/${t.taskIds[0]}`);
+        if (first.status !== 'completed' || first.error || task.error) {
+          throw new Error(`${t.label}: conversation has a failed or errored turn`);
+        }
         const sessionId = task => task.metadata?.worker_session_id || task.session_id || task.metadata?.session_id;
         if (sessionId(first) !== t.contextId || sessionId(task) !== t.contextId) {
           throw new Error(`${t.label}: server did not confirm the same requested session identity`);
         }
-        proof.push({ target: t.label, workerId: t.workerId, taskIds: t.taskIds, contextId: t.contextId, marker: t.marker, remembered: true });
+        let workspaceVerified = false;
+        if (t.label === 'local') {
+          const expectedPath = '/home/riley/A2A-Server-MCP/artifacts/ios-e2e-web';
+          const logs = spawnSync('journalctl', ['--user', '-u', 'codetether-work-session-worker.service',
+            '--since', '20 minutes ago', '-n', '5000', '-o', 'cat', '--no-pager'],
+            { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 15000 });
+          if (logs.status !== 0) throw new Error('Worker lifecycle verification unavailable');
+          const lines = logs.stdout.replace(/\u001b\[[0-9;]*m/g, '').split('\n');
+          for (const taskId of t.taskIds) {
+            const line = lines.find(l => l.includes(taskId) && l.includes('checkpoint="workspace_ready"'));
+            if (!line || !line.includes(expectedPath)) throw new Error('Worker used the wrong project directory');
+            const model = lines.find(l => l.includes(taskId) && l.includes('checkpoint="model_selected"'));
+            if (!model || !/detail="github-copilot[/:]gpt-5-mini"/.test(model)) throw new Error('Worker did not select the requested provider/model');
+          }
+          workspaceVerified = true;
+        }
+        proof.push({ target: t.label, workerId: t.workerId, taskIds: t.taskIds, contextId: t.contextId,
+          marker: t.marker, remembered: true, bothTurnsCompleted: true, workspaceVerified, requestedModel: 'github-copilot/gpt-5-mini', modelVerified: workspaceVerified });
       }
       const report = { targets: proof, simulatorOrigin: true, userLoginTested: false, verifiedAt: new Date().toISOString() };
       fs.writeFileSync(`${directory}/proof.json`, JSON.stringify(report, null, 2));
@@ -85,12 +109,6 @@ http.createServer(async (req, res) => {
     reply(res, 502, { error: String(error.message).split(token).join('[redacted]') });
   }
 }).listen(19871, '127.0.0.1', () => console.log('Scoped work-session harness on loopback 19871'));
-
-
-
-
-
-
 
 
 

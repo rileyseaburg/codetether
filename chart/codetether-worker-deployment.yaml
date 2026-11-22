@@ -47,6 +47,13 @@ spec:
               value: "info"
             - name: CODETETHER_WORKER_CAPABILITIES
               value: "persistent,persistent-workspace,persistent_workspace,git-clone,repo-cache"
+            # Self-hosted SearXNG (codetether-agent/deploy/searxng). websearch
+            # tries it first, then Bing/DuckDuckGo. Requires the a2a-server
+            # namespace label codetether.run/searxng-client=true.
+            - name: CODETETHER_SEARXNG_URL
+              value: "http://searxng.searxng.svc.cluster.local:8080"
+            - name: CODETETHER_WEBSEARCH_BACKEND
+              value: "auto"
           resources:
             requests:
               cpu: 100m

@@ -40,10 +40,23 @@ final class WorkSessionController: ObservableObject {
     var taskOnlyWorkers: [AgentWorker] { workers.filter { $0.isOnline && !$0.supportsWorkSessions } }
 
     func projects(for worker: AgentWorker) -> [Codebase] {
-        workspaces.filter { project in
-            project.workerId == worker.workerId || worker.workspaces.contains { root in
-                project.path == root || project.path.hasPrefix(root.hasSuffix("/") ? root : root + "/")
+        Self.selectableProjects(workspaces, for: worker)
+    }
+
+    static func selectableProjects(_ projects: [Codebase], for worker: AgentWorker) -> [Codebase] {
+        func normalizedPath(_ path: String) -> String {
+            var value = path
+            while value.count > 1 && value.hasSuffix("/") { value.removeLast() }
+            return value
+        }
+        let advertisedPaths = Set(worker.workspaces.map(normalizedPath))
+        return projects.filter { project in
+            if let owner = project.workerId, !owner.isEmpty {
+                return owner == worker.workerId
             }
+            // A shared clone root is not ownership of all historical descendants.
+            // Only an exact advertised folder can supply a missing owner binding.
+            return !project.path.isEmpty && advertisedPaths.contains(normalizedPath(project.path))
         }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
@@ -64,10 +77,14 @@ final class WorkSessionController: ObservableObject {
     func start(worker: AgentWorker, workspace: Codebase, prompt: String, model: String?) async throws -> UUID {
         let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { throw WorkSessionError.emptyPrompt }
+        let selected = model?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolved = selected.flatMap { $0.isEmpty ? nil : $0 } ?? WorkerModelOption.preferredID(in: worker.modelOptions)
+        guard let resolved, worker.modelOptions.contains(where: { $0.id == resolved }) else { throw WorkSessionError.selectModel }
+        guard projects(for: worker).contains(where: { $0.id == workspace.id }) else { throw WorkSessionError.wrongProject }
         let id = UUID()
         let session = WorkSession(id: id, workerId: worker.workerId, workerName: worker.name ?? worker.workerId,
             workspaceId: workspace.id, workspaceName: workspace.name, workspacePath: workspace.path,
-            model: model?.trimmingCharacters(in: .whitespacesAndNewlines), title: String(text.prefix(70)),
+            model: resolved, title: String(text.prefix(70)),
             remoteSessionId: nil, turns: [], createdAt: Date())
         sessions.insert(session, at: 0)
         do { try await send(text, to: id) }
@@ -81,12 +98,13 @@ final class WorkSessionController: ObservableObject {
         guard !text.isEmpty else { throw WorkSessionError.emptyPrompt }
         let current = sessions[index]
         guard !current.isRunning else { throw WorkSessionError.alreadyRunning }
+        guard let model = current.model, !model.isEmpty else { throw WorkSessionError.selectModel }
         let turnId = UUID()
         sessions[index].turns.append(WorkTurn(id: turnId, prompt: text, taskId: nil, status: .pending))
         do {
             let task = try await client.createTask(codebaseId: current.workspaceId, title: current.title,
                 description: text, priority: .normal, context: nil, targetWorkerId: current.workerId,
-                model: current.model, targetAgentName: current.workerName,
+                model: model, targetAgentName: current.workerName,
                 resumeSessionId: current.turns.isEmpty ? nil : (current.remoteSessionId ?? current.contextId),
                 contextId: current.contextId)
             guard let i = sessions.firstIndex(where: { $0.id == id }),
@@ -118,10 +136,31 @@ final class WorkSessionController: ObservableObject {
             }
             sessions[index].remoteSessionId = remote
         }
-        sessions[index].turns[turn].status = task.status
+        let hasError = !(task.error?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        sessions[index].turns[turn].status = task.status == .completed && hasError ? .failed : task.status
         sessions[index].turns[turn].response = task.result
         sessions[index].turns[turn].error = task.error
         persist()
+    }
+
+    func models(for id: UUID) -> [WorkerModelOption] {
+        guard let current = session(id) else { return [] }
+        return workers.first { $0.workerId == current.workerId }?.modelOptions ?? []
+    }
+
+    func selectModel(_ model: String, for id: UUID) throws {
+        guard let index = sessions.firstIndex(where: { $0.id == id }) else { throw WorkSessionError.missingSession }
+        guard !sessions[index].isRunning else { throw WorkSessionError.alreadyRunning }
+        guard models(for: id).contains(where: { $0.id == model }) else { throw WorkSessionError.selectModel }
+        sessions[index].model = model
+        persist()
+    }
+
+    func retry(_ id: UUID) async throws {
+        guard let current = session(id), let turn = current.turns.last else { throw WorkSessionError.missingSession }
+        guard turn.status == .failed || turn.status == .cancelled else { throw WorkSessionError.alreadyRunning }
+        // Preserve the failed turn and ID; retry creates a distinct task in the same conversation.
+        try await send(turn.prompt, to: id)
     }
 
     func stop(_ id: UUID) async throws {
@@ -142,13 +181,6 @@ final class WorkSessionController: ObservableObject {
         } catch { errorMessage = "Could not save work sessions on this device: \(error.localizedDescription)" }
     }
 }
-
-
-
-
-
-
-
 
 
 

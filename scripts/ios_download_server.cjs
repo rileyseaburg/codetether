@@ -9,6 +9,8 @@ const allowed = new Map([
   ['index.html', 'text/html; charset=utf-8'], ['manifest.plist', 'application/xml'],
   ['proof.json', 'application/json'], ['A2AMonitor-1.0.0-2.ipa', 'application/octet-stream'],
   ['A2AMonitor-1.0.0-3.ipa', 'application/octet-stream'],
+  ['A2AMonitor-1.0.0-4.ipa', 'application/octet-stream'],
+  ['A2AMonitor-1.0.0-5.ipa', 'application/octet-stream'],
 ]);
 http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -34,8 +36,6 @@ http.createServer((req, res) => {
   if (req.method === 'HEAD') return res.end();
   fs.createReadStream(file, { start, end }).on('error', () => res.destroy()).pipe(res);
 }).listen(18772, '127.0.0.1', () => console.log('NAS release gateway listening on loopback 18772'));
-
-
 
 
 

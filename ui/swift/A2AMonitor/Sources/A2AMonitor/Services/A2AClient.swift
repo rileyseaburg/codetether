@@ -875,7 +875,17 @@ enum A2AError: LocalizedError {
         case .deleteFailed: return "Failed to delete resource"
         case .connectionFailed: return "Failed to connect to server"
         case .invalidResponse: return "Invalid response from server"
-        case .httpFailure(let status): return "Server request failed (HTTP \(status)). Check your sign-in and workspace access."
+        case .httpFailure(let status):
+            switch status {
+            case 401: return "Your sign-in has expired. Sign in again to reconnect."
+            case 403: return "Your account does not have access to this agent or project."
+            case 404: return "This agent, project, or task is no longer registered. Refresh the list."
+            case 409: return "The selected agent or project is not ready. Refresh and try again."
+            case 422: return "The server rejected this request. Check the selected agent, project, and model."
+            case 429: return "The server is busy or rate-limited. Wait briefly, then retry."
+            case 500...599: return "The platform is temporarily unavailable (HTTP \(status)). Retry when it reconnects."
+            default: return "Server request failed (HTTP \(status))."
+            }
         }
     }
 }

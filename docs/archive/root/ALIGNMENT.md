@@ -13,7 +13,7 @@ A2A-Server-MCP/
 ├── codetether-agent/     # Rust worker binary - PRODUCTION (codetether worker)
 ├── agent/             # CodeTether fork (git submodule - DO NOT MODIFY HERE)
 ├── agent-a2a-integration/  # TypeScript integration for CodeTether CLI
-├── marketing-site/       # Next.js web dashboard
+├── web/       # Next.js web dashboard
 │   └── src/app/(dashboard)/dashboard/ralph/  # Ralph autonomous development UI
 ├── ui/swift/A2AMonitor/  # iOS monitoring app
 ├── integrations/zapier/app/           # Zapier CLI integration

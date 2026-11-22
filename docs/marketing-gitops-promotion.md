@@ -1,10 +1,10 @@
 # Marketing-site GitOps image promotion
 
-CodeTether promotes `marketing-site/` through Git, not mutable cluster state.
+CodeTether promotes `web/` through Git, not mutable cluster state.
 
 ## Promotion flow
 
-1. A push to `main` that changes `marketing-site/**` starts **Marketing GitOps Image Promotion**.
+1. A push to `main` that changes `web/**` starts **Marketing GitOps Image Promotion**.
 2. The workflow builds and pushes `us-central1-docker.pkg.dev/spotlessbinco/codetether/codetether-marketing:<branch>-<12-char-sha>`.
 3. The workflow commits the new tag into `deploy/argocd/marketing.yaml`.
 4. ArgoCD reads `main`, syncs `codetether-marketing`, and remains the deployment authority.

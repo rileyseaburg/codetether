@@ -8,7 +8,7 @@ The repository is a monorepo for a production AI-agent operations platform. The 
 
 1. **Control plane / API** — `a2a_server/`, `policies/`, `run_server.py`, `codetether/`.
 2. **Execution plane** — `codetether-agent/` Rust worker submodule plus `legacy/agent_worker/` legacy/Python worker support.
-3. **Product/UI plane** — `marketing-site/`, `ui/`, and docs sites.
+3. **Product/UI plane** — `web/`, `ui/`, and docs sites.
 4. **Deployment plane** — `chart/`, `docker/`, `Dockerfile`, `scripts/`, `.github/`.
 5. **Protocol/integration plane** — `specification/`, `examples/`, `integrations/`, `integrations/zapier/app/`, `integrations/vscode/codetether-chat/`, `types/`.
 6. **Governance/security plane** — `policies/`, `rfc/`, `SECURITY.md`, `GOVERNANCE.md`, APF provenance implementation.
@@ -27,7 +27,7 @@ That story is coherent, but the repository still mixes product code, generated o
 | `scripts/` | Operational/dev/test scripts | Important | Good home for scripts. Could split `scripts/deploy/`, `scripts/dev/`, `scripts/test/` over time. |
 | `.github/` | CI/CD and repo automation | Critical | Keep. |
 | `tests/` | Python/integration tests | Critical | Good. New `tests/integration/` helps. |
-| `marketing-site/` | Next.js dashboard/marketing app | Product-critical but large | Name suggests marketing only, but README says dashboard lives here. Consider renaming long-term to `web/` or `dashboard/` if feasible. |
+| `web/` | Next.js dashboard/marketing app | Product-critical but large | Name suggests marketing only, but README says dashboard lives here. Consider renaming long-term to `web/` or `dashboard/` if feasible. |
 | `codetether/` | Python package/CLI wrapper | Critical packaging | Small but important. Keep root-visible. |
 | `run_server.py` | Server entrypoint | Critical compatibility | Root is okay because Docker/Helm reference it. |
 | `makefile` | Main developer command surface | Critical | Lowercase `makefile` is unusual; consider `Makefile` eventually. |
@@ -70,7 +70,7 @@ These do not appear essential to understanding or operating CodeTether's core pl
 - `integrations/vscode/codetether-chat/`, `integrations/zapier/app/`, `integrations/n8n-*`, `types/` — integrations/SDKs that are valuable but peripheral to the core server/worker/policy story.
 - `legacy/agent_worker/` — likely legacy now that Rust worker is primary.
 - `benchmarks/` — useful validation material but not core runtime.
-- `ui/pocket_template/`, standalone monitor HTML — secondary UI artifacts compared with `marketing-site/`.
+- `ui/pocket_template/`, standalone monitor HTML — secondary UI artifacts compared with `web/`.
 
 ## Main sources of confusion
 
@@ -82,7 +82,7 @@ These do not appear essential to understanding or operating CodeTether's core pl
    Recommendation: designate `codetether-docs/` as source and remove or externalize `codetether-site/` generated output, or merge `codetether-docs/` into `docs/`.
 
 2. **App/service boundaries are flat**
-   - `marketing-site/`, `apps/voice-agent/`, `integrations/zapier/app/`, `integrations/vscode/codetether-chat/`, `experiments/quantumhead/`, `ui/` all sit at root.
+   - `web/`, `apps/voice-agent/`, `integrations/zapier/app/`, `integrations/vscode/codetether-chat/`, `experiments/quantumhead/`, `ui/` all sit at root.
 
    Recommendation: introduce `apps/` or `services/` over time:
    - `apps/web/` or `apps/dashboard/`

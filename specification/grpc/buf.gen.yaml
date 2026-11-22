@@ -13,6 +13,6 @@ inputs:
 plugins:
   # Protobuf-ES v2: generates message types + service descriptors (@bufbuild/protobuf v2)
   - remote: buf.build/bufbuild/es:v2.2.3
-    out: ../../marketing-site/src/lib/grpc/gen
+    out: ../../web/src/lib/grpc/gen
     opt:
       - target=ts

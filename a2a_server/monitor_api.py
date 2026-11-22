@@ -7437,7 +7437,11 @@ async def stream_task_output_sse(
             ):
                 yield {
                     'event': 'done',
-                    'data': json.dumps({'status': page['status']}),
+                    'data': json.dumps({
+                        'task_id': task_id,
+                        'status': page['status'],
+                        'next_cursor': cursor,
+                    }),
                 }
                 break
             if not page['has_more']:

@@ -145,9 +145,6 @@ enum WorkerRuntime: String, Codable {
 /// Detailed worker record from `GET /v1/agent/workers`, including the
 /// server-inferred runtime classification and harvester annotations.
 struct AgentWorker: Codable, Identifiable, Hashable {
-    private struct ModelIdentifier: Decodable {
-        let id: String?
-    }
     let workerId: String
     let name: String?
     let capabilities: [String]
@@ -156,6 +153,7 @@ struct AgentWorker: Codable, Identifiable, Hashable {
     let lastSeen: String?
     let status: String?
     let models: [String]
+    let modelOptions: [WorkerModelOption]
     let workerRuntime: WorkerRuntime
     let workerRuntimeLabel: String?
     let workspaces: [String]
@@ -185,9 +183,8 @@ struct AgentWorker: Codable, Identifiable, Hashable {
         registeredAt = try? c.decodeIfPresent(String.self, forKey: .registeredAt)
         lastSeen = try? c.decodeIfPresent(String.self, forKey: .lastSeen)
         status = try? c.decodeIfPresent(String.self, forKey: .status)
-        models = (try? c.decodeIfPresent([String].self, forKey: .models))
-            ?? (try? c.decodeIfPresent([ModelIdentifier].self, forKey: .models))?.compactMap(\.id)
-            ?? []
+        modelOptions = WorkerModelOption.choices((try? c.decodeIfPresent([WorkerModelOption].self, forKey: .models)) ?? [])
+        models = modelOptions.map(\.id)
         workspaces = (try? c.decodeIfPresent([String].self, forKey: .workspaces)) ?? []
         workerRuntime = (try? c.decodeIfPresent(WorkerRuntime.self, forKey: .workerRuntime)) ?? .unknown
         workerRuntimeLabel = try? c.decodeIfPresent(String.self, forKey: .workerRuntimeLabel)

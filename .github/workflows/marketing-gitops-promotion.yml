@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - "marketing-site/**"
+      - "web/**"
       - ".github/workflows/marketing-gitops-promotion.yml"
   workflow_dispatch:
     inputs:
@@ -88,8 +88,8 @@ jobs:
       - name: Build and push codetether-marketing image
         uses: docker/build-push-action@v5
         with:
-          context: marketing-site
-          file: marketing-site/Dockerfile
+          context: web
+          file: web/Dockerfile
           push: true
           tags: ${{ steps.image.outputs.image }}
           labels: |

@@ -3,6 +3,9 @@ kind: Application
 metadata:
   name: codetether-a2a-server
   namespace: argocd
+  annotations:
+    # Compare API-defaulted StatefulSet/PVC fields without suppressing real drift.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   labels:
@@ -147,6 +150,14 @@ spec:
           taskQueue: codetether-forgejo-agent
           secretRef: a2a-server-forgejo
           replicas: 1
+          # 1Gi limit OOMKilled the worker in a crash loop.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
         # `vault-token` was removed here on purpose. That static Secret expired
         # and a2a_server.vault_client prefers VAULT_TOKEN over Kubernetes auth,
         # so every Git-credential read for Forgejo mention tasks returned 403
@@ -192,7 +203,12 @@ spec:
           FORGEJO_AUTOMATION_PAUSED_PRS: "riley/spotlessbinco#5873"
           FORGEJO_SINGLE_REVIEW_REPOS: "riley/spotlessbinco"
           FORGEJO_REVIEW_RECOVERY_REPOS: "riley/spotlessbinco"
-          HARVESTER_JOB_REPOS: "riley/spotlessbinco"
+          # ct-task Jobs disabled 2026-11-04: their spiffe-helper init container
+          # fails ("/spiffe-helper: not a directory"), so every Forgejo task
+          # failed. Coding tasks now pin to the local ubuntu-dev worker running
+          # the locally built codetether binary (deploy/local-workers/).
+          HARVESTER_JOB_REPOS: ""
+          GITHUB_APP_TARGET_AGENT: "ubuntu-dev-forgejo"
           HARVESTER_JOB_NAMESPACE: "a2a-system"
           HARVESTER_JOB_TEMPLATE: "a2a-server-task-job-template"
           # Global concurrency. Each coding Job reserves 6Gi ephemeral storage

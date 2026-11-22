@@ -1,0 +1,53 @@
+name: Task output PostgreSQL storage contracts
+
+on:
+  pull_request:
+    paths:
+      - a2a_server/task_output.py
+      - a2a_server/migrations/038_task_output_replay.sql
+      - scripts/task-output-storage/**
+      - scripts/check_task_output_postgres.cjs
+      - .github/workflows/task-output-storage.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  storage-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: task_output_contract
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d task_output_contract"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install native PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Focused CI-like storage checks (not HTTP or deployment proof)
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGDATABASE: task_output_contract
+          PGUSER: postgres
+          TASK_OUTPUT_TEST_DATABASE: '1'
+        run: node scripts/check_task_output_postgres.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: task-output-storage-contract
+          path: artifacts/task-output/postgres-contract/
