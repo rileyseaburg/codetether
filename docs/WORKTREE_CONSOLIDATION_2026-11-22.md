@@ -1,5 +1,7 @@
 # Worktree consolidation — 2026-11-22
 
+> Historical report: see [history cleanup](HISTORY_CLEANUP_2026-11-22.md) for the subsequent mirror repair and rewritten commit IDs.
+
 Forgejo is the authoritative upstream; GitHub is a mirror. The source checkpoint before consolidation is `d96640a2`; the pre-consolidation main tip is retained on `backup/20261122-worktree-consolidation`.
 
 ## Integration

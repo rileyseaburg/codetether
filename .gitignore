@@ -279,3 +279,6 @@ web/openapi-ts-error-*.log
 web/test-results/
 web/*.tsbuildinfo
 web/**/*.bak
+
+# Generated validation and build artifacts remain local.
+/artifacts/
