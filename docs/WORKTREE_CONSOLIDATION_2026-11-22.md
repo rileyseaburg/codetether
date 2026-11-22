@@ -26,6 +26,8 @@ Rust reconciliation tip before final validation: `fd569990b44f1eac7f166c49faae40
 
 ## Publication and retained local work
 
-Publish the Rust main tip to Forgejo and GitHub before the parent repository pointer. GitHub main mirrors the final Forgejo source; the previous GitHub-only head is preserved on `backup/pre-forgejo-mirror-20261122`.
+The agent submodule URL points to authoritative Forgejo so fresh parent checkouts resolve the consolidated agent commit independently of the GitHub mirror. GitHub parent main mirrors the final Forgejo source; the previous GitHub-only head is preserved on `backup/pre-forgejo-mirror-20261122`.
+
+The agent GitHub push is blocked by GitHub secret protection on pre-existing commit `ddf7089b`: embedded Gemini/Antigravity Google OAuth client IDs and secrets. No exception was approved and no history was rewritten to bypass that protection.
 
 Concurrent SPIFFE launcher/docs changes in the Rust checkout remain uncommitted and outside this consolidation. Existing runtime artifacts and worktrees remain on disk.
