@@ -2,6 +2,29 @@
 
 <https://a2a-protocol.org>
 
+## Documentation ownership in this monorepo
+
+- **A2A protocol documentation:** authored in `docs/` and configured by the
+  repository-root [`mkdocs.yml`](../mkdocs.yml). Run `make docs-serve` or
+  `make docs-build`; output is `site/`.
+- **CodeTether product documentation:** authored in `codetether-docs/` and
+  configured by [`config/codetether-mkdocs.yml`](../config/codetether-mkdocs.yml).
+  Run `make codetether-docs-serve` or `make codetether-docs-build`; output is
+  `codetether-site/`.
+- **Engineering/review records:** maintained under `docs/`, including the
+  [repository audit](REPOSITORY_AUDIT.md) and
+  [platform capability and audit inventory](PLATFORM_CAPABILITY_GAP_INVENTORY.md).
+  These records do not establish implemented or deployed capabilities.
+- **Historical material:** see [archived root documents](archive/root/README.md),
+  [deployment archive](../deployment/archive/README.md) and
+  [artifact guidance](../artifacts/README.md). Archive indexes are not security
+  or deployment approval; preserve verification artifacts until durable
+  replacements are named.
+
+Both existing documentation surfaces remain supported. Edit authored sources,
+not generated site output; do not rename/consolidate directories or publishing
+entrypoints without checking navigation, build and deployment consumers.
+
 ## Developing A2A docs
 
 1. Clone this repository and `cd` into the repository directory
